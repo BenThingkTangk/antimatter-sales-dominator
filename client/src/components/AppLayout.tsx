@@ -6,7 +6,6 @@ import {
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { PerplexityAttribution } from "@/components/PerplexityAttribution";
 
 const navItems = [
   { href: "/", icon: Zap, label: "Command Center", description: "Sales dashboard" },
@@ -115,7 +114,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </>
               )}
             </Button>
-            <PerplexityAttribution />
           </div>
         </aside>
 
