@@ -1,18 +1,19 @@
 import { Link, useLocation } from "wouter";
 import { 
   Atom, Zap, Shield, MessageSquareWarning, TrendingUp, 
-  Radar, ChevronLeft, ChevronRight, Moon, Sun
+  Radar, ChevronLeft, ChevronRight, Moon, Sun, PhoneCall
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
-  { href: "/", icon: Zap, label: "Command Center", description: "Sales dashboard" },
-  { href: "/pitch", icon: TrendingUp, label: "Pitch Generator", description: "AI pitch creation" },
-  { href: "/objections", icon: MessageSquareWarning, label: "Objection Handler", description: "Counter any pushback" },
-  { href: "/market", icon: Shield, label: "Market Intent", description: "Market intelligence" },
-  { href: "/prospects", icon: Radar, label: "Prospect Engine", description: "AI prospect scanner" },
+  { href: "/", icon: Zap, label: "Command Center", description: "Sales dashboard", beta: false },
+  { href: "/pitch", icon: TrendingUp, label: "Pitch Generator", description: "AI pitch creation", beta: false },
+  { href: "/objections", icon: MessageSquareWarning, label: "Objection Handler", description: "Counter any pushback", beta: false },
+  { href: "/market", icon: Shield, label: "Market Intent", description: "Market intelligence", beta: false },
+  { href: "/prospects", icon: Radar, label: "Prospect Engine", description: "AI prospect scanner", beta: false },
+  { href: "/atom-leadgen", icon: PhoneCall, label: "ATOM Lead Gen", description: "AI voice cold caller", beta: true },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -68,7 +69,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, "-")}`}
                 >
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-primary" : ""}`} />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  {!collapsed && (
+                    <span className="flex items-center gap-1.5 truncate min-w-0">
+                      <span className="truncate">{item.label}</span>
+                      {item.beta && (
+                        <span className="shrink-0 text-[9px] font-bold px-1 py-0.5 rounded bg-primary/20 text-primary border border-primary/30 leading-none">
+                          BETA
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </Link>
               );
 

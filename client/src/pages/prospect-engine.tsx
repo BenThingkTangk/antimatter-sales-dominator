@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { store, useProspects, type Prospect, type Contact } from "@/lib/store";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Radar, Loader2, Signal, ChevronDown, ChevronUp, Flame,
-  Mail, Phone, Linkedin, User, Globe, RefreshCw, ShieldCheck, AlertCircle, CheckCircle2
+  Mail, Phone, Linkedin, User, Globe, RefreshCw, ShieldCheck, AlertCircle, CheckCircle2, PhoneCall
 } from "lucide-react";
 import type { Product } from "@shared/schema";
 
@@ -74,6 +75,7 @@ function ContactCard({ contact }: { contact: Contact }) {
 
 function ProspectCard({ prospect, products }: { prospect: Prospect; products: Product[] }) {
   const [expanded, setExpanded] = useState(false);
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const matchedProducts = JSON.parse(prospect.matchedProducts || "[]") as string[];
   const signals = JSON.parse(prospect.signals || "[]") as string[];
@@ -153,7 +155,29 @@ function ProspectCard({ prospect, products }: { prospect: Prospect; products: Pr
               </div>
               {contacts.length > 0 ? (
                 <div className="space-y-2">
-                  {contacts.map((c, i) => <ContactCard key={i} contact={c} />)}
+                  {contacts.map((c, i) => (
+                    <div key={i} className="relative">
+                      <ContactCard contact={c} />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="absolute top-2 right-2 h-7 text-[10px] gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                        onClick={() => {
+                          const matchedProducts = JSON.parse(prospect.matchedProducts || "[]") as string[];
+                          const params = new URLSearchParams({
+                            company: prospect.companyName,
+                            contact: `${c.firstName} ${c.lastName}`,
+                            title: c.position || "",
+                            product: matchedProducts[0] || "",
+                          });
+                          navigate(`/atom-leadgen?${params.toString()}`);
+                        }}
+                      >
+                        <PhoneCall className="w-3 h-3" />
+                        Call with ATOM
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="p-3 rounded-lg border border-dashed border-border/50 text-center">

@@ -1,5 +1,23 @@
 // Global state store that persists across page navigation
 
+interface CallRecord {
+  id: number;
+  companyName: string;
+  contactName: string;
+  contactTitle: string;
+  productSlug: string;
+  transcript: string; // JSON stringified
+  sentimentTimeline: string; // JSON stringified
+  intentTimeline: string; // JSON stringified
+  emotionalTones: string; // JSON stringified
+  qualification: string; // JSON stringified
+  outcome: string;
+  duration: number;
+  aiRecommendations: string; // JSON stringified
+  createdAt: string;
+  status: string; // "pending"|"in-progress"|"completed"|"failed"
+}
+
 interface Pitch {
   id: number;
   productId: number;
@@ -65,6 +83,7 @@ class SalesStore {
   objections: ObjectionEntry[] = [];
   intel: MarketIntel[] = [];
   prospects: Prospect[] = [];
+  calls: CallRecord[] = [];
 
   private listeners = new Set<Listener>();
 
@@ -108,6 +127,16 @@ class SalesStore {
     this.prospects = this.prospects.map((p) => (p.id === id ? { ...p, contacts } : p));
     this.notify();
   }
+
+  addCall(call: CallRecord) {
+    this.calls = [call, ...this.calls];
+    this.notify();
+  }
+
+  updateCall(id: number, updates: Partial<CallRecord>) {
+    this.calls = this.calls.map((c) => (c.id === id ? { ...c, ...updates } : c));
+    this.notify();
+  }
 }
 
 export const store = new SalesStore();
@@ -130,4 +159,8 @@ export function useProspects() {
   return useSyncExternalStore((cb) => store.subscribe(cb), () => store.prospects);
 }
 
-export type { Pitch, ObjectionEntry, MarketIntel, Prospect, Contact };
+export function useCalls() {
+  return useSyncExternalStore((cb) => store.subscribe(cb), () => store.calls);
+}
+
+export type { Pitch, ObjectionEntry, MarketIntel, Prospect, Contact, CallRecord };

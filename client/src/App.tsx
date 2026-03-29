@@ -9,6 +9,7 @@ import PitchGenerator from "./pages/pitch-generator";
 import ObjectionHandler from "./pages/objection-handler";
 import MarketIntent from "./pages/market-intent";
 import ProspectEngine from "./pages/prospect-engine";
+import AtomLeadGen from "./pages/atom-leadgen";
 import NotFound from "./pages/not-found";
 
 function AppRouter() {
@@ -20,6 +21,7 @@ function AppRouter() {
         <Route path="/objections" component={ObjectionHandler} />
         <Route path="/market" component={MarketIntent} />
         <Route path="/prospects" component={ProspectEngine} />
+        <Route path="/atom-leadgen" component={AtomLeadGen} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
