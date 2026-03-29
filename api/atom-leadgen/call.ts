@@ -85,23 +85,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let cleanNumber = phoneNumber.replace(/[^\d+]/g, "");
     if (!cleanNumber.startsWith("+")) cleanNumber = "+1" + cleanNumber;
 
-    const client = twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, { accountSid: TWILIO_ACCOUNT_SID });
+    // Route through ATOM Voice Bridge (Linode + Hume EVI) for real conversational AI calls
+    const BRIDGE_URL = "https://45-79-202-76.sslip.io";
 
-    const twiml = buildTwiML(contactName || "there", companyName || "your company", productSlug || "antimatter-ai");
-
-    const call = await client.calls.create({
-      to: cleanNumber,
-      from: TWILIO_PHONE_NUMBER,
-      twiml,
-      statusCallback: `https://antimatter-sales-dominator.vercel.app/api/atom-leadgen/call-status`,
-      statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-      statusCallbackMethod: "POST",
+    const bridgeRes = await fetch(`${BRIDGE_URL}/call`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: cleanNumber,
+        contactName: contactName || "there",
+        companyName: companyName || "your company",
+        productSlug: productSlug || "antimatter-ai",
+      }),
     });
+
+    const call = await bridgeRes.json();
+
+    if (!bridgeRes.ok) {
+      return res.status(bridgeRes.status).json(call);
+    }
 
     res.json({
       success: true,
-      callSid: call.sid,
-      status: call.status,
+      callSid: call.callSid,
+      status: "queued",
       to: cleanNumber,
       from: TWILIO_PHONE_NUMBER,
       message: `ATOM calling ${contactName || cleanNumber} at ${companyName || "target company"}`,
