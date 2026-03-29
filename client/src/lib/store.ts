@@ -1,5 +1,4 @@
 // Global state store that persists across page navigation
-// Using a simple module-level singleton — survives React re-renders and route changes
 
 interface Pitch {
   id: number;
@@ -30,9 +29,23 @@ interface MarketIntel {
   createdAt: string;
 }
 
+interface Contact {
+  email: string;
+  firstName: string;
+  lastName: string;
+  position: string;
+  seniority: string;
+  department: string;
+  linkedin: string | null;
+  phone: string | null;
+  confidence: number;
+  verification: string;
+}
+
 interface Prospect {
   id: number;
   companyName: string;
+  domain: string;
   industry: string;
   score: number;
   reason: string;
@@ -42,6 +55,7 @@ interface Prospect {
   urgency: string;
   lastUpdated: string;
   status: string;
+  contacts: string; // JSON stringified Contact[]
 }
 
 type Listener = () => void;
@@ -89,39 +103,31 @@ class SalesStore {
     this.prospects = this.prospects.map((p) => (p.id === id ? { ...p, status } : p));
     this.notify();
   }
+
+  updateProspectContacts(id: number, contacts: string) {
+    this.prospects = this.prospects.map((p) => (p.id === id ? { ...p, contacts } : p));
+    this.notify();
+  }
 }
 
 export const store = new SalesStore();
 
-// React hook to subscribe to store changes
 import { useSyncExternalStore } from "react";
 
 export function usePitches() {
-  return useSyncExternalStore(
-    (cb) => store.subscribe(cb),
-    () => store.pitches
-  );
+  return useSyncExternalStore((cb) => store.subscribe(cb), () => store.pitches);
 }
 
 export function useObjections() {
-  return useSyncExternalStore(
-    (cb) => store.subscribe(cb),
-    () => store.objections
-  );
+  return useSyncExternalStore((cb) => store.subscribe(cb), () => store.objections);
 }
 
 export function useIntel() {
-  return useSyncExternalStore(
-    (cb) => store.subscribe(cb),
-    () => store.intel
-  );
+  return useSyncExternalStore((cb) => store.subscribe(cb), () => store.intel);
 }
 
 export function useProspects() {
-  return useSyncExternalStore(
-    (cb) => store.subscribe(cb),
-    () => store.prospects
-  );
+  return useSyncExternalStore((cb) => store.subscribe(cb), () => store.prospects);
 }
 
-export type { Pitch, ObjectionEntry, MarketIntel, Prospect };
+export type { Pitch, ObjectionEntry, MarketIntel, Prospect, Contact };
