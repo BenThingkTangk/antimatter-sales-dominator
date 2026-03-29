@@ -6,8 +6,8 @@ const TWILIO_API_KEY_SECRET = process.env.TWILIO_API_KEY_SECRET;
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
-// Voice: Polly.Niamh-Neural = Irish English female, warm and natural
-const VOICE = "Polly.Niamh-Neural";
+// Voice: Polly.Matthew-Neural = warm American male, closest to ATOM on antimatterai.com
+const VOICE = "Polly.Matthew-Neural";
 
 const PRODUCT_HOOKS: Record<string, { hook: string; value: string; ask: string }> = {
   "antimatter-ai": {
@@ -22,11 +22,11 @@ const PRODUCT_HOOKS: Record<string, { hook: string; value: string; ask: string }
   },
   "vidzee": {
     hook: "we've built this tool that takes listing photos and turns them into proper cinematic property videos in about five minutes flat",
-    value: "Agents are saving a couple hundred quid per listing compared to hiring a videographer. We've done over twelve thousand videos already. Works across Reels, TikTok, YouTube, MLS, the lot.",
+    value: "Agents are saving a couple hundred bucks per listing compared to hiring a videographer. We've done over twelve thousand videos already. Works across Reels, TikTok, YouTube, MLS, all of it.",
     ask: "Are you using video for your listings right now, or is it something you've been meaning to get into?",
   },
   "clinix-agent": {
-    hook: "we help healthcare organisations recover revenue that's been lost to denied claims. We automate the whole appeals and resubmission process",
+    hook: "we help healthcare organizations recover revenue that's been lost to denied claims. We automate the whole appeals and resubmission process",
     value: "We actually stop denials before they happen with eligibility guardrails. And when they do come through, we auto generate the appeal packets tailored to each payer. Best part is, it's success based pricing. You only pay when we actually get the money back.",
     ask: "What's your denial rate looking like these days? That's usually the first thing we dig into.",
   },
@@ -48,17 +48,17 @@ function buildTwiML(contactName: string, companyName: string, productSlug: strin
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${VOICE}">Hiya ${firstName}, <break time="250ms"/> it's ATOM calling from Antimatter AI. <break time="400ms"/> Hope I'm not catching you at a bad time?</Say>
+  <Say voice="${VOICE}">Hey ${firstName}, <break time="250ms"/> it's ATOM from Antimatter AI. <break time="400ms"/> Hope I'm not catching you at a bad time?</Say>
   <Pause length="3"/>
-  <Say voice="${VOICE}">Grand. So, <break time="200ms"/> quick reason I'm ringing. <break time="250ms"/> I came across ${companyName} <break time="150ms"/> and, <break time="100ms"/> ${product.hook}. <break time="300ms"/> Thought there might be a really good fit here.</Say>
+  <Say voice="${VOICE}">Cool. So, <break time="200ms"/> quick reason for the call. <break time="250ms"/> I came across ${companyName} <break time="150ms"/> and, <break time="100ms"/> ${product.hook}. <break time="300ms"/> Thought there might be a really good fit here.</Say>
   <Pause length="3"/>
   <Say voice="${VOICE}">${product.value}</Say>
   <Pause length="2"/>
   <Say voice="${VOICE}">${product.ask}</Say>
   <Pause length="4"/>
-  <Say voice="${VOICE}">Look I know you're flat out, <break time="200ms"/> so I won't keep you. <break time="250ms"/> Would it make sense to grab fifteen minutes later this week? <break time="200ms"/> I can walk you through exactly how this'd work for ${companyName}.</Say>
+  <Say voice="${VOICE}">Look I know you're busy, <break time="200ms"/> so I won't keep you. <break time="250ms"/> Would it make sense to grab fifteen minutes later this week? <break time="200ms"/> I can walk you through exactly how this'd work for ${companyName}.</Say>
   <Pause length="4"/>
-  <Say voice="${VOICE}">Right, <break time="200ms"/> well I really appreciate you taking the time ${firstName}. <break time="250ms"/> I'll pop you over a quick email with the details and a link to book in a call. <break time="400ms"/> Have a lovely rest of your evening. <break time="200ms"/> Cheers!</Say>
+  <Say voice="${VOICE}">Alright, <break time="200ms"/> well I really appreciate your time ${firstName}. <break time="250ms"/> I'll shoot you a quick email with the details and a link to book a call. <break time="400ms"/> Have a great rest of your day.</Say>
 </Response>`;
 }
 
