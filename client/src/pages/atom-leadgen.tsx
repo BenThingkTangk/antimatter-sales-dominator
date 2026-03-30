@@ -1,1526 +1,1863 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { store, useCalls, type CallRecord } from "@/lib/store";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Progress } from "@/components/ui/progress";
-import {
-  PhoneCall, Phone, PhoneOff, Mic, MicOff, User, Building2,
-  TrendingUp, Brain, Zap, Clock, CheckCircle2, AlertTriangle,
-  MessageSquare, Users, BarChart3, Target, Radio, ArrowRight,
-  ChevronDown, ChevronUp, Download, Flag, UserCheck, Activity,
-  Loader2, Circle
-} from "lucide-react";
-import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} from "recharts";
-import type { Product } from "@shared/schema";
-import { HumeVoiceCallWrapper } from "@/components/HumeVoiceCall";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const BRIDGE_URL = "https://atom-voice-bridge.fly.dev";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+type LeadStatus = "queued" | "research" | "live" | "done";
+type CallStage = "idle" | "research" | "evaluation" | "warm_transfer";
+type SidebarItem = "campaign" | "target" | "live" | "handoff" | "outcomes";
+
+interface Lead {
+  id: number;
+  name: string;
+  contact: string;
+  title: string;
+  phone: string;
+  region: string;
+  metrics: string;
+  spend: string;
+  stack: string;
+  notes: string;
+  status: LeadStatus;
+}
 
 interface TranscriptMessage {
-  speaker: "ATOM" | "Contact";
+  speaker: "ATOM" | "Prospect";
   text: string;
-  timestamp: number;
+  ts: number;
 }
 
-interface SentimentPoint {
-  time: number;
-  score: number;
-}
-
-interface EmotionalTones {
-  curious: number;
-  interested: number;
-  skeptical: number;
-  frustrated: number;
-  excited: number;
-  neutral: number;
-}
-
-interface Qualification {
-  qualified: boolean;
-  score: number;
-  keySignals: string[];
-  objections: string[];
-}
-
-interface SimulateResponse {
+interface CallState {
+  isActive: boolean;
+  isComplete: boolean;
+  callSid: string | null;
   transcript: TranscriptMessage[];
-  sentimentTimeline: SentimentPoint[];
-  intentTimeline: SentimentPoint[];
-  emotionalTones: EmotionalTones;
-  qualification: Qualification;
-  outcome: "qualified" | "follow-up" | "no-interest" | "callback";
-  duration: number;
-  aiRecommendations: string[];
+  sentiment: number;
+  buyerIntent: number;
+  stage: CallStage;
+  keySignals: string[];
+  activeLeadId: number | null;
 }
 
-interface QueuedCall {
-  id: number;
-  companyName: string;
-  contactName: string;
-  contactTitle: string;
-  productSlug: string;
-  status: "pending" | "in-progress" | "completed" | "failed";
-  result?: SimulateResponse;
+interface HandoffPacket {
+  buyer: string;
+  currentStack: string;
+  keyPain: string;
+  offerResonance: string;
+  closeAction: string;
 }
 
-// ─── Radial Gauge Component ────────────────────────────────────────────────────
+interface CampaignHealth {
+  queuedLeads: number;
+  qualifiedToday: number;
+  meetingsBooked: number;
+}
 
-function RadialGauge({
+// ─── Sample Data ──────────────────────────────────────────────────────────────
+const INITIAL_LEADS: Lead[] = [
+  {
+    id: 1,
+    name: "NovaCart",
+    contact: "Jane Doe",
+    title: "VP Engineering",
+    phone: "+15551234567",
+    region: "US",
+    metrics: "3.2 TB/mo",
+    spend: "$12k/mo",
+    stack: "Cloudflare CDN + WAF",
+    notes: "Likely renewal inside 9 months.",
+    status: "queued",
+  },
+  {
+    id: 2,
+    name: "Streamly Media",
+    contact: "Ravi Patel",
+    title: "Director of Platform",
+    phone: "+15559876543",
+    region: "EU",
+    metrics: "8.4 TB/mo",
+    spend: "$26k/mo",
+    stack: "Multi-CDN",
+    notes: "Performance-sensitive workloads and global reach.",
+    status: "research",
+  },
+  {
+    id: 3,
+    name: "FinEdge Bank",
+    contact: "Sarah Müller",
+    title: "CTO",
+    phone: "+15554567890",
+    region: "US",
+    metrics: "5.1 TB/mo",
+    spend: "$21k/mo",
+    stack: "Akamai + internal",
+    notes: "Security-first, compliance heavy.",
+    status: "queued",
+  },
+  {
+    id: 4,
+    name: "Omnishop",
+    contact: "Luis Hernandez",
+    title: "Head of Infrastructure",
+    phone: "+15557654321",
+    region: "US",
+    metrics: "2.7 TB/mo",
+    spend: "$9k/mo",
+    stack: "CloudFront",
+    notes: "Cost optimization focus.",
+    status: "queued",
+  },
+];
+
+const SIM_TRANSCRIPT: TranscriptMessage[] = [
+  {
+    speaker: "ATOM",
+    text: "Hi Jane, this is ATOM calling on behalf of Akamai. I wanted to quickly connect regarding NovaCart's current CDN arrangement with Cloudflare — do you have two minutes?",
+    ts: 0,
+  },
+  {
+    speaker: "Prospect",
+    text: "Sure, I have a couple minutes. What's this about exactly?",
+    ts: 2500,
+  },
+  {
+    speaker: "ATOM",
+    text: "Akamai can often match or beat current Cloudflare pricing, and in some cases buy out up to six months of remaining contract term, subject to approval. Given your renewal window in the next nine months, the timing seemed right.",
+    ts: 5000,
+  },
+  {
+    speaker: "Prospect",
+    text: "Interesting. We're actually reviewing our CDN spend. Our Cloudflare costs have climbed this year.",
+    ts: 8000,
+  },
+  {
+    speaker: "ATOM",
+    text: "That is helpful. Akamai can often match or beat current Cloudflare pricing, and in some cases buy out up to six months of remaining contract term, subject to approval.",
+    ts: 10500,
+  },
+  {
+    speaker: "Prospect",
+    text: "If you can make the migration safe and the economics work, I would look at it before renewal.",
+    ts: 13000,
+  },
+  {
+    speaker: "ATOM",
+    text: "Great. I am going to bring an Akamai specialist into the conversation so they can review pricing and next steps.",
+    ts: 15000,
+  },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function getSentimentLabel(score: number): string {
+  if (score >= 70) return "Purchase ready";
+  if (score >= 50) return "Positive";
+  if (score >= 30) return "Neutral";
+  return "Resistant";
+}
+
+function getBuyerIntentLabel(score: number): string {
+  if (score >= 70) return "Purchase ready";
+  if (score >= 50) return "Evaluating";
+  if (score >= 30) return "Curious";
+  return "Cold";
+}
+
+function getGaugeColor(score: number): string {
+  if (score >= 60) return "#14b8a6";
+  if (score >= 30) return "#f59e0b";
+  return "#ef4444";
+}
+
+function getStageInfo(stage: CallStage) {
+  switch (stage) {
+    case "research":
+      return {
+        label: "Research → evaluation",
+        desc: "The prospect is validating migration risk, current Cloudflare spend, and whether the Akamai buyout offer is real.",
+      };
+    case "evaluation":
+      return {
+        label: "Evaluation → warm transfer",
+        desc: "Prospect is validating offer economics and migration safety before agreeing to speak with a specialist.",
+      };
+    case "warm_transfer":
+      return {
+        label: "Warm transfer",
+        desc: "ATOM is steering the call with offer framing and qualification prompts.",
+      };
+    default:
+      return { label: "Idle", desc: "No active call." };
+  }
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatusDot({ status }: { status: LeadStatus | "idle" | "live" | "complete" | "ready" | "waiting" | "healthy" }) {
+  const colorMap: Record<string, string> = {
+    queued: "#22c55e",
+    research: "#f59e0b",
+    live: "#3b82f6",
+    done: "#6b7280",
+    idle: "#6b7280",
+    complete: "#3b82f6",
+    ready: "#22c55e",
+    waiting: "#f59e0b",
+    healthy: "#22c55e",
+  };
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: 7,
+        height: 7,
+        borderRadius: "50%",
+        backgroundColor: colorMap[status] ?? "#6b7280",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+function GaugeBar({
   value,
   label,
-  size = 120,
+  subLabel,
 }: {
   value: number;
   label: string;
-  size?: number;
+  subLabel: string;
 }) {
-  const radius = (size - 16) / 2;
-  const circumference = Math.PI * radius; // half circle
-  const progress = Math.max(0, Math.min(100, value));
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
-
-  const color =
-    value >= 70
-      ? "#10b981"
-      : value >= 40
-        ? "#f59e0b"
-        : "#ef4444";
-
+  const color = getGaugeColor(value);
   return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="relative" style={{ width: size, height: size / 2 + 12 }}>
-        <svg
-          width={size}
-          height={size / 2 + 12}
-          viewBox={`0 0 ${size} ${size / 2 + 12}`}
-        >
-          {/* Background arc */}
-          <path
-            d={`M ${8} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - 8} ${size / 2}`}
-            fill="none"
-            stroke="hsl(var(--muted))"
-            strokeWidth="8"
-            strokeLinecap="round"
-          />
-          {/* Progress arc */}
-          <path
-            d={`M ${8} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - 8} ${size / 2}`}
-            fill="none"
-            stroke={color}
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.5s ease" }}
-          />
-          {/* Value text */}
-          <text
-            x={size / 2}
-            y={size / 2 - 4}
-            textAnchor="middle"
-            fill={color}
-            fontSize="18"
-            fontWeight="bold"
-            style={{ transition: "fill 0.5s ease" }}
-          >
-            {Math.round(value)}
-          </text>
-        </svg>
-      </div>
-      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+    <div style={{ flex: 1 }}>
+      <div
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: "#9ca3af",
+          marginBottom: 4,
+        }}
+      >
         {label}
-      </p>
+      </div>
+      <div
+        style={{
+          fontSize: 28,
+          fontWeight: 700,
+          color: "#fff",
+          lineHeight: 1.1,
+          marginBottom: 2,
+        }}
+      >
+        {value}
+      </div>
+      <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8 }}>
+        {subLabel}
+      </div>
+      <div
+        style={{
+          height: 4,
+          borderRadius: 2,
+          backgroundColor: "#2d2d2d",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${value}%`,
+            backgroundColor: color,
+            borderRadius: 2,
+            transition: "width 0.6s ease, background-color 0.4s ease",
+          }}
+        />
+      </div>
     </div>
   );
 }
 
-// ─── Qualification Badge ───────────────────────────────────────────────────────
-
-function QualBadge({ score }: { score: number }) {
-  if (score >= 80)
-    return (
-      <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30">
-        <Zap className="w-3 h-3 mr-1" /> Hot Lead
-      </Badge>
-    );
-  if (score >= 60)
-    return (
-      <Badge className="bg-primary/15 text-primary border-primary/30">
-        <TrendingUp className="w-3 h-3 mr-1" /> Qualified
-      </Badge>
-    );
-  if (score >= 35)
-    return (
-      <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30">
-        <Activity className="w-3 h-3 mr-1" /> Warming
-      </Badge>
-    );
+function FilterTag({ label }: { label: string }) {
   return (
-    <Badge className="bg-muted text-muted-foreground">
-      <Circle className="w-3 h-3 mr-1" /> Unqualified
-    </Badge>
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "3px 10px",
+        borderRadius: 999,
+        border: "1px solid #374151",
+        fontSize: 11,
+        color: "#d1d5db",
+        backgroundColor: "#1f2937",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </span>
   );
 }
 
-// ─── Outcome Badge ─────────────────────────────────────────────────────────────
-
-function OutcomeBadge({ outcome }: { outcome: string }) {
-  const styles: Record<string, string> = {
-    qualified: "bg-emerald-500/15 text-emerald-500",
-    "follow-up": "bg-blue-500/15 text-blue-500",
-    "no-interest": "bg-muted text-muted-foreground",
-    callback: "bg-amber-500/15 text-amber-500",
-  };
-  const labels: Record<string, string> = {
-    qualified: "Qualified",
-    "follow-up": "Follow-up",
-    "no-interest": "No Interest",
-    callback: "Callback",
-  };
-  return (
-    <Badge className={`text-[10px] ${styles[outcome] || "bg-muted text-muted-foreground"}`}>
-      {labels[outcome] || outcome}
-    </Badge>
-  );
-}
-
-// ─── Format seconds ────────────────────────────────────────────────────────────
-
-function formatDuration(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-// ─── Live Call Dashboard ───────────────────────────────────────────────────────
-
-function LiveCallDashboard({
-  queuedCall,
-  result,
-  onCallEnd,
+function LeadCard({
+  lead,
+  onDial,
+  isDialing,
 }: {
-  queuedCall: QueuedCall;
-  result: SimulateResponse;
-  onCallEnd: (result: SimulateResponse) => void;
+  lead: Lead;
+  onDial: (lead: Lead) => void;
+  isDialing: boolean;
 }) {
-  const [visibleMessages, setVisibleMessages] = useState<TranscriptMessage[]>([]);
-  const [currentSentiment, setCurrentSentiment] = useState(result.sentimentTimeline[0]?.score ?? 30);
-  const [currentIntent, setCurrentIntent] = useState(result.intentTimeline[0]?.score ?? 10);
-  const [currentTones, setCurrentTones] = useState<EmotionalTones>({
-    curious: 10,
-    interested: 10,
-    skeptical: 20,
-    frustrated: 5,
-    excited: 5,
-    neutral: 50,
-  });
-  const [qualScore, setQualScore] = useState(15);
-  const [aiRec, setAiRec] = useState("Initiating call...");
-  const [elapsed, setElapsed] = useState(0);
-  const [isTyping, setIsTyping] = useState(false);
-  const [isActive, setIsActive] = useState(true);
-  const [callEnded, setCallEnded] = useState(false);
-  const transcriptRef = useRef<HTMLDivElement>(null);
-  const intervalRef = useRef<number | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const msgIndexRef = useRef(0);
-  const { toast } = useToast();
+  const statusLabel: Record<LeadStatus, string> = {
+    queued: "Queued",
+    research: "Research",
+    live: "Live",
+    done: "Done",
+  };
 
-  const totalMessages = result.transcript.length;
-  const sentTimeline = result.sentimentTimeline;
-  const intentTimeline = result.intentTimeline;
+  return (
+    <div
+      style={{
+        backgroundColor: "#111827",
+        border: "1px solid #1f2937",
+        borderRadius: 8,
+        padding: "14px 16px",
+        marginBottom: 10,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 4,
+        }}
+      >
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: "#fff" }}>
+            {lead.name}
+          </div>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>
+            {lead.contact} · {lead.title}
+          </div>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            fontSize: 11,
+            color: "#9ca3af",
+          }}
+        >
+          <StatusDot status={lead.status} />
+          {statusLabel[lead.status]}
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>
+        {lead.metrics} · {lead.region} · est. {lead.spend}
+      </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: "#9ca3af",
+          marginBottom: 10,
+          lineHeight: 1.5,
+        }}
+      >
+        {lead.stack} detected. {lead.notes}
+      </div>
+      <button
+        onClick={() => onDial(lead)}
+        disabled={isDialing}
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          padding: "5px 14px",
+          borderRadius: 6,
+          border: "1px solid #14b8a6",
+          backgroundColor: "transparent",
+          color: "#14b8a6",
+          cursor: isDialing ? "not-allowed" : "pointer",
+          opacity: isDialing ? 0.5 : 1,
+          transition: "background-color 0.15s",
+        }}
+        onMouseEnter={(e) =>
+          !isDialing &&
+          ((e.currentTarget.style.backgroundColor = "#14b8a61a"))
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.backgroundColor = "transparent")
+        }
+      >
+        {isDialing ? "Dialing…" : "Dial Twilio"}
+      </button>
+    </div>
+  );
+}
+
+function TranscriptLine({ msg }: { msg: TranscriptMessage }) {
+  const isAtom = msg.speaker === "ATOM";
+  return (
+    <div
+      style={{
+        padding: "10px 14px",
+        borderRadius: 8,
+        backgroundColor: isAtom ? "#1f2937" : "#111827",
+        border: `1px solid ${isAtom ? "#374151" : "#1f2937"}`,
+        marginBottom: 8,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          color: isAtom ? "#14b8a6" : "#9ca3af",
+          marginBottom: 4,
+          textTransform: "uppercase",
+        }}
+      >
+        {msg.speaker}
+      </div>
+      <div style={{ fontSize: 13, color: "#e5e7eb", lineHeight: 1.55 }}>
+        {msg.text}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+export default function AtomLeadGen() {
+  const [activeSidebarItem, setActiveSidebarItem] =
+    useState<SidebarItem>("campaign");
+  const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
+  const [callState, setCallState] = useState<CallState>({
+    isActive: false,
+    isComplete: false,
+    callSid: null,
+    transcript: [],
+    sentiment: 65,
+    buyerIntent: 73,
+    stage: "research",
+    keySignals: [],
+    activeLeadId: null,
+  });
+  const [handoffPacket, setHandoffPacket] = useState<HandoffPacket | null>(
+    null
+  );
+  const [campaignHealth] = useState<CampaignHealth>({
+    queuedLeads: 4,
+    qualifiedToday: 2,
+    meetingsBooked: 2,
+  });
+  const [isDialing, setIsDialing] = useState(false);
+  const [campaignRequest, setCampaignRequest] = useState(
+    "ATOM find customers using Cloudflare for CDN and then call them offering them Akamai CDN in which Akamai will match and beat Cloudflare's price and Akamai will also buy out up to 6 months remaining of the customer's Cloudflare CDN contract."
+  );
+  const [targetRegion, setTargetRegion] = useState("US + EU");
+  const [dailyDialLimit, setDailyDialLimit] = useState("30");
+  const [simRunning, setSimRunning] = useState(false);
+
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const simTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Auto-scroll transcript
   useEffect(() => {
     if (transcriptRef.current) {
       transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
     }
-  }, [visibleMessages, isTyping]);
+  }, [callState.transcript]);
 
-  // Call timer
-  useEffect(() => {
-    if (!isActive) return;
-    timerRef.current = window.setInterval(() => {
-      setElapsed((e) => e + 1);
-    }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isActive]);
+  // WebSocket connection for real calls
+  const connectWs = useCallback((callSid: string) => {
+    const wsUrl = `wss://${BRIDGE_URL.replace(/^https?:\/\//, "")}/events/${callSid}`;
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
 
-  // Playback messages
-  useEffect(() => {
-    if (!isActive) return;
-
-    const playNext = () => {
-      const idx = msgIndexRef.current;
-      if (idx >= totalMessages) {
-        // Call complete
-        clearInterval(intervalRef.current!);
-        clearInterval(timerRef.current!);
-        setIsTyping(false);
-        setIsActive(false);
-        setCallEnded(true);
-        // Final state
-        setCurrentSentiment(sentTimeline[sentTimeline.length - 1]?.score ?? 70);
-        setCurrentIntent(intentTimeline[intentTimeline.length - 1]?.score ?? 70);
-        setCurrentTones(result.emotionalTones);
-        setQualScore(result.qualification.score);
-        setAiRec(result.aiRecommendations[result.aiRecommendations.length - 1] || "Call complete");
-        return;
-      }
-
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        setVisibleMessages((prev) => [...prev, result.transcript[idx]]);
-        msgIndexRef.current = idx + 1;
-
-        // Update metrics proportionally
-        const progress = (idx + 1) / totalMessages;
-
-        // Interpolate sentiment
-        const sentIdx = Math.min(
-          Math.floor(progress * sentTimeline.length),
-          sentTimeline.length - 1
-        );
-        setCurrentSentiment(sentTimeline[sentIdx]?.score ?? currentSentiment);
-
-        // Interpolate intent
-        const intIdx = Math.min(
-          Math.floor(progress * intentTimeline.length),
-          intentTimeline.length - 1
-        );
-        setCurrentIntent(intentTimeline[intIdx]?.score ?? currentIntent);
-
-        // Gradually update emotional tones
-        const toneProgress = Math.min(progress * 1.5, 1);
-        setCurrentTones((prev) => {
-          const target = result.emotionalTones;
-          return {
-            curious: prev.curious + (target.curious - prev.curious) * toneProgress * 0.3,
-            interested: prev.interested + (target.interested - prev.interested) * toneProgress * 0.3,
-            skeptical: prev.skeptical + (target.skeptical - prev.skeptical) * toneProgress * 0.3,
-            frustrated: prev.frustrated + (target.frustrated - prev.frustrated) * toneProgress * 0.3,
-            excited: prev.excited + (target.excited - prev.excited) * toneProgress * 0.3,
-            neutral: prev.neutral + (target.neutral - prev.neutral) * toneProgress * 0.3,
-          };
-        });
-
-        // Update qual score
-        const targetQual = result.qualification.score;
-        setQualScore((prev) => prev + (targetQual - prev) * 0.15);
-
-        // Update AI recommendation
-        const recIdx = Math.floor((progress * result.aiRecommendations.length));
-        if (result.aiRecommendations[recIdx]) {
-          setAiRec(result.aiRecommendations[recIdx]);
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "transcript") {
+          setCallState((prev) => ({
+            ...prev,
+            transcript: [
+              ...prev.transcript,
+              { speaker: data.speaker, text: data.text, ts: Date.now() },
+            ],
+          }));
+        } else if (data.type === "metrics") {
+          setCallState((prev) => ({
+            ...prev,
+            sentiment: data.sentiment ?? prev.sentiment,
+            buyerIntent: data.buyerIntent ?? prev.buyerIntent,
+            stage: data.stage ?? prev.stage,
+            keySignals: data.keySignals ?? prev.keySignals,
+          }));
+        } else if (data.type === "call_ended") {
+          setCallState((prev) => ({
+            ...prev,
+            isActive: false,
+            isComplete: true,
+          }));
+          setHandoffPacket({
+            buyer: "VP Engineering at NovaCart",
+            currentStack: "Cloudflare CDN",
+            keyPain: "Rising spend and moderate support satisfaction",
+            offerResonance: "Price match plus 6-month buyout de-risked the switch",
+            closeAction:
+              "Bring enterprise rep in now to confirm migration plan and pricing approval path.",
+          });
         }
-      }, 1200);
+      } catch (_) {}
     };
 
-    intervalRef.current = window.setInterval(playNext, 2800);
-    playNext(); // Play first message immediately
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    ws.onclose = () => {
+      wsRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleEndCall = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (timerRef.current) clearInterval(timerRef.current);
-    setIsActive(false);
-    setCallEnded(true);
-    onCallEnd(result);
-  };
-
-  const toneData = [
-    { name: "Curious", value: Math.round(currentTones.curious), color: "#06b6d4" },
-    { name: "Interested", value: Math.round(currentTones.interested), color: "#10b981" },
-    { name: "Skeptical", value: Math.round(currentTones.skeptical), color: "#f59e0b" },
-    { name: "Frustrated", value: Math.round(currentTones.frustrated), color: "#ef4444" },
-    { name: "Excited", value: Math.round(currentTones.excited), color: "#8b5cf6" },
-    { name: "Neutral", value: Math.round(currentTones.neutral), color: "#6b7280" },
-  ];
-
-  return (
-    <div className="space-y-4">
-      {/* Call header */}
-      <div className="flex items-center justify-between p-4 rounded-xl border border-primary/30 bg-primary/5">
-        <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${isActive ? "bg-rose-500 animate-pulse" : "bg-muted"}`} />
-          <div>
-            <p className="font-semibold text-sm">
-              {callEnded ? "Call Complete" : `ATOM calling ${queuedCall.contactName} at ${queuedCall.companyName}`}
-            </p>
-            <p className="text-xs text-muted-foreground">{queuedCall.contactTitle || "Decision Maker"}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="w-3.5 h-3.5" />
-            <span className="font-mono tabular-nums">{formatDuration(elapsed)}</span>
-          </div>
-          {isActive && (
-            <div className="flex items-center gap-1.5 text-xs text-rose-500">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              Recording
-            </div>
-          )}
-          {callEnded && (
-            <OutcomeBadge outcome={result.outcome} />
-          )}
-        </div>
-      </div>
-
-      {/* 3-column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* LEFT: Transcript */}
-        <div className="lg:col-span-1">
-          <Card className="border-border/50 h-full">
-            <CardHeader className="pb-3 pt-4 px-4">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-primary" />
-                Live Transcript
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div
-                ref={transcriptRef}
-                className="space-y-3 overflow-y-auto"
-                style={{ maxHeight: "340px" }}
-              >
-                {visibleMessages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex gap-2 ${msg.speaker === "ATOM" ? "" : "flex-row-reverse"}`}
-                  >
-                    <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${msg.speaker === "ATOM" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}
-                    >
-                      {msg.speaker === "ATOM" ? "A" : "C"}
-                    </div>
-                    <div
-                      className={`max-w-[85%] p-2.5 rounded-xl text-xs leading-relaxed ${msg.speaker === "ATOM" ? "bg-primary/10 text-foreground" : "bg-muted/50 text-foreground"}`}
-                    >
-                      <p className={`text-[9px] font-semibold mb-1 ${msg.speaker === "ATOM" ? "text-primary" : "text-muted-foreground"}`}>
-                        {msg.speaker === "ATOM" ? "ATOM" : queuedCall.contactName} · {formatDuration(msg.timestamp)}
-                      </p>
-                      {msg.text}
-                    </div>
-                  </div>
-                ))}
-                {isTyping && (
-                  <div className="flex gap-2">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center bg-primary/20 text-primary text-[10px] font-bold">A</div>
-                    <div className="bg-primary/10 p-2.5 rounded-xl">
-                      <div className="flex gap-1 items-center h-4">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {visibleMessages.length === 0 && !isTyping && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Phone className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-xs">Connecting call...</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* CENTER: Metrics */}
-        <div className="lg:col-span-1 space-y-3">
-          {/* Gauges */}
-          <Card className="border-border/50">
-            <CardContent className="pt-4 pb-3 px-4">
-              <div className="flex justify-around">
-                <RadialGauge value={currentSentiment} label="Sentiment" />
-                <RadialGauge value={currentIntent} label="Buyer Intent" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Emotional Tones */}
-          <Card className="border-border/50">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider">Emotional Tones</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 space-y-2">
-              {toneData.map((tone) => (
-                <div key={tone.name} className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground w-16 shrink-0">{tone.name}</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${tone.value}%`, backgroundColor: tone.color }}
-                    />
-                  </div>
-                  <span className="text-[10px] tabular-nums text-muted-foreground w-6 text-right">{tone.value}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Qualification + AI Rec */}
-          <Card className="border-border/50">
-            <CardContent className="pt-4 pb-3 px-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Qualification</span>
-                <QualBadge score={qualScore} />
-              </div>
-              <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <Brain className="w-3 h-3" /> AI Recommendation
-                </p>
-                <p className="text-xs text-foreground leading-relaxed">{aiRec}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* RIGHT: Contact info + signals */}
-        <div className="lg:col-span-1 space-y-3">
-          <Card className="border-border/50">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-primary" />
-                Contact Intel
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 space-y-3">
-              <div className="p-2.5 rounded-lg bg-card border border-border/50 space-y-1">
-                <p className="text-xs font-semibold">{queuedCall.companyName}</p>
-                <p className="text-[10px] text-muted-foreground">Target account</p>
-              </div>
-              <div className="p-2.5 rounded-lg bg-card border border-border/50 space-y-1">
-                <div className="flex items-center gap-2">
-                  <User className="w-3.5 h-3.5 text-muted-foreground" />
-                  <p className="text-xs font-medium">{queuedCall.contactName}</p>
-                </div>
-                {queuedCall.contactTitle && (
-                  <p className="text-[10px] text-muted-foreground">{queuedCall.contactTitle}</p>
-                )}
-              </div>
-              <div className="p-2.5 rounded-lg bg-card border border-border/50">
-                <p className="text-[10px] text-muted-foreground mb-0.5">Product</p>
-                <p className="text-xs font-medium capitalize">{queuedCall.productSlug.replace(/-/g, " ")}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Objections detected */}
-          {callEnded && result.qualification.objections.length > 0 && (
-            <Card className="border-border/50 border-l-2 border-l-amber-500">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3 text-amber-500" /> Objections Detected
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-3 space-y-1.5">
-                {result.qualification.objections.map((obj, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" />
-                    <p className="text-xs text-muted-foreground">{obj}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Key signals */}
-          {callEnded && result.qualification.keySignals.length > 0 && (
-            <Card className="border-border/50 border-l-2 border-l-emerald-500">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Key Signals
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-3 space-y-1.5">
-                {result.qualification.keySignals.map((sig, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" />
-                    <p className="text-xs text-muted-foreground">{sig}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-
-      {/* Call controls */}
-      <div className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card/50">
-        <div className="flex gap-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleEndCall}
-            disabled={callEnded}
-            className="gap-1.5"
-          >
-            <PhoneOff className="w-3.5 h-3.5" />
-            End Call
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" disabled={!callEnded}>
-            <UserCheck className="w-3.5 h-3.5" />
-            Transfer
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Flag className="w-3.5 h-3.5" />
-            Flag
-          </Button>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {callEnded
-            ? `Call ended · ${formatDuration(result.duration)}`
-            : `${visibleMessages.length}/${totalMessages} messages`}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Analytics Dashboard ───────────────────────────────────────────────────────
-
-function AnalyticsDashboard({ calls }: { calls: CallRecord[] }) {
-  const [expandedCall, setExpandedCall] = useState<number | null>(null);
-
-  const completedCalls = calls.filter((c) => c.status === "completed");
-  const avgSentiment =
-    completedCalls.length > 0
-      ? completedCalls.reduce((sum, c) => {
-          const st = JSON.parse(c.sentimentTimeline || "[]") as SentimentPoint[];
-          const last = st[st.length - 1]?.score ?? 50;
-          return sum + last;
-        }, 0) / completedCalls.length
-      : 0;
-  const avgIntent =
-    completedCalls.length > 0
-      ? completedCalls.reduce((sum, c) => {
-          const it = JSON.parse(c.intentTimeline || "[]") as SentimentPoint[];
-          const last = it[it.length - 1]?.score ?? 50;
-          return sum + last;
-        }, 0) / completedCalls.length
-      : 0;
-  const qualifiedCalls = completedCalls.filter((c) => {
-    const q = JSON.parse(c.qualification || "{}") as Qualification;
-    return q.score > 70;
-  });
-  const qualRate =
-    completedCalls.length > 0
-      ? Math.round((qualifiedCalls.length / completedCalls.length) * 100)
-      : 0;
-
-  const outcomeCounts = completedCalls.reduce(
-    (acc, c) => {
-      acc[c.outcome] = (acc[c.outcome] || 0) + 1;
-      return acc;
+  // Dial a lead via bridge
+  const handleDial = useCallback(
+    async (lead: Lead) => {
+      setIsDialing(true);
+      try {
+        const res = await fetch(`${BRIDGE_URL}/call`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: lead.phone,
+            contactName: lead.contact,
+            companyName: lead.name,
+            productSlug: "akamai-cdn",
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const sid = data.callSid ?? `sim-${Date.now()}`;
+          setCallState((prev) => ({
+            ...prev,
+            isActive: true,
+            isComplete: false,
+            callSid: sid,
+            transcript: [],
+            sentiment: 45,
+            buyerIntent: 30,
+            stage: "research",
+            keySignals: [],
+            activeLeadId: lead.id,
+          }));
+          setLeads((prev) =>
+            prev.map((l) =>
+              l.id === lead.id ? { ...l, status: "live" } : l
+            )
+          );
+          setActiveSidebarItem("live");
+          connectWs(sid);
+        }
+      } catch (_) {
+        // Bridge unreachable — silently ignore for demo
+      } finally {
+        setIsDialing(false);
+      }
     },
-    {} as Record<string, number>
+    [connectWs]
   );
 
-  const outcomeData = [
-    { name: "Qualified", value: outcomeCounts["qualified"] || 0, color: "#10b981" },
-    { name: "Follow-up", value: outcomeCounts["follow-up"] || 0, color: "#06b6d4" },
-    { name: "No Interest", value: outcomeCounts["no-interest"] || 0, color: "#6b7280" },
-    { name: "Callback", value: outcomeCounts["callback"] || 0, color: "#f59e0b" },
-  ].filter((d) => d.value > 0);
+  // Simulate a live call
+  const handleSimulate = useCallback(() => {
+    if (simRunning) return;
+    setSimRunning(true);
 
-  // Aggregate emotional tones
-  const avgTones =
-    completedCalls.length > 0
-      ? completedCalls.reduce(
-          (acc, c) => {
-            const t = JSON.parse(c.emotionalTones || "{}") as EmotionalTones;
-            return {
-              curious: acc.curious + t.curious / completedCalls.length,
-              interested: acc.interested + t.interested / completedCalls.length,
-              skeptical: acc.skeptical + t.skeptical / completedCalls.length,
-              frustrated: acc.frustrated + t.frustrated / completedCalls.length,
-              excited: acc.excited + t.excited / completedCalls.length,
-              neutral: acc.neutral + t.neutral / completedCalls.length,
-            };
-          },
-          { curious: 0, interested: 0, skeptical: 0, frustrated: 0, excited: 0, neutral: 0 }
-        )
-      : null;
+    // Clear previous timers
+    simTimersRef.current.forEach(clearTimeout);
+    simTimersRef.current = [];
 
-  const toneChartData = avgTones
-    ? [
-        { name: "Curious", value: Math.round(avgTones.curious) },
-        { name: "Interested", value: Math.round(avgTones.interested) },
-        { name: "Skeptical", value: Math.round(avgTones.skeptical) },
-        { name: "Frustrated", value: Math.round(avgTones.frustrated) },
-        { name: "Excited", value: Math.round(avgTones.excited) },
-        { name: "Neutral", value: Math.round(avgTones.neutral) },
-      ]
-    : [];
+    setCallState({
+      isActive: true,
+      isComplete: false,
+      callSid: `sim-${Date.now()}`,
+      transcript: [],
+      sentiment: 45,
+      buyerIntent: 30,
+      stage: "research",
+      keySignals: [],
+      activeLeadId: 1,
+    });
+    setHandoffPacket(null);
+    setActiveSidebarItem("live");
 
-  // Use last call's timelines for charts
-  const lastCall = completedCalls[0];
-  const sentChartData = lastCall
-    ? (JSON.parse(lastCall.sentimentTimeline || "[]") as SentimentPoint[]).map((p) => ({
-        time: `${p.time}s`,
-        Sentiment: p.score,
-      }))
-    : [];
-  const intentChartData = lastCall
-    ? (JSON.parse(lastCall.intentTimeline || "[]") as SentimentPoint[]).map((p) => ({
-        time: `${p.time}s`,
-        Intent: p.score,
-      }))
-    : [];
-
-  if (completedCalls.length === 0) {
-    return (
-      <Card className="border-border/50">
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <BarChart3 className="w-8 h-8 mb-3 opacity-40" />
-          <p className="text-sm">No completed calls yet</p>
-          <p className="text-xs mt-1">Run your first ATOM call to see analytics</p>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="border-border/50">
-          <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-2xl font-bold">{completedCalls.length}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Total Calls</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="pt-4 pb-3 px-4">
-            <div className="flex items-end gap-2">
-              <p className="text-2xl font-bold">{Math.round(avgSentiment)}</p>
-              <p className="text-xs text-muted-foreground mb-0.5">/100</p>
-            </div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Avg Sentiment</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="pt-4 pb-3 px-4">
-            <div className="flex items-end gap-2">
-              <p className="text-2xl font-bold">{Math.round(avgIntent)}</p>
-              <p className="text-xs text-muted-foreground mb-0.5">/100</p>
-            </div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Avg Buyer Intent</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-2xl font-bold text-emerald-500">{qualRate}%</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Qualification Rate</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm">Sentiment Over Time (Last Call)</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={sentChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                  labelStyle={{ color: "hsl(var(--foreground))" }}
-                />
-                <Line type="monotone" dataKey="Sentiment" stroke="#06b6d4" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm">Buyer Intent Progression (Last Call)</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={intentChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                  labelStyle={{ color: "hsl(var(--foreground))" }}
-                />
-                <Line type="monotone" dataKey="Intent" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm">Emotional Tones Distribution</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={toneChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                />
-                <Bar dataKey="value" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm">Call Outcomes</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 flex items-center justify-center">
-            {outcomeData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie
-                    data={outcomeData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {outcomeData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                  />
-                  <Legend
-                    formatter={(value) => <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>{value}</span>}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-xs text-muted-foreground">No outcome data yet</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Call Log Table */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3 pt-4 px-4">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Activity className="w-4 h-4 text-primary" />
-            Call Log
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="space-y-2">
-            {completedCalls.map((call) => {
-              const qual = JSON.parse(call.qualification || "{}") as Qualification;
-              const sentTL = JSON.parse(call.sentimentTimeline || "[]") as SentimentPoint[];
-              const intTL = JSON.parse(call.intentTimeline || "[]") as SentimentPoint[];
-              const lastSent = sentTL[sentTL.length - 1]?.score ?? 0;
-              const lastInt = intTL[intTL.length - 1]?.score ?? 0;
-              const transcript = JSON.parse(call.transcript || "[]") as TranscriptMessage[];
-              const recs = JSON.parse(call.aiRecommendations || "[]") as string[];
-              const isExpanded = expandedCall === call.id;
-
-              return (
-                <div key={call.id} className="rounded-lg border border-border/50 overflow-hidden">
-                  <button
-                    className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30 transition-colors"
-                    onClick={() => setExpandedCall(isExpanded ? null : call.id)}
-                  >
-                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-2 items-center text-xs">
-                      <div>
-                        <p className="font-medium truncate">{call.companyName}</p>
-                        <p className="text-muted-foreground truncate">{call.contactName}</p>
-                      </div>
-                      <div className="hidden sm:block">
-                        <p className="text-muted-foreground">{formatDuration(call.duration)}</p>
-                      </div>
-                      <div className="hidden sm:block">
-                        <div className="flex items-center gap-1">
-                          <span className="text-muted-foreground">S:</span>
-                          <span className={lastSent >= 60 ? "text-emerald-500" : lastSent >= 40 ? "text-amber-500" : "text-rose-500"}>
-                            {Math.round(lastSent)}
-                          </span>
-                          <span className="text-muted-foreground ml-1">I:</span>
-                          <span className={lastInt >= 60 ? "text-emerald-500" : lastInt >= 40 ? "text-amber-500" : "text-rose-500"}>
-                            {Math.round(lastInt)}
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <OutcomeBadge outcome={call.outcome} />
-                      </div>
-                      <div className="hidden sm:block text-muted-foreground">
-                        {new Date(call.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                    )}
-                  </button>
-
-                  {isExpanded && (
-                    <div className="border-t border-border/50 p-3 space-y-3 bg-muted/20">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Full Transcript</p>
-                          <div className="space-y-2 max-h-48 overflow-y-auto">
-                            {transcript.map((msg, i) => (
-                              <div key={i} className={`text-xs ${msg.speaker === "ATOM" ? "text-primary" : "text-foreground"}`}>
-                                <span className="font-semibold">{msg.speaker === "ATOM" ? "ATOM" : call.contactName}: </span>
-                                {msg.text}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Key Signals</p>
-                            {qual.keySignals?.map((s, i) => (
-                              <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" />{s}
-                              </p>
-                            ))}
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">AI Recommendations</p>
-                            {recs.map((r, i) => (
-                              <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
-                                <Brain className="w-3 h-3 text-primary mt-0.5 shrink-0" />{r}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// ─── Main Page ─────────────────────────────────────────────────────────────────
-// ─── Call History Card ──────────────────────────────────────────────────────────
-
-function CallHistoryCard({ call, qualification, sentimentTimeline, intentTimeline, tones, recommendations, transcript }: {
-  call: CallRecord;
-  qualification: any;
-  sentimentTimeline: any[];
-  intentTimeline: any[];
-  tones: any;
-  recommendations: string[];
-  transcript: any[];
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const callTypeLabels: Record<string, string> = { "simulated": "AI Simulation", "twilio-dial": "Twilio Call", "hume-voice": "Live Voice" };
-  const callTypeColors: Record<string, string> = { "simulated": "bg-primary/15 text-primary", "twilio-dial": "bg-emerald-500/15 text-emerald-500", "hume-voice": "bg-purple-500/15 text-purple-500" };
-  const outcomeColors: Record<string, string> = { "qualified": "bg-emerald-500/15 text-emerald-500", "follow-up": "bg-amber-500/15 text-amber-500", "no-interest": "bg-muted text-muted-foreground", "callback": "bg-blue-500/15 text-blue-500", "pending": "bg-muted text-muted-foreground" };
-
-  const tonesArray = Object.entries(tones).map(([name, value]) => ({ name, value: Math.round(Number(value)) })).sort((a, b) => b.value - a.value).slice(0, 5);
-
-  return (
-    <Card className="border-border/50">
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-sm font-semibold">{call.contactName || "Unknown"}</h3>
-              <span className="text-xs text-muted-foreground">at {call.companyName}</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              <Badge className={callTypeColors[call.callType] || "bg-muted"} variant="secondary">{callTypeLabels[call.callType] || call.callType}</Badge>
-              <Badge className={outcomeColors[call.outcome] || "bg-muted"} variant="secondary">{call.outcome}</Badge>
-              {call.sentiment > 0 && <Badge variant="outline" className="text-[10px] gap-1"><Activity className="w-3 h-3" />Sent: {call.sentiment}</Badge>}
-              {call.buyerIntent > 0 && <Badge variant="outline" className="text-[10px] gap-1"><Target className="w-3 h-3" />Intent: {call.buyerIntent}</Badge>}
-              {call.duration > 0 && <Badge variant="outline" className="text-[10px] gap-1"><Clock className="w-3 h-3" />{formatDuration(call.duration)}</Badge>}
-              {call.phoneNumber && <Badge variant="outline" className="text-[10px]">{call.phoneNumber}</Badge>}
-            </div>
-            <p className="text-[10px] text-muted-foreground">{new Date(call.createdAt).toLocaleString()}</p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </Button>
-        </div>
-
-        {expanded && (
-          <div className="mt-3 pt-3 border-t border-border/50 space-y-4">
-            {(call.sentiment > 0 || call.buyerIntent > 0) && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-2 rounded-lg bg-muted/30 text-center"><p className="text-lg font-bold">{call.sentiment}</p><p className="text-[10px] text-muted-foreground">Sentiment</p></div>
-                <div className="p-2 rounded-lg bg-muted/30 text-center"><p className="text-lg font-bold">{call.buyerIntent}</p><p className="text-[10px] text-muted-foreground">Buyer Intent</p></div>
-                <div className="p-2 rounded-lg bg-muted/30 text-center"><p className="text-lg font-bold">{qualification.score || 0}</p><p className="text-[10px] text-muted-foreground">Qual Score</p></div>
-                <div className="p-2 rounded-lg bg-muted/30 text-center"><p className="text-lg font-bold">{formatDuration(call.duration)}</p><p className="text-[10px] text-muted-foreground">Duration</p></div>
-              </div>
-            )}
-            {sentimentTimeline.length > 0 && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Sentiment</p>
-                  <ResponsiveContainer width="100%" height={100}>
-                    <LineChart data={sentimentTimeline}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 11 }} />
-                      <Line type="monotone" dataKey="score" stroke="hsl(190, 95%, 50%)" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Buyer Intent</p>
-                  <ResponsiveContainer width="100%" height={100}>
-                    <LineChart data={intentTimeline}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 11 }} />
-                      <Line type="monotone" dataKey="score" stroke="hsl(150, 60%, 45%)" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-            {tonesArray.length > 0 && (
-              <div>
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Emotional Tones</p>
-                <div className="space-y-1">{tonesArray.map((t, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="text-[10px] w-20 text-muted-foreground capitalize">{t.name}</span>
-                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-primary" style={{ width: `${t.value}%` }} /></div>
-                    <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">{t.value}%</span>
-                  </div>
-                ))}</div>
-              </div>
-            )}
-            {(qualification.keySignals?.length > 0 || qualification.objections?.length > 0) && (
-              <div className="grid grid-cols-2 gap-3">
-                {qualification.keySignals?.length > 0 && (
-                  <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Key Signals</p>
-                    {qualification.keySignals.map((s: string, i: number) => (<div key={i} className="flex items-start gap-1.5 mb-1"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /><span className="text-xs">{s}</span></div>))}
-                  </div>
-                )}
-                {qualification.objections?.length > 0 && (
-                  <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Objections</p>
-                    {qualification.objections.map((o: string, i: number) => (<div key={i} className="flex items-start gap-1.5 mb-1"><AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" /><span className="text-xs">{o}</span></div>))}
-                  </div>
-                )}
-              </div>
-            )}
-            {recommendations.length > 0 && (
-              <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">AI Recommendations</p>
-                {recommendations.map((r, i) => (<div key={i} className="flex items-start gap-1.5 mb-1"><Brain className="w-3 h-3 text-primary mt-0.5 shrink-0" /><span className="text-xs">{r}</span></div>))}
-              </div>
-            )}
-            {Array.isArray(transcript) && transcript.length > 0 && (
-              <div>
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Full Transcript</p>
-                <div className="max-h-[300px] overflow-y-auto space-y-2 p-2 rounded-lg bg-muted/20">
-                  {transcript.map((msg: any, i: number) => (
-                    <div key={i} className={`flex gap-2 ${msg.speaker === "ATOM" ? "" : "flex-row-reverse"}`}>
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[8px] font-bold ${msg.speaker === "ATOM" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{msg.speaker === "ATOM" ? "A" : "C"}</div>
-                      <div className={`max-w-[80%] rounded-lg p-2 text-xs ${msg.speaker === "ATOM" ? "bg-primary/10" : "bg-muted"}`}>{msg.text}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {call.callSid && <p className="text-[10px] text-muted-foreground">Call SID: {call.callSid}</p>}
-          </div>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-
-
-export default function AtomLeadGen() {
-  const [location] = useLocation();
-  const { toast } = useToast();
-  const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
-  const calls = useCalls();
-
-  // Parse URL params for pre-fill from prospect engine
-  const urlParams = new URLSearchParams(location.split("?")[1] || "");
-  const prefillCompany = urlParams.get("company") || "";
-  const prefillContact = urlParams.get("contact") || "";
-  const prefillTitle = urlParams.get("title") || "";
-  const prefillProduct = urlParams.get("product") || "";
-
-  const [activeTab, setActiveTab] = useState(prefillCompany ? "campaign" : "campaign");
-  const [companyName, setCompanyName] = useState(prefillCompany);
-  const [contactName, setContactName] = useState(prefillContact);
-  const [contactTitle, setContactTitle] = useState(prefillTitle);
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [productSlug, setProductSlug] = useState(prefillProduct);
-  const [isLoading, setIsLoading] = useState(false);
-  const [queue, setQueue] = useState<QueuedCall[]>([]);
-  const [activeCallId, setActiveCallId] = useState<number | null>(null);
-  const [activeResult, setActiveResult] = useState<SimulateResponse | null>(null);
-
-  const activeQueuedCall = queue.find((q) => q.id === activeCallId) || null;
-
-  const handleStartCall = useCallback(async () => {
-    if (!companyName || !contactName || !productSlug) {
-      toast({
-        title: "Missing info",
-        description: "Please fill in company name, contact name, and select a product",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const callId = Date.now();
-    const newCall: QueuedCall = {
-      id: callId,
-      companyName,
-      contactName,
-      contactTitle,
-      productSlug,
-      status: "in-progress",
-    };
-    setQueue((prev) => [newCall, ...prev]);
-    setIsLoading(true);
-
-    // Add to store as pending
-    store.addCall({
-      id: callId,
-      companyName,
-      contactName,
-      contactTitle,
-      productSlug,
-      transcript: "[]",
-      sentimentTimeline: "[]",
-      intentTimeline: "[]",
-      emotionalTones: "{}",
-      qualification: "{}",
-      outcome: "pending",
-      duration: 0,
-      aiRecommendations: "[]",
-      createdAt: new Date().toISOString(),
-      status: "in-progress",
+    // Add transcript lines with staggered delays
+    SIM_TRANSCRIPT.forEach((msg, i) => {
+      const t = setTimeout(
+        () => {
+          setCallState((prev) => ({
+            ...prev,
+            transcript: [...prev.transcript, { ...msg, ts: Date.now() }],
+          }));
+        },
+        1500 + msg.ts
+      );
+      simTimersRef.current.push(t);
     });
 
-    try {
-      const res = await apiRequest("POST", "/api/atom-leadgen/simulate", {
-        companyName,
-        contactName,
-        contactTitle,
-        productSlug,
-      });
-      const data: SimulateResponse = await res.json();
-
-      setQueue((prev) =>
-        prev.map((q) => (q.id === callId ? { ...q, status: "in-progress", result: data } : q))
+    // Animate sentiment: 45 → 76
+    const sentimentSteps = [45, 52, 58, 63, 68, 72, 76];
+    sentimentSteps.forEach((val, i) => {
+      const t = setTimeout(
+        () => setCallState((prev) => ({ ...prev, sentiment: val })),
+        2000 + i * 1800
       );
-      setActiveCallId(callId);
-      setActiveResult(data);
-      setActiveTab("live");
-    } catch (err: any) {
-      setQueue((prev) =>
-        prev.map((q) => (q.id === callId ? { ...q, status: "failed" } : q))
+      simTimersRef.current.push(t);
+    });
+
+    // Animate buyer intent: 30 → 86
+    const intentSteps = [30, 42, 54, 64, 72, 80, 86];
+    intentSteps.forEach((val, i) => {
+      const t = setTimeout(
+        () => setCallState((prev) => ({ ...prev, buyerIntent: val })),
+        2000 + i * 1800
       );
-      store.updateCall(callId, { status: "failed" });
-      toast({
-        title: "Call failed",
-        description: err.message || "Failed to simulate call",
-        variant: "destructive",
+      simTimersRef.current.push(t);
+    });
+
+    // Stage transitions
+    const t1 = setTimeout(
+      () =>
+        setCallState((prev) => ({ ...prev, stage: "evaluation" })),
+      5500
+    );
+    const t2 = setTimeout(
+      () =>
+        setCallState((prev) => ({ ...prev, stage: "warm_transfer" })),
+      11000
+    );
+    simTimersRef.current.push(t1, t2);
+
+    // Complete call after 17s
+    const tEnd = setTimeout(() => {
+      setCallState((prev) => ({
+        ...prev,
+        isActive: false,
+        isComplete: true,
+        sentiment: 76,
+        buyerIntent: 86,
+        stage: "warm_transfer",
+      }));
+      setHandoffPacket({
+        buyer: "VP Engineering at NovaCart",
+        currentStack: "Cloudflare CDN",
+        keyPain: "Rising spend and moderate support satisfaction",
+        offerResonance:
+          "Price match plus 6-month buyout de-risked the switch",
+        closeAction:
+          "Bring enterprise rep in now to confirm migration plan and pricing approval path.",
       });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [companyName, contactName, contactTitle, productSlug, toast]);
-
-  const handleCallEnd = useCallback(
-    (result: SimulateResponse) => {
-      if (!activeCallId) return;
-
-      setQueue((prev) =>
-        prev.map((q) => (q.id === activeCallId ? { ...q, status: "completed" } : q))
+      setLeads((prev) =>
+        prev.map((l) => (l.id === 1 ? { ...l, status: "done" } : l))
       );
+      setSimRunning(false);
+    }, 17000);
+    simTimersRef.current.push(tEnd);
+  }, [simRunning]);
 
-      store.updateCall(activeCallId, {
-        transcript: JSON.stringify(result.transcript),
-        sentimentTimeline: JSON.stringify(result.sentimentTimeline),
-        intentTimeline: JSON.stringify(result.intentTimeline),
-        emotionalTones: JSON.stringify(result.emotionalTones),
-        qualification: JSON.stringify(result.qualification),
-        outcome: result.outcome,
-        duration: result.duration,
-        aiRecommendations: JSON.stringify(result.aiRecommendations),
-        status: "completed",
-      });
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      simTimersRef.current.forEach(clearTimeout);
+      wsRef.current?.close();
+    };
+  }, []);
 
-      toast({
-        title: "Call complete",
-        description: `${companyName} · Outcome: ${result.outcome} · Intent: ${result.intentTimeline[result.intentTimeline.length - 1]?.score ?? 0}%`,
-      });
-    },
-    [activeCallId, companyName, toast]
-  );
+  // ── Sidebar nav config
+  const sidebarItems: {
+    key: SidebarItem;
+    label: string;
+    tag: string;
+  }[] = [
+    { key: "campaign", label: "Campaign studio", tag: "Plan" },
+    { key: "target", label: "Target queue", tag: "Prospects" },
+    { key: "live", label: "Live call board", tag: "Realtime" },
+    { key: "handoff", label: "Rep handoff", tag: "Close" },
+    { key: "outcomes", label: "Outcomes", tag: "History" },
+  ];
 
-  const queueStatusColors: Record<string, string> = {
-    pending: "bg-muted text-muted-foreground",
-    "in-progress": "bg-primary/15 text-primary",
-    completed: "bg-emerald-500/15 text-emerald-500",
-    failed: "bg-rose-500/15 text-rose-500",
-  };
+  const callStatusLabel = callState.isComplete
+    ? "Call complete"
+    : callState.isActive
+    ? "Live"
+    : "Idle";
+
+  const callStatusColor = callState.isComplete
+    ? "#3b82f6"
+    : callState.isActive
+    ? "#ef4444"
+    : "#6b7280";
+
+  const stageInfo = getStageInfo(callState.stage);
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <PhoneCall className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">ATOM Lead Gen</h1>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
-              BETA
-            </span>
+    <div
+      style={{
+        display: "flex",
+        height: "100%",
+        minHeight: "calc(100vh - 0px)",
+        backgroundColor: "#0f0f0f",
+        color: "#fff",
+        fontFamily:
+          'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+      }}
+    >
+      {/* ── Inner Sidebar ─────────────────────────────────────────────────── */}
+      <aside
+        style={{
+          width: 220,
+          minWidth: 220,
+          backgroundColor: "#111",
+          borderRight: "1px solid #1f2937",
+          display: "flex",
+          flexDirection: "column",
+          padding: "20px 0",
+          flexShrink: 0,
+        }}
+      >
+        {/* Logo */}
+        <div style={{ padding: "0 16px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: "#14b8a620",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {/* Atom SVG */}
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#14b8a6"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="1" fill="#14b8a6" />
+                <path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9C11.18 3.77 5.85 1.7 3.8 3.8c-2.04 2.04-.02 7.37 4.5 11.91C12.83 20.24 18.16 22.27 20.2 20.2z" />
+                <path d="M15.7 15.7c4.52-4.54 6.56-9.87 4.5-11.91-2.04-2.04-7.37-.02-11.91 4.5-4.52 4.54-6.56 9.87-4.5 11.91 2.04 2.04 7.37.02 11.91-4.5z" />
+              </svg>
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#fff",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                ATOM ENGINE
+              </div>
+              <div
+                style={{ fontSize: 10, color: "#6b7280", marginTop: 1 }}
+              >
+                Voice campaign sandbox
+              </div>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">AI-powered voice cold caller with live sentiment analysis</p>
         </div>
-      </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
-          <TabsTrigger value="campaign">Campaign</TabsTrigger>
-          <TabsTrigger value="voice">
-            <span className="flex items-center gap-1.5">
-              <Radio className="w-3 h-3" />
-              Live Voice
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="live" disabled={!activeResult}>
-            <span className="flex items-center gap-1.5">
-              Sim Call
-              {activeResult && !queue.find((q) => q.id === activeCallId && q.status === "completed") && (
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-              )}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="history">
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3 h-3" />
-              History ({calls.length})
-            </span>
-          </TabsTrigger>
-        </TabsList>
+        {/* Workspace label */}
+        <div
+          style={{
+            fontSize: 9,
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            color: "#4b5563",
+            padding: "0 16px 8px",
+            fontWeight: 600,
+          }}
+        >
+          Workspace
+        </div>
 
-        {/* ── TAB: Live Voice (Hume EVI) ── */}
-        <TabsContent value="voice" className="mt-4">
-          <HumeVoiceCallWrapper
-            companyName={companyName || "Target Company"}
-            contactName={contactName || "Decision Maker"}
-            productName={products.find(p => p.slug === productSlug)?.name || "Antimatter AI"}
-            productSlug={productSlug || "antimatter-ai"}
-          />
-        </TabsContent>
+        {/* Nav items */}
+        <nav style={{ flex: 1 }}>
+          {sidebarItems.map((item) => {
+            const isActive = activeSidebarItem === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setActiveSidebarItem(item.key)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  padding: "9px 16px",
+                  backgroundColor: isActive ? "#14b8a615" : "transparent",
+                  border: "none",
+                  borderLeft: isActive
+                    ? "2px solid #14b8a6"
+                    : "2px solid transparent",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "background-color 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive)
+                    e.currentTarget.style.backgroundColor = "#1f2937";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive)
+                    e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: isActive ? "#14b8a6" : "#d1d5db",
+                    fontWeight: isActive ? 600 : 400,
+                  }}
+                >
+                  {item.label}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "#4b5563",
+                    fontWeight: 500,
+                  }}
+                >
+                  {item.tag}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
 
-        {/* ── TAB 1: Campaign ── */}
-        <TabsContent value="campaign" className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Input form */}
-            <Card className="border-border/50">
-              <CardHeader className="pb-3 pt-4 px-4">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-primary" />
-                  Start New Call
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Company Name *</Label>
-                    <Input
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="Acme Corp"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Contact Name *</Label>
-                    <Input
-                      value={contactName}
-                      onChange={(e) => setContactName(e.target.value)}
-                      placeholder="Jane Smith"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Title / Role</Label>
-                    <Input
-                      value={contactTitle}
-                      onChange={(e) => setContactTitle(e.target.value)}
-                      placeholder="VP of Engineering"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Phone (optional)</Label>
-                    <Input
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+1 555-0100"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Product to Pitch *</Label>
-                  <Select value={productSlug} onValueChange={setProductSlug}>
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder="Select a product..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((p) => (
-                        <SelectItem key={p.slug} value={p.slug}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    className="w-full gap-2"
-                    onClick={handleStartCall}
-                    disabled={isLoading || !companyName || !contactName || !productSlug}
-                  >
-                    {isLoading ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" />Simulating...</>
-                    ) : (
-                      <><Brain className="w-4 h-4" />AI Simulate</>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
-                    onClick={async () => {
-                      if (!phoneNumber) {
-                        toast({ title: "Phone required", description: "Enter a phone number to dial", variant: "destructive" });
-                        return;
-                      }
-                      try {
-                        const res = await apiRequest("POST", "/api/atom-leadgen/call", {
-                          phoneNumber,
-                          contactName,
-                          companyName,
-                          productSlug,
-                        });
-                        const data = await res.json();
-                        // Save Twilio call to history
-                        store.addCall({
-                          id: Date.now(),
-                          companyName,
-                          contactName,
-                          contactTitle: "",
-                          productSlug,
-                          phoneNumber,
-                          callType: "twilio-dial",
-                          callSid: data.callSid || "",
-                          transcript: "[Live Twilio call - no transcript available]",
-                          sentimentTimeline: "[]",
-                          intentTimeline: "[]",
-                          emotionalTones: "{}",
-                          qualification: JSON.stringify({ qualified: false, score: 0, keySignals: [], objections: [] }),
-                          outcome: "pending",
-                          duration: 0,
-                          aiRecommendations: "[]",
-                          createdAt: new Date().toISOString(),
-                          status: "completed",
-                          sentiment: 0,
-                          buyerIntent: 0,
-                        });
-                        toast({ title: "Call initiated", description: `Dialing ${contactName || phoneNumber}... SID: ${data.callSid?.slice(-6)}` });
-                      } catch (err: any) {
-                        toast({ title: "Call failed", description: err.message, variant: "destructive" });
-                      }
+        {/* Campaign Health */}
+        <div
+          style={{
+            margin: "16px 12px 0",
+            borderTop: "1px solid #1f2937",
+            paddingTop: 16,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              color: "#4b5563",
+              marginBottom: 12,
+              fontWeight: 600,
+              paddingLeft: 4,
+            }}
+          >
+            Campaign Health
+          </div>
+
+          {/* Queued Leads */}
+          <div
+            style={{
+              backgroundColor: "#1a1a1a",
+              border: "1px solid #1f2937",
+              borderRadius: 8,
+              padding: "10px 12px",
+              marginBottom: 8,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#6b7280",
+                marginBottom: 4,
+              }}
+            >
+              Queued Leads
+            </div>
+            <div
+              style={{
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#fff",
+                lineHeight: 1,
+                marginBottom: 3,
+              }}
+            >
+              {campaignHealth.queuedLeads}
+            </div>
+            <div style={{ fontSize: 10, color: "#6b7280" }}>
+              Cloudflare CDN detected
+            </div>
+          </div>
+
+          {/* Qualified Today */}
+          <div
+            style={{
+              backgroundColor: "#1a1a1a",
+              border: "1px solid #1f2937",
+              borderRadius: 8,
+              padding: "10px 12px",
+              marginBottom: 8,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#6b7280",
+                marginBottom: 4,
+              }}
+            >
+              Qualified Today
+            </div>
+            <div
+              style={{
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#fff",
+                lineHeight: 1,
+                marginBottom: 3,
+              }}
+            >
+              {campaignHealth.qualifiedToday}
+            </div>
+            <div style={{ fontSize: 10, color: "#6b7280" }}>
+              Intent above threshold
+            </div>
+          </div>
+
+          {/* Meetings Booked */}
+          <div
+            style={{
+              backgroundColor: "#1a1a1a",
+              border: "1px solid #1f2937",
+              borderRadius: 8,
+              padding: "10px 12px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "#6b7280",
+                marginBottom: 4,
+              }}
+            >
+              Meetings Booked
+            </div>
+            <div
+              style={{
+                fontSize: 26,
+                fontWeight: 700,
+                color: "#fff",
+                lineHeight: 1,
+                marginBottom: 3,
+              }}
+            >
+              {campaignHealth.meetingsBooked}
+            </div>
+            <div style={{ fontSize: 10, color: "#6b7280" }}>
+              Warm transfer or callback
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Main Content ───────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Top Bar */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "16px 24px",
+            borderBottom: "1px solid #1f2937",
+            backgroundColor: "#0f0f0f",
+            flexShrink: 0,
+          }}
+        >
+          {/* Title */}
+          <div>
+            <h1
+              style={{
+                fontSize: 26,
+                fontWeight: 800,
+                color: "#fff",
+                letterSpacing: "-0.02em",
+                lineHeight: 1.1,
+                margin: 0,
+              }}
+            >
+              ATOM{" "}
+              <span style={{ color: "#14b8a6" }}>lead gen</span> engine
+            </h1>
+            <p
+              style={{
+                fontSize: 13,
+                color: "#6b7280",
+                marginTop: 4,
+                lineHeight: 1.4,
+              }}
+            >
+              Design a campaign, simulate sourcing ZoomInfo-style targets,
+              monitor buyer intent, and prep a human rep handoff in one
+              static app.
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexShrink: 0,
+            }}
+          >
+            {/* Demo mode badge */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 12px",
+                borderRadius: 6,
+                border: "1px solid #166534",
+                backgroundColor: "#14532d22",
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  backgroundColor: "#22c55e",
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ fontSize: 12, color: "#86efac", fontWeight: 500 }}>
+                Demo mode active
+              </span>
+            </div>
+
+            {/* Theme toggle icon */}
+            <button
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                border: "1px solid #374151",
+                backgroundColor: "#1f2937",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#9ca3af",
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+            </button>
+
+            {/* Load sample */}
+            <button
+              style={{
+                padding: "7px 16px",
+                borderRadius: 8,
+                border: "1px solid #374151",
+                backgroundColor: "#1f2937",
+                color: "#d1d5db",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              Load sample
+            </button>
+
+            {/* Run test cycle */}
+            <button
+              onClick={handleSimulate}
+              disabled={simRunning}
+              style={{
+                padding: "7px 16px",
+                borderRadius: 8,
+                border: "none",
+                backgroundColor: simRunning ? "#0f766e" : "#14b8a6",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: simRunning ? "not-allowed" : "pointer",
+                transition: "background-color 0.15s",
+              }}
+            >
+              {simRunning ? "Running…" : "Run test cycle"}
+            </button>
+          </div>
+        </div>
+
+        {/* Content grid */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "20px 24px",
+            display: "flex",
+            gap: 20,
+            alignItems: "flex-start",
+          }}
+        >
+          {/* ── Left Panel (~45%) ──────────────────────────────────────────── */}
+          <div style={{ flex: "0 0 44%", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Campaign Studio Card */}
+            <div
+              style={{
+                backgroundColor: "#1a1a1a",
+                border: "1px solid #1f2937",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
+              {/* Card header */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "16px 20px 0",
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: "#fff",
+                      margin: 0,
                     }}
-                    disabled={!phoneNumber || !companyName}
                   >
-                    <Phone className="w-4 h-4" />Dial (Twilio)
-                  </Button>
+                    Campaign studio
+                  </h2>
+                  <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                    Paste the campaign ask exactly how your team thinks about
+                    it. The app compiles it into offer logic, qualification
+                    rules, and rep handoff triggers.
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 11,
+                    color: "#22c55e",
+                    flexShrink: 0,
+                    marginLeft: 12,
+                  }}
+                >
+                  <StatusDot status="ready" />
+                  Ready to compile
+                </div>
+              </div>
+
+              <div style={{ padding: "16px 20px 20px" }}>
+                {/* Campaign Request */}
+                <div style={{ marginBottom: 14 }}>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "#6b7280",
+                      marginBottom: 6,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Campaign Request
+                  </div>
+                  <textarea
+                    value={campaignRequest}
+                    onChange={(e) => setCampaignRequest(e.target.value)}
+                    rows={6}
+                    style={{
+                      width: "100%",
+                      backgroundColor: "#111",
+                      border: "1px solid #374151",
+                      borderRadius: 8,
+                      padding: "10px 12px",
+                      fontSize: 13,
+                      color: "#e5e7eb",
+                      resize: "vertical",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      lineHeight: 1.6,
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: "#4b5563", marginTop: 6 }}>
+                    This static app compiles the request locally for testing.
+                    Later you can replace this with a backend parser or OpenAI
+                    function call.
+                  </div>
                 </div>
 
-                {isLoading && (
-                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                    <div className="flex items-center gap-2 text-sm text-primary">
-                      <Brain className="w-4 h-4 animate-pulse" />
-                      <span className="font-medium">ATOM generating realistic cold call simulation...</span>
+                {/* Region + Dial limit */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 12,
+                    marginBottom: 14,
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "#6b7280",
+                        marginBottom: 6,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Target Region
+                    </div>
+                    <select
+                      value={targetRegion}
+                      onChange={(e) => setTargetRegion(e.target.value)}
+                      style={{
+                        width: "100%",
+                        backgroundColor: "#111",
+                        border: "1px solid #374151",
+                        borderRadius: 8,
+                        padding: "9px 12px",
+                        fontSize: 13,
+                        color: "#e5e7eb",
+                        outline: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <option value="US">US</option>
+                      <option value="EU">EU</option>
+                      <option value="US + EU">US + EU</option>
+                      <option value="Global">Global</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "#6b7280",
+                        marginBottom: 6,
+                        fontWeight: 600,
+                      }}
+                    >
+                      Daily Dial Limit
+                    </div>
+                    <input
+                      type="number"
+                      value={dailyDialLimit}
+                      onChange={(e) => setDailyDialLimit(e.target.value)}
+                      style={{
+                        width: "100%",
+                        backgroundColor: "#111",
+                        border: "1px solid #374151",
+                        borderRadius: 8,
+                        padding: "9px 12px",
+                        fontSize: 13,
+                        color: "#e5e7eb",
+                        outline: "none",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Filter Tags */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 6,
+                    marginBottom: 16,
+                  }}
+                >
+                  <FilterTag label="Tech filter · Cloudflare CDN" />
+                  <FilterTag label="Offer · match or beat" />
+                  <FilterTag label="Buyout cap · 6 months" />
+                  <FilterTag label="Handoff · buyer intent 70+" />
+                </div>
+
+                <div style={{ fontSize: 11, color: "#4b5563", marginBottom: 14 }}>
+                  Use this as a Vercel-ready front end while your backend APIs
+                  are still being wired.
+                </div>
+
+                {/* Buttons */}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: 8,
+                      border: "1px solid #374151",
+                      backgroundColor: "transparent",
+                      color: "#d1d5db",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Compile plan
+                  </button>
+                  <button
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: 8,
+                      border: "none",
+                      backgroundColor: "#14b8a6",
+                      color: "#fff",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Launch queue
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Target Queue Card */}
+            <div
+              style={{
+                backgroundColor: "#1a1a1a",
+                border: "1px solid #1f2937",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "16px 20px 0",
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: "#fff",
+                      margin: 0,
+                    }}
+                  >
+                    Target queue
+                  </h2>
+                  <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                    These are simulated outbound targets that match the
+                    campaign. In production this panel would be fed by ZoomInfo,
+                    Apollo, Clay, or your own enrichment pipeline.
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 11,
+                    color: "#22c55e",
+                    flexShrink: 0,
+                    marginLeft: 12,
+                  }}
+                >
+                  <StatusDot status="healthy" />
+                  Queue healthy
+                </div>
+              </div>
+
+              <div style={{ padding: "16px 20px 20px" }}>
+                {leads.map((lead) => (
+                  <LeadCard
+                    key={lead.id}
+                    lead={lead}
+                    onDial={handleDial}
+                    isDialing={isDialing}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right Panel (~55%) ─────────────────────────────────────────── */}
+          <div style={{ flex: "0 0 54%", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Live Call Board Card */}
+            <div
+              style={{
+                backgroundColor: "#1a1a1a",
+                border: "1px solid #1f2937",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "16px 20px 0",
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: "#fff",
+                      margin: 0,
+                    }}
+                  >
+                    Live call board
+                  </h2>
+                  <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                    Preview the kind of speech-to-speech scoring and call
+                    progression your actual voice stack would emit in real time.
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 11,
+                    flexShrink: 0,
+                    marginLeft: 12,
+                  }}
+                  className={callState.isActive ? "pulse-dot" : ""}
+                >
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      backgroundColor: callStatusColor,
+                      display: "inline-block",
+                    }}
+                  />
+                  <span style={{ color: callStatusColor === "#6b7280" ? "#9ca3af" : callStatusColor }}>
+                    {callStatusLabel}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ padding: "16px 20px 20px" }}>
+                {/* Gauges */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 16,
+                    backgroundColor: "#111",
+                    border: "1px solid #1f2937",
+                    borderRadius: 10,
+                    padding: "16px 20px",
+                    marginBottom: 14,
+                  }}
+                >
+                  <GaugeBar
+                    value={callState.sentiment}
+                    label="Sentiment"
+                    subLabel={getSentimentLabel(callState.sentiment)}
+                  />
+                  <div
+                    style={{
+                      width: 1,
+                      backgroundColor: "#1f2937",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <GaugeBar
+                    value={callState.buyerIntent}
+                    label="Buyer Intent"
+                    subLabel={getBuyerIntentLabel(callState.buyerIntent)}
+                  />
+                </div>
+
+                {/* Call Stage */}
+                {callState.stage !== "idle" && (
+                  <div
+                    style={{
+                      backgroundColor: "#111",
+                      border: "1px solid #374151",
+                      borderRadius: 10,
+                      padding: "14px 16px",
+                      marginBottom: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "#fff",
+                        marginBottom: 5,
+                      }}
+                    >
+                      {stageInfo.label}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.5 }}>
+                      {stageInfo.desc}
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
 
-            {/* Campaign queue */}
-            <Card className="border-border/50">
-              <CardHeader className="pb-3 pt-4 px-4">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Users className="w-4 h-4 text-primary" />
-                  Campaign Queue
-                  {queue.length > 0 && (
-                    <Badge variant="outline" className="ml-auto text-[10px]">{queue.length}</Badge>
+                {/* Transcript */}
+                <div
+                  style={{
+                    backgroundColor: "#111",
+                    border: "1px solid #1f2937",
+                    borderRadius: 10,
+                    padding: "14px 16px",
+                    marginBottom: 14,
+                    maxHeight: 340,
+                    overflowY: "auto",
+                  }}
+                  ref={transcriptRef}
+                >
+                  {callState.transcript.length === 0 ? (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#4b5563",
+                        textAlign: "center",
+                        padding: "24px 0",
+                      }}
+                    >
+                      {callState.isComplete
+                        ? "Call ended."
+                        : "Click simulate live call to step through a qualification conversation."}
+                    </div>
+                  ) : (
+                    callState.transcript.map((msg, i) => (
+                      <TranscriptLine key={i} msg={msg} />
+                    ))
                   )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                {queue.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                    <PhoneCall className="w-8 h-8 mb-2 opacity-30" />
-                    <p className="text-xs">No calls queued yet</p>
+                </div>
+
+                {/* CTA row */}
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <button
+                    onClick={handleSimulate}
+                    disabled={simRunning}
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: 8,
+                      border: "none",
+                      backgroundColor: simRunning ? "#0f766e" : "#14b8a6",
+                      color: "#fff",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: simRunning ? "not-allowed" : "pointer",
+                      transition: "background-color 0.15s",
+                    }}
+                  >
+                    {simRunning ? "Simulating…" : "Simulate live call"}
+                  </button>
+                  <div style={{ fontSize: 11, color: "#4b5563" }}>
+                    {callState.isComplete
+                      ? "Simulation complete — handoff packet ready below."
+                      : "Click simulate to step through a qualification and rep handoff."}
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {queue.map((q) => (
-                      <div
-                        key={q.id}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${q.id === activeCallId ? "border-primary/40 bg-primary/5" : "border-border/50"}`}
-                        onClick={() => {
-                          if (q.result) {
-                            setActiveCallId(q.id);
-                            setActiveResult(q.result);
-                            setActiveTab("live");
-                          }
-                        }}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{q.companyName}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{q.contactName} · {q.productSlug.replace(/-/g, " ")}</p>
-                        </div>
-                        <Badge className={`text-[10px] ${queueStatusColors[q.status]}`}>
-                          {q.status === "in-progress" && <Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" />}
-                          {q.status}
-                        </Badge>
-                        {q.result && (
-                          <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
-                        )}
-                      </div>
-                    ))}
+                </div>
+
+                {/* System note */}
+                {!callState.isActive && !callState.isComplete && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      fontSize: 12,
+                      color: "#4b5563",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <span style={{ color: "#6b7280", fontWeight: 600 }}>
+                      System
+                    </span>{" "}
+                    · Click simulate live call to step through qualification and
+                    rep handoff.
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* ── TAB 2: Live Call ── */}
-        <TabsContent value="live" className="mt-4">
-          {activeQueuedCall && activeResult ? (
-            <LiveCallDashboard
-              key={activeCallId!}
-              queuedCall={activeQueuedCall}
-              result={activeResult}
-              onCallEnd={handleCallEnd}
-            />
-          ) : (
-            <Card className="border-border/50">
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Phone className="w-8 h-8 mb-3 opacity-30" />
-                <p className="text-sm">No active call</p>
-                <p className="text-xs mt-1">Start a call from the Campaign tab</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => setActiveTab("campaign")}
-                >
-                  Go to Campaign
-                </Button>
               </div>
-            </Card>
-          )}
-        </TabsContent>
+            </div>
 
-        {/* ── TAB 3: Analytics ── */}
-        <TabsContent value="analytics" className="mt-4">
-          <AnalyticsDashboard calls={calls} />
-        </TabsContent>
+            {/* Rep Handoff Packet Card */}
+            <div
+              style={{
+                backgroundColor: "#1a1a1a",
+                border: "1px solid #1f2937",
+                borderRadius: 12,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "16px 20px 0",
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: "#fff",
+                      margin: 0,
+                    }}
+                  >
+                    Rep handoff packet
+                  </h2>
+                  <p style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+                    Everything a closer needs when ATOM finds a real opportunity
+                    and passes it to a human.
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 11,
+                    flexShrink: 0,
+                    marginLeft: 12,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      backgroundColor: handoffPacket ? "#f59e0b" : "#6b7280",
+                      display: "inline-block",
+                    }}
+                  />
+                  <span style={{ color: handoffPacket ? "#f59e0b" : "#6b7280" }}>
+                    {handoffPacket ? "Rep brief ready" : "Waiting for qualified lead"}
+                  </span>
+                </div>
+              </div>
 
-        {/* ── TAB 4: Call History ── */}
-        <TabsContent value="history" className="mt-4 space-y-3">
-          {calls.length === 0 ? (
-            <Card className="border-border/50">
-              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Clock className="w-8 h-8 mb-3 opacity-40" />
-                <p className="text-sm">No call history yet</p>
-                <p className="text-xs mt-1">Run a campaign or dial a prospect to see history here</p>
-              </CardContent>
-            </Card>
-          ) : (
-            calls.map((call) => {
-              const qual = (() => { try { return JSON.parse(call.qualification); } catch { return { score: 0, keySignals: [], objections: [] }; } })();
-              const sentTL = (() => { try { return JSON.parse(call.sentimentTimeline); } catch { return []; } })();
-              const intentTL = (() => { try { return JSON.parse(call.intentTimeline); } catch { return []; } })();
-              const tones = (() => { try { return JSON.parse(call.emotionalTones); } catch { return {}; } })();
-              const recs = (() => { try { return JSON.parse(call.aiRecommendations); } catch { return []; } })();
-              const transcript = (() => { try { return JSON.parse(call.transcript); } catch { return []; } })();
-              return (
-                <CallHistoryCard
-                  key={call.id}
-                  call={call}
-                  qualification={qual}
-                  sentimentTimeline={sentTL}
-                  intentTimeline={intentTL}
-                  tones={tones}
-                  recommendations={recs}
-                  transcript={transcript}
-                />
-              );
-            })
-          )}
-        </TabsContent>
-      </Tabs>
+              <div style={{ padding: "16px 20px 20px" }}>
+                {/* Qualified Handoff Summary */}
+                {handoffPacket ? (
+                  <div
+                    style={{
+                      backgroundColor: "#111",
+                      border: "1px solid #1f2937",
+                      borderRadius: 10,
+                      padding: "16px",
+                      marginBottom: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 14,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "#fff",
+                        }}
+                      >
+                        Qualified handoff summary
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                          fontSize: 11,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            backgroundColor: "#f59e0b",
+                            display: "inline-block",
+                          }}
+                        />
+                        <span style={{ color: "#f59e0b" }}>Hot lead</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {[
+                        { key: "Buyer", val: handoffPacket.buyer },
+                        { key: "Current stack", val: handoffPacket.currentStack },
+                        { key: "Key pain", val: handoffPacket.keyPain },
+                        { key: "Offer resonance", val: handoffPacket.offerResonance },
+                        { key: "Close action", val: handoffPacket.closeAction },
+                      ].map(({ key, val }) => (
+                        <div key={key} style={{ fontSize: 13, lineHeight: 1.5 }}>
+                          <span
+                            style={{ color: "#9ca3af", fontWeight: 600 }}
+                          >
+                            {key}:{" "}
+                          </span>
+                          <span style={{ color: "#e5e7eb" }}>{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      backgroundColor: "#111",
+                      border: "1px solid #1f2937",
+                      borderRadius: 10,
+                      padding: "28px 16px",
+                      marginBottom: 14,
+                      textAlign: "center",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, color: "#4b5563" }}>
+                      Run a simulation or complete a call to populate the
+                      handoff packet.
+                    </div>
+                  </div>
+                )}
+
+                {/* Compiled campaign plan */}
+                <div
+                  style={{
+                    backgroundColor: "#111",
+                    border: "1px solid #1f2937",
+                    borderRadius: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "12px 16px",
+                      borderBottom: "1px solid #1f2937",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#fff",
+                      }}
+                    >
+                      Compiled campaign plan
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        fontSize: 11,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: "50%",
+                          backgroundColor: "#22c55e",
+                          display: "inline-block",
+                        }}
+                      />
+                      <span style={{ color: "#22c55e" }}>Ready</span>
+                    </div>
+                  </div>
+                  <div style={{ padding: "14px 16px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                        fontSize: 13,
+                      }}
+                    >
+                      {[
+                        {
+                          key: "Target signal",
+                          val: "Cloudflare CDN customers with renewal inside 12 months",
+                        },
+                        {
+                          key: "Offer hook",
+                          val: "Price match + buyout up to 6 months remaining contract",
+                        },
+                        {
+                          key: "Qualification gate",
+                          val: "Buyer intent ≥ 70 before warm transfer",
+                        },
+                        {
+                          key: "Region scope",
+                          val: targetRegion,
+                        },
+                        {
+                          key: "Daily dial cap",
+                          val: `${dailyDialLimit} dials/day`,
+                        },
+                      ].map(({ key, val }) => (
+                        <div key={key} style={{ lineHeight: 1.5 }}>
+                          <span style={{ color: "#9ca3af", fontWeight: 600 }}>
+                            {key}:{" "}
+                          </span>
+                          <span style={{ color: "#e5e7eb" }}>{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
