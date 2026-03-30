@@ -128,6 +128,57 @@ function ProspectCard({ prospect, products }: { prospect: Prospect; products: Pr
           </Button>
         </div>
 
+        {/* Always-visible contacts summary + Call with ATOM */}
+        {contacts.length > 0 && !expanded && (
+          <div className="mt-2 pt-2 border-t border-border/30 space-y-1.5">
+            {contacts.slice(0, 2).map((c, i) => (
+              <div key={i} className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <User className="w-3 h-3 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate">{c.firstName} {c.lastName}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{c.position}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[10px] gap-1 text-primary border-primary/30 hover:bg-primary/10 shrink-0"
+                  onClick={() => {
+                    const mp = JSON.parse(prospect.matchedProducts || "[]") as string[];
+                    const params = new URLSearchParams({
+                      company: prospect.companyName,
+                      contact: `${c.firstName} ${c.lastName}`,
+                      title: c.position || "",
+                      phone: c.phone || "",
+                      product: mp[0] || "",
+                    });
+                    navigate(`/atom-leadgen?${params.toString()}`);
+                  }}
+                >
+                  <PhoneCall className="w-3 h-3" />
+                  Call with ATOM
+                </Button>
+              </div>
+            ))}
+            {contacts.length > 2 && (
+              <p className="text-[10px] text-muted-foreground">+{contacts.length - 2} more — expand to see all</p>
+            )}
+          </div>
+        )}
+
+        {/* Find Contacts prompt when no contacts yet */}
+        {contacts.length === 0 && !expanded && (
+          <div className="mt-2 pt-2 border-t border-border/30">
+            <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1" onClick={() => enrichMutation.mutate()} disabled={enrichMutation.isPending}>
+              {enrichMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              {enrichMutation.isPending ? "Finding decision makers..." : "Find Decision Makers"}
+            </Button>
+          </div>
+        )}
+
         {expanded && (
           <div className="mt-3 pt-3 border-t border-border/50 space-y-3">
             <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Why They Need Us</p><p className="text-sm leading-relaxed">{prospect.reason}</p></div>
