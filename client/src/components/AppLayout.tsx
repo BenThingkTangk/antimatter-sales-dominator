@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { 
   Atom, Zap, Shield, MessageSquareWarning, TrendingUp, 
-  Radar, ChevronLeft, ChevronRight, Moon, Sun, PhoneCall
+  Radar, ChevronLeft, ChevronRight, Moon, Sun, PhoneCall, Megaphone
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ const navItems = [
   { href: "/market", icon: Shield, label: "Market Intent", description: "Market intelligence", beta: false },
   { href: "/prospects", icon: Radar, label: "Prospect Engine", description: "AI prospect scanner", beta: false },
   { href: "/atom-leadgen", icon: PhoneCall, label: "ATOM Lead Gen", description: "AI voice cold caller", beta: true },
+  { href: "/atom-campaign", icon: Megaphone, label: "ATOM Campaign", description: "Voice campaign engine", beta: true },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
