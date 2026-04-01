@@ -2,8 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ANTIMATTER AI DOMINATOR — Dark-first cyberpunk tech palette */
-/* Electric cyan primary, dark slate surfaces, sharp contrasts */
+/* ANTIMATTER AI DOMINATOR — Dark-first purple brand palette */
+/* Antimatter AI purple brand system: #696aac accent, #3e3f7e deep, #a2a3e9 light */
 
 /* LIGHT MODE */
 :root {
@@ -46,7 +46,7 @@
   --chart-3: 150 60% 42%;
   --chart-4: 40 80% 55%;
   --chart-5: 340 65% 50%;
-  --font-sans: 'General Sans', 'Inter', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', Arial, Helvetica, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', monospace;
   --radius: .5rem;
@@ -84,36 +84,36 @@
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
-  --background: 222 30% 6%;
-  --foreground: 210 20% 92%;
-  --border: 222 16% 16%;
-  --card: 222 26% 9%;
-  --card-foreground: 210 20% 92%;
-  --card-border: 222 16% 14%;
-  --sidebar: 222 32% 7%;
-  --sidebar-foreground: 195 80% 72%;
-  --sidebar-border: 222 20% 14%;
-  --sidebar-primary: 190 95% 50%;
-  --sidebar-primary-foreground: 222 30% 6%;
-  --sidebar-accent: 222 20% 14%;
-  --sidebar-accent-foreground: 195 80% 72%;
-  --sidebar-ring: 190 95% 50%;
-  --popover: 222 26% 10%;
-  --popover-foreground: 210 20% 92%;
-  --popover-border: 222 16% 16%;
-  --primary: 190 95% 50%;
-  --primary-foreground: 222 30% 6%;
-  --secondary: 222 16% 16%;
-  --secondary-foreground: 210 20% 92%;
-  --muted: 222 14% 18%;
-  --muted-foreground: 210 10% 55%;
-  --accent: 190 25% 16%;
-  --accent-foreground: 210 20% 92%;
+  --background: 0 0% 1%;
+  --foreground: 240 64% 97%;
+  --border: 240 15% 15%;
+  --card: 240 15% 5%;
+  --card-foreground: 240 64% 97%;
+  --card-border: 240 15% 12%;
+  --sidebar: 240 20% 4%;
+  --sidebar-foreground: 239 62% 77%;
+  --sidebar-border: 240 15% 12%;
+  --sidebar-primary: 239 25% 54%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 239 15% 12%;
+  --sidebar-accent-foreground: 239 62% 77%;
+  --sidebar-ring: 239 25% 54%;
+  --popover: 240 15% 5%;
+  --popover-foreground: 240 64% 97%;
+  --popover-border: 240 15% 15%;
+  --primary: 239 25% 54%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 239 33% 37%;
+  --secondary-foreground: 240 64% 97%;
+  --muted: 239 15% 15%;
+  --muted-foreground: 240 10% 55%;
+  --accent: 239 62% 77%;
+  --accent-foreground: 0 0% 1%;
   --destructive: 0 72% 55%;
   --destructive-foreground: 0 0% 98%;
-  --input: 222 14% 24%;
-  --ring: 190 95% 50%;
-  --chart-1: 190 95% 58%;
+  --input: 240 15% 18%;
+  --ring: 239 25% 54%;
+  --chart-1: 239 62% 77%;
   --chart-2: 270 60% 68%;
   --chart-3: 150 60% 55%;
   --chart-4: 40 80% 65%;
@@ -153,12 +153,21 @@
 }
 
 /* Glow effects for the Antimatter brand */
-.glow-cyan {
-  box-shadow: 0 0 20px hsl(190 95% 50% / 0.15), 0 0 40px hsl(190 95% 50% / 0.05);
+.glow-purple {
+  box-shadow: 0 0 20px rgba(105, 106, 172, 0.15), 0 0 40px rgba(105, 106, 172, 0.05);
 }
 
-.glow-cyan-strong {
-  box-shadow: 0 0 30px hsl(190 95% 50% / 0.3), 0 0 60px hsl(190 95% 50% / 0.1);
+.glow-purple-intense {
+  box-shadow: 0 0 25px #696aac, inset 0 0 6.7px rgba(255, 255, 255, 0.9);
+}
+
+.btn-antimatter {
+  background: linear-gradient(93.92deg, #8587e3 -13.51%, #4c4dac 40.91%, #696aac 113.69%);
+  box-shadow: 0px 0px 10px #696aac, inset 0px 0px 2px rgba(255, 255, 255, 0.61);
+}
+
+.btn-antimatter:hover {
+  box-shadow: 0px 0px 25px #696aac, inset 0px 0px 6.7px rgba(255, 255, 255, 0.9);
 }
 
 /* Score indicator animations */

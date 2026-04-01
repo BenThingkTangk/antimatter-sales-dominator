@@ -172,7 +172,7 @@ function getBuyerIntentLabel(score: number): string {
 }
 
 function getGaugeColor(score: number): string {
-  if (score >= 60) return "#14b8a6";
+  if (score >= 60) return "#696aac";
   if (score >= 30) return "#f59e0b";
   return "#ef4444";
 }
@@ -460,7 +460,7 @@ function LeadCard({
           placeholder="+1..."
           style={{
             width: "100%",
-            backgroundColor: "#0f0f0f",
+            backgroundColor: "#020202",
             border: `1px solid ${lead.phone && !phoneValid ? "#ef4444" : "#374151"}`,
             borderRadius: 6,
             padding: "6px 10px",
@@ -486,17 +486,17 @@ function LeadCard({
           fontWeight: 600,
           padding: "5px 14px",
           borderRadius: 6,
-          border: "1px solid #14b8a6",
+          border: "1px solid #696aac",
           backgroundColor: "transparent",
-          color: !phoneValid ? "#4b5563" : "#14b8a6",
-          borderColor: !phoneValid ? "#374151" : "#14b8a6",
+          color: !phoneValid ? "#4b5563" : "#696aac",
+          borderColor: !phoneValid ? "#374151" : "#696aac",
           cursor: isDialing || !phoneValid ? "not-allowed" : "pointer",
           opacity: isDialing ? 0.5 : 1,
           transition: "background-color 0.15s",
         }}
         onMouseEnter={(e) => {
           if (!isDialing && phoneValid)
-            (e.currentTarget.style.backgroundColor = "#14b8a61a");
+            (e.currentTarget.style.backgroundColor = "#696aac1a");
         }}
         onMouseLeave={(e) =>
           (e.currentTarget.style.backgroundColor = "transparent")
@@ -525,7 +525,7 @@ function TranscriptLine({ msg }: { msg: TranscriptMessage }) {
           fontSize: 10,
           fontWeight: 700,
           letterSpacing: "0.08em",
-          color: isAtom ? "#14b8a6" : "#9ca3af",
+          color: isAtom ? "#696aac" : "#9ca3af",
           marginBottom: 4,
           textTransform: "uppercase",
         }}
@@ -1006,7 +1006,7 @@ export default function AtomLeadGen() {
         display: "flex",
         height: "100%",
         minHeight: "calc(100vh - 0px)",
-        backgroundColor: "#0f0f0f",
+        backgroundColor: "#020202",
         color: "#fff",
         fontFamily:
           'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
@@ -1036,7 +1036,7 @@ export default function AtomLeadGen() {
                 width: 32,
                 height: 32,
                 borderRadius: 8,
-                backgroundColor: "#14b8a620",
+                backgroundColor: "#696aac20",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1047,12 +1047,12 @@ export default function AtomLeadGen() {
                 height="18"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#14b8a6"
+                stroke="#696aac"
                 strokeWidth="1.8"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <circle cx="12" cy="12" r="1" fill="#14b8a6" />
+                <circle cx="12" cy="12" r="1" fill="#696aac" />
                 <path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9C11.18 3.77 5.85 1.7 3.8 3.8c-2.04 2.04-.02 7.37 4.5 11.91C12.83 20.24 18.16 22.27 20.2 20.2z" />
                 <path d="M15.7 15.7c4.52-4.54 6.56-9.87 4.5-11.91-2.04-2.04-7.37-.02-11.91 4.5-4.52 4.54-6.56 9.87-4.5 11.91 2.04 2.04 7.37.02 11.91-4.5z" />
               </svg>
@@ -1105,10 +1105,10 @@ export default function AtomLeadGen() {
                   justifyContent: "space-between",
                   width: "100%",
                   padding: "9px 16px",
-                  backgroundColor: isActive ? "#14b8a615" : "transparent",
+                  backgroundColor: isActive ? "#696aac15" : "transparent",
                   border: "none",
                   borderLeft: isActive
-                    ? "2px solid #14b8a6"
+                    ? "2px solid #696aac"
                     : "2px solid transparent",
                   cursor: "pointer",
                   textAlign: "left",
@@ -1126,7 +1126,7 @@ export default function AtomLeadGen() {
                 <span
                   style={{
                     fontSize: 13,
-                    color: isActive ? "#14b8a6" : "#d1d5db",
+                    color: isActive ? "#696aac" : "#d1d5db",
                     fontWeight: isActive ? 600 : 400,
                   }}
                 >
@@ -1171,7 +1171,7 @@ export default function AtomLeadGen() {
           {/* Queued Leads */}
           <div
             style={{
-              backgroundColor: "#1a1a1a",
+              backgroundColor: "rgba(246,246,253,0.03)",
               border: "1px solid #1f2937",
               borderRadius: 8,
               padding: "10px 12px",
@@ -1208,7 +1208,7 @@ export default function AtomLeadGen() {
           {/* Qualified Today */}
           <div
             style={{
-              backgroundColor: "#1a1a1a",
+              backgroundColor: "rgba(246,246,253,0.03)",
               border: "1px solid #1f2937",
               borderRadius: 8,
               padding: "10px 12px",
@@ -1245,7 +1245,7 @@ export default function AtomLeadGen() {
           {/* Meetings Booked */}
           <div
             style={{
-              backgroundColor: "#1a1a1a",
+              backgroundColor: "rgba(246,246,253,0.03)",
               border: "1px solid #1f2937",
               borderRadius: 8,
               padding: "10px 12px",
@@ -1290,7 +1290,7 @@ export default function AtomLeadGen() {
             justifyContent: "space-between",
             padding: "16px 24px",
             borderBottom: "1px solid #1f2937",
-            backgroundColor: "#0f0f0f",
+            backgroundColor: "#020202",
             flexShrink: 0,
           }}
         >
@@ -1307,7 +1307,7 @@ export default function AtomLeadGen() {
               }}
             >
               ATOM{" "}
-              <span style={{ color: "#14b8a6" }}>lead gen</span> engine
+              <span style={{ color: "#696aac" }}>lead gen</span> engine
             </h1>
             <p
               style={{
@@ -1361,12 +1361,12 @@ export default function AtomLeadGen() {
               <div
                 style={{
                   fontSize: 12,
-                  color: "#14b8a6",
+                  color: "#696aac",
                   fontWeight: 500,
                   padding: "5px 12px",
                   borderRadius: 6,
-                  border: "1px solid #14b8a640",
-                  backgroundColor: "#14b8a610",
+                  border: "1px solid #696aac40",
+                  backgroundColor: "#696aac10",
                 }}
               >
                 Calling {campaignProgress.current} of {campaignProgress.total}…
@@ -1403,7 +1403,7 @@ export default function AtomLeadGen() {
                 padding: "7px 16px",
                 borderRadius: 8,
                 border: "none",
-                backgroundColor: isDialing || simRunning ? "#0f766e" : "#14b8a6",
+                backgroundColor: isDialing || simRunning ? "#0f766e" : "#696aac",
                 color: "#fff",
                 fontSize: 13,
                 fontWeight: 600,
@@ -1416,7 +1416,7 @@ export default function AtomLeadGen() {
               }}
               onMouseLeave={(e) => {
                 if (!isDialing && !simRunning)
-                  e.currentTarget.style.backgroundColor = "#14b8a6";
+                  e.currentTarget.style.backgroundColor = "#696aac";
               }}
             >
               {isDialing ? "Dialing…" : "Launch Campaign"}
@@ -1440,7 +1440,7 @@ export default function AtomLeadGen() {
             {/* Campaign Studio Card */}
             <div
               style={{
-                backgroundColor: "#1a1a1a",
+                backgroundColor: "rgba(246,246,253,0.03)",
                 border: "1px solid #1f2937",
                 borderRadius: 12,
                 overflow: "hidden",
@@ -1637,7 +1637,7 @@ export default function AtomLeadGen() {
                       padding: "8px 18px",
                       borderRadius: 8,
                       border: "none",
-                      backgroundColor: campaignActive ? "#0f766e" : "#14b8a6",
+                      backgroundColor: campaignActive ? "#0f766e" : "#696aac",
                       color: "#fff",
                       fontSize: 13,
                       fontWeight: 600,
@@ -1647,7 +1647,7 @@ export default function AtomLeadGen() {
                       if (!campaignActive) e.currentTarget.style.backgroundColor = "#0d9488";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = campaignActive ? "#0f766e" : "#14b8a6";
+                      e.currentTarget.style.backgroundColor = campaignActive ? "#0f766e" : "#696aac";
                     }}
                   >
                     {campaignActive ? "Queue active" : "Launch queue"}
@@ -1659,7 +1659,7 @@ export default function AtomLeadGen() {
             {/* Target Queue Card */}
             <div
               style={{
-                backgroundColor: "#1a1a1a",
+                backgroundColor: "rgba(246,246,253,0.03)",
                 border: "1px solid #1f2937",
                 borderRadius: 12,
                 overflow: "hidden",
@@ -1747,7 +1747,7 @@ export default function AtomLeadGen() {
                     marginTop: 4,
                     textAlign: "left",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#14b8a6")}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#696aac")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#9ca3af")}
                 >
                   <span style={{ fontSize: 16, lineHeight: 1 }}>
@@ -1874,14 +1874,14 @@ export default function AtomLeadGen() {
                           padding: "8px 18px",
                           borderRadius: 8,
                           border: "none",
-                          backgroundColor: "#14b8a6",
+                          backgroundColor: "#696aac",
                           color: "#fff",
                           fontSize: 13,
                           fontWeight: 600,
                           cursor: "pointer",
                         }}
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#0d9488")}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#14b8a6")}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#696aac")}
                       >
                         Add to Queue
                       </button>
@@ -1913,7 +1913,7 @@ export default function AtomLeadGen() {
             {/* Live Call Board Card */}
             <div
               style={{
-                backgroundColor: "#1a1a1a",
+                backgroundColor: "rgba(246,246,253,0.03)",
                 border: "1px solid #1f2937",
                 borderRadius: 12,
                 overflow: "hidden",
@@ -2101,7 +2101,7 @@ export default function AtomLeadGen() {
             {/* Rep Handoff Packet Card */}
             <div
               style={{
-                backgroundColor: "#1a1a1a",
+                backgroundColor: "rgba(246,246,253,0.03)",
                 border: "1px solid #1f2937",
                 borderRadius: 12,
                 overflow: "hidden",

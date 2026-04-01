@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { 
-  Atom, Zap, Shield, MessageSquareWarning, TrendingUp, 
+  Zap, Shield, MessageSquareWarning, TrendingUp, 
   Radar, ChevronLeft, ChevronRight, Moon, Sun, PhoneCall, Megaphone
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -31,53 +31,63 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen overflow-hidden bg-background">
         {/* Sidebar */}
         <aside
-          className={`flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 ${
+          className={`relative flex flex-col border-r border-sidebar-border bg-[#020202] text-sidebar-foreground transition-all duration-300 overflow-hidden ${
             collapsed ? "w-16" : "w-64"
           }`}
         >
+          {/* Ambient purple glow at bottom */}
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 bg-[#3e3f7e] blur-3xl opacity-20 rounded-full translate-y-1/2" />
+
           {/* Logo */}
           <div className="flex items-center gap-3 px-4 h-16 border-b border-sidebar-border shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-              <Atom className="w-5 h-5 text-primary" />
-            </div>
-            {!collapsed && (
-              <div className="min-w-0">
-                <h1 className="text-sm font-bold tracking-tight text-primary truncate">
-                  ANTIMATTER
-                </h1>
-                <p className="text-[10px] text-sidebar-foreground/60 tracking-widest uppercase">
-                  Sales Dominator
-                </p>
+            {collapsed ? (
+              /* Collapsed: show "A" lettermark */
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[#696aac]/15 border border-[#696aac]/20">
+                <span className="text-[#a2a3e9] font-light text-base leading-none">A</span>
+              </div>
+            ) : (
+              /* Expanded: show ANTIMATTER AI wordmark + glow dot */
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="relative shrink-0">
+                  <div className="w-2 h-2 rounded-full bg-[#696aac]" style={{ boxShadow: "0 0 8px #696aac, 0 0 16px rgba(105,106,172,0.4)" }} />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-lg font-light tracking-tight text-[#f6f6fd] truncate leading-none">
+                    ANTIMATTER AI
+                  </h1>
+                  <p className="text-[10px] text-foreground/30 tracking-widest uppercase mt-0.5">
+                    Sales Dominator
+                  </p>
+                </div>
               </div>
             )}
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
+          <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
             {navItems.map((item) => {
               const isActive = location === item.href;
               const Icon = item.icon;
-              
+
               const linkContent = (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                  className={`relative flex items-center gap-3 px-3 py-2.5 text-sm transition-all rounded-lg ${
                     isActive
-                      ? "bg-primary/15 text-primary font-medium"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                      ? "bg-[#696aac]/10 text-[#a2a3e9] border-l-2 border-[#696aac] pl-[10px]"
+                      : "text-foreground/50 hover:text-foreground/80 hover:bg-foreground/[0.03] border-l-2 border-transparent pl-[10px]"
                   }`}
                   data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, "-")}`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-primary" : ""}`} />
+                  <Icon
+                    className={`w-4 h-4 shrink-0 ${
+                      isActive ? "text-[#a2a3e9]" : "text-foreground/40"
+                    }`}
+                  />
                   {!collapsed && (
-                    <span className="flex items-center gap-1.5 truncate min-w-0">
-                      <span className="truncate">{item.label}</span>
-                      {item.beta && (
-                        <span className="shrink-0 text-[9px] font-bold px-1 py-0.5 rounded bg-primary/20 text-primary border border-primary/30 leading-none">
-                          BETA
-                        </span>
-                      )}
+                    <span className="truncate min-w-0 font-normal">
+                      {item.label}
                     </span>
                   )}
                 </Link>
@@ -98,29 +108,35 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
 
           {/* Footer */}
-          <div className="border-t border-sidebar-border p-2 space-y-1 shrink-0">
+          <div className="relative border-t border-sidebar-border p-2 space-y-1 shrink-0">
+            {!collapsed && (
+              <div className="px-3 py-2">
+                <p className="text-xs text-foreground/40 font-light">Antimatter AI</p>
+                <p className="text-[10px] text-foreground/25 tracking-wide">Atlanta, GA</p>
+              </div>
+            )}
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground"
+              className="w-full justify-start text-foreground/30 hover:text-foreground/60 hover:bg-foreground/[0.03]"
               onClick={() => setIsDark(!isDark)}
               data-testid="button-theme-toggle"
             >
-              {isDark ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
+              {isDark ? <Sun className="w-4 h-4 mr-2 shrink-0" /> : <Moon className="w-4 h-4 mr-2 shrink-0" />}
               {!collapsed && (isDark ? "Light Mode" : "Dark Mode")}
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground"
+              className="w-full justify-start text-foreground/30 hover:text-foreground/60 hover:bg-foreground/[0.03]"
               onClick={() => setCollapsed(!collapsed)}
               data-testid="button-collapse-sidebar"
             >
               {collapsed ? (
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4 shrink-0" />
               ) : (
                 <>
-                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  <ChevronLeft className="w-4 h-4 mr-2 shrink-0" />
                   Collapse
                 </>
               )}
