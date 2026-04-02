@@ -3,13 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BRIDGE_URL = "https://45-79-202-76.sslip.io";
 
-const PRODUCTS = [
-  "Antimatter AI Platform",
-  "ATOM Enterprise",
-  "Vidzee",
-  "Clinix Agent",
-  "Red Team ATOM",
-];
+// Product is now free-text input, not a fixed list
 
 const GEO_OPTIONS = ["US", "EU", "US + EU", "Global"];
 
@@ -389,15 +383,13 @@ function PhaseSetup({
             </div>
             <div>
               <label style={S.label}>Product to Pitch</label>
-              <select
+              <input
+                type="text"
                 value={form.productSlug}
                 onChange={(e) => handleChange("productSlug", e.target.value)}
+                placeholder="e.g. Akamai CDN, Five9, TierPoint, Antimatter AI..."
                 style={{ ...S.input }}
-              >
-                {PRODUCTS.map((p) => (
-                  <option key={p} value={p} style={{ backgroundColor: "#111" }}>{p}</option>
-                ))}
-              </select>
+              />
             </div>
           </div>
 
@@ -1072,7 +1064,7 @@ export default function AtomCampaign() {
     targetIndustry: "",
     targetGeo: "US",
     targetCount: 10,
-    productSlug: PRODUCTS[0],
+    productSlug: "",
     alertEmail: "",
   });
   const [targets, setTargets] = useState<Target[]>([]);
@@ -1335,17 +1327,17 @@ export default function AtomCampaign() {
         id: (t.id as string) ?? `t-${i}`,
         rank: i + 1,
         companyName: (t.companyName as string) ?? (t.company as string) ?? `Company ${i + 1}`,
-        industry: (t.industry as string) ?? "",
-        size: (t.size as string) ?? "",
-        location: (t.location as string) ?? "",
+        industry: (t.companyIndustry as string) || (t.industry as string) || "",
+        size: (t.companySize as string) || (t.size as string) || "",
+        location: (t.location as string) || "",
         decisionMaker: {
-          name: ((t.decisionMaker as Record<string, unknown>)?.name as string) ?? (t.contactName as string) ?? "",
-          title: ((t.decisionMaker as Record<string, unknown>)?.title as string) ?? (t.contactTitle as string) ?? "",
-          linkedin: ((t.decisionMaker as Record<string, unknown>)?.linkedin as string) ?? undefined,
+          name: ((t.decisionMaker as Record<string, unknown>)?.name as string) || (t.contactName as string) || "",
+          title: ((t.decisionMaker as Record<string, unknown>)?.title as string) || (t.title as string) || "",
+          linkedin: ((t.decisionMaker as Record<string, unknown>)?.linkedin as string) || (t.linkedin as string) || undefined,
         },
-        email: (t.email as string) ?? undefined,
-        phone: (t.phone as string) ?? undefined,
-        tags: (t.tags as string[]) ?? [],
+        email: (t.email as string) || undefined,
+        phone: (t.phone as string) || undefined,
+        tags: (t.tags as string[]) || [],
         status: "queued" as TargetStatus,
       }));
 
@@ -1409,7 +1401,7 @@ export default function AtomCampaign() {
     setHotLeads([]);
     setLive({ targetId: null, companyName: "", contactName: "", contactTitle: "", sentiment: 0, intent: 0, callStage: "", transcript: [] });
     setStats({ dialed: 0, connected: 0, qualified: 0, hotLeads: 0, remaining: 0, total: 0, avgSentiment: 0, avgIntent: 0 });
-    setForm({ brief: "", targetIndustry: "", targetGeo: "US", targetCount: 10, productSlug: PRODUCTS[0], alertEmail: "" });
+    setForm({ brief: "", targetIndustry: "", targetGeo: "US", targetCount: 10, productSlug: "", alertEmail: "" });
     setPhase("setup");
   }, []);
 
