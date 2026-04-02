@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import Anthropic from "@anthropic-ai/sdk";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const SYSTEM = `You are the Antimatter AI Sales Dominator. You create devastating sales pitches. Be direct, confident, data-driven. Use specific numbers. No fluff. Every word closes deals.`;
 
@@ -23,14 +22,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const labels: Record<string, string> = { elevator: "30-second elevator pitch", email: "cold outreach email", "cold-call": "cold call script", "demo-intro": "demo intro hook", "executive-brief": "C-suite executive brief" };
 
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 800,
-      system: SYSTEM,
-      messages: [{ role: "user", content: `Generate a ${labels[pitchType] || pitchType} for ${p.name}. Product: ${p.desc} Edge: ${p.edge} Persona: ${targetPersona}${customContext ? ` Context: ${customContext}` : ""}. Be specific with metrics, address pain points, include CTA.` }]
+    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: `Generate a ${labels[pitchType] || pitchType} for ${p.name}. Product: ${p.desc} Edge: ${p.edge} Persona: ${targetPersona}${customContext ? ` Context: ${customContext}` : ""}. Be specific with metrics, address pain points, include CTA.` },
+        ],
+        temperature: 0.7,
+      }),
     });
-
-    const content = message.content[0].type === "text" ? message.content[0].text : "";
+    const aiData = await aiRes.json();
+    const content = aiData.choices?.[0]?.message?.content || "";
     const productId = Object.keys(PRODUCTS).indexOf(productSlug) + 1;
     res.json({ id: Date.now(), productId, pitchType, targetPersona, content, createdAt: new Date().toISOString() });
   } catch (err: any) {

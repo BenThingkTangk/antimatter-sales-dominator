@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import Anthropic from "@anthropic-ai/sdk";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const SYSTEM = `You are the Antimatter AI Sales Dominator. Destroy objections with confidence. Use: ACKNOWLEDGE (1-2 sentences), REFRAME (2 sentences with metrics), EVIDENCE (proof point), REDIRECT (question that advances deal). Be empathetic but decisive.`;
 
@@ -21,14 +20,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const p = PRODUCTS[productSlug];
     if (!p) return res.status(404).json({ error: "Product not found" });
 
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 800,
-      system: SYSTEM,
-      messages: [{ role: "user", content: `Objection for ${p.name}: "${objection}". Product: ${p.desc} Edge: ${p.edge}${context ? ` Context: ${context}` : ""}` }]
+    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: `Objection for ${p.name}: "${objection}". Product: ${p.desc} Edge: ${p.edge}${context ? ` Context: ${context}` : ""}` },
+        ],
+        temperature: 0.7,
+      }),
     });
-
-    const content = message.content[0].type === "text" ? message.content[0].text : "";
+    const aiData = await aiRes.json();
+    const content = aiData.choices?.[0]?.message?.content || "";
     const ol = objection.toLowerCase();
     let category = "need";
     if (ol.includes("price") || ol.includes("cost") || ol.includes("expensive") || ol.includes("budget")) category = "price";

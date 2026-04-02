@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import Anthropic from "@anthropic-ai/sdk";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const PRODUCTS: Record<string, any> = {
   "antimatter-ai": {
@@ -175,14 +174,20 @@ Rules:
 - Make the conversation sound authentic and natural for a B2B cold call
 - ATOM should use the contact's name and company name in conversation`;
 
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 4000,
-      system: SYSTEM,
-      messages: [{ role: "user", content: prompt }],
+    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+      }),
     });
-
-    const rawContent = message.content[0].type === "text" ? message.content[0].text : "";
+    const aiData = await aiRes.json();
+    const rawContent = aiData.choices?.[0]?.message?.content || "";
 
     // Parse the JSON response
     let parsed;

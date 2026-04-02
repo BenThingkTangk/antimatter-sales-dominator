@@ -1,7 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const HUNTER_API_KEY = process.env.HUNTER_API_KEY;
 const APOLLO_API_KEY = process.env.APOLLO_API_KEY;
 
@@ -229,17 +227,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { industry, productFocus } = req.body;
 
     // Step 1: AI generates prospect companies with domains
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 2000,
-      system: "You are a B2B prospect research AI. Return ONLY a valid JSON array. No markdown, no code blocks. Raw JSON only.",
-      messages: [{
-        role: "user",
-        content: `Generate 5 real prospect companies${industry && industry !== "All Industries" ? ` in ${industry}` : ""}${productFocus && productFocus !== "all" ? ` for ${productFocus}` : " for Antimatter AI ecosystem (AI dev, enterprise AI deployment, real estate video, healthcare billing, clinical documentation, quantum security)"}. JSON array: [{"companyName":"string","domain":"company-website.com","industry":"string","score":0-100,"reason":"1 sentence why they need us","matchedProducts":["slug"],"signals":["signal"],"companySize":"enterprise|mid-market|smb","urgency":"critical|high|medium|low"}]. Use slugs: antimatter-ai, atom-enterprise, vidzee, clinix-agent, clinix-ai, red-team-atom. IMPORTANT: Include the company's real website domain (e.g. "unitedhealth.com", "jpmorgan.com"). Return ONLY JSON.`,
-      }],
+    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are a B2B prospect research AI. Return ONLY a valid JSON array. No markdown, no code blocks. Raw JSON only." },
+          { role: "user", content: `Generate 5 real prospect companies${industry && industry !== "All Industries" ? ` in ${industry}` : ""}${productFocus && productFocus !== "all" && productFocus ? ` that would benefit from ${productFocus}` : " for Antimatter AI ecosystem (AI dev, enterprise AI deployment, real estate video, healthcare billing, clinical documentation, quantum security)"}. JSON array: [{"companyName":"string","domain":"company-website.com","industry":"string","score":0-100,"reason":"1 sentence why they need this product","matchedProducts":["slug"],"signals":["signal"],"companySize":"enterprise|mid-market|smb","urgency":"critical|high|medium|low"}]. Use slugs: antimatter-ai, atom-enterprise, vidzee, clinix-agent, clinix-ai, red-team-atom. IMPORTANT: Include the company's real website domain (e.g. "unitedhealth.com", "jpmorgan.com"). Return ONLY JSON.` },
+        ],
+        temperature: 0.4,
+      }),
     });
-
-    const content = message.content[0].type === "text" ? message.content[0].text : "";
+    const aiData = await aiRes.json();
+    const content = aiData.choices?.[0]?.message?.content || "[]";
     let prospectsList: any[] = [];
     try {
       const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
