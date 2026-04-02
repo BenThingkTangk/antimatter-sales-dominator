@@ -77,7 +77,7 @@ function ContactCard({ contact }: { contact: Contact }) {
           <Badge variant="outline" className="text-[9px]">{contact.confidence}% confidence</Badge>
           {(contact as any).source && (
             <Badge className={`text-[9px] ${(contact as any).source === 'apollo' ? 'bg-purple-500/15 text-purple-400' : (contact as any).source === 'both' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-orange-500/15 text-orange-400'}`}>
-              {(contact as any).source === 'both' ? 'Apollo + Hunter' : (contact as any).source === 'apollo' ? 'Apollo' : 'Hunter'}
+              ATOM Verified
             </Badge>
           )}
         </div>
@@ -246,7 +246,7 @@ function ProspectCard({ prospect, products }: { prospect: Prospect; products: Pr
               ) : (
                 <div className="p-3 rounded-lg border border-dashed border-border/50 text-center">
                   <p className="text-xs text-muted-foreground">
-                    {enrichMutation.isPending ? "Searching Hunter.io for decision makers..." : "Click \"Find Contacts\" to discover key decision makers via Hunter.io"}
+                    {enrichMutation.isPending ? "ATOM enriching decision makers..." : "Click \"Find Contacts\" to discover key decision makers via ATOM enrichment"}
                   </p>
                 </div>
               )}
@@ -293,7 +293,7 @@ export default function ProspectEngine() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center"><Radar className="w-5 h-5 text-rose-500" /></div>
-        <div><h1 className="text-xl font-bold">Prospect Engine</h1><p className="text-sm text-muted-foreground">AI prospect discovery + Hunter.io decision maker enrichment</p></div>
+        <div><h1 className="text-xl font-bold">Prospect Engine</h1><p className="text-sm text-muted-foreground">AI prospect discovery + ATOM proprietary decision maker enrichment</p></div>
       </div>
 
       <Card className="border-border/50">
@@ -315,7 +315,7 @@ export default function ProspectEngine() {
               {scanProspects.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Scanning...</> : <><Radar className="w-4 h-4 mr-2" />Scan + Enrich</>}
             </Button>
           </div>
-          {scanProspects.isPending && <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20"><div className="flex items-center gap-2 text-sm text-primary"><Radar className="w-4 h-4 animate-pulse" /><span className="font-medium">AI scanning prospects + Hunter.io enriching decision makers...</span></div></div>}
+          {scanProspects.isPending && <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20"><div className="flex items-center gap-2 text-sm text-primary"><Radar className="w-4 h-4 animate-pulse" /><span className="font-medium">ATOM scanning prospects and enriching decision makers...</span></div></div>}
         </div>
       </Card>
 
