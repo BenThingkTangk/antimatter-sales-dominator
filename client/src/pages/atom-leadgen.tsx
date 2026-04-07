@@ -1,1526 +1,950 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { store, useCalls, type CallRecord } from "@/lib/store";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Progress } from "@/components/ui/progress";
-import {
-  PhoneCall, Phone, PhoneOff, Mic, MicOff, User, Building2,
-  TrendingUp, Brain, Zap, Clock, CheckCircle2, AlertTriangle,
-  MessageSquare, Users, BarChart3, Target, Radio, ArrowRight,
-  ChevronDown, ChevronUp, Download, Flag, UserCheck, Activity,
-  Loader2, Circle
-} from "lucide-react";
-import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} from "recharts";
-import type { Product } from "@shared/schema";
-import { HumeVoiceCallWrapper } from "@/components/HumeVoiceCall";
+import { PhoneCall, PhoneOff, Loader2 } from "lucide-react";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const BRIDGE_URL = "https://45-79-202-76.sslip.io";
+const ARC_LENGTH = Math.PI * 80; // radius=80, semicircle
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface TranscriptMessage {
-  speaker: "ATOM" | "Contact";
+interface Emotions {
+  confidence: number;
+  interest: number;
+  skepticism: number;
+  excitement: number;
+  frustration: number;
+  neutrality: number;
+}
+
+interface CallMetrics {
+  sentiment: number;
+  buyerIntent: number;
+  stage: string;
+  emotions: Emotions;
+  buyingSignals: string[];
+}
+
+interface TranscriptEntry {
+  speaker: "ATOM" | "PROSPECT";
   text: string;
-  timestamp: number;
+  ts: number;
 }
 
-interface SentimentPoint {
-  time: number;
-  score: number;
-}
-
-interface EmotionalTones {
-  curious: number;
-  interested: number;
-  skeptical: number;
-  frustrated: number;
-  excited: number;
-  neutral: number;
-}
-
-interface Qualification {
-  qualified: boolean;
-  score: number;
-  keySignals: string[];
-  objections: string[];
-}
-
-interface SimulateResponse {
-  transcript: TranscriptMessage[];
-  sentimentTimeline: SentimentPoint[];
-  intentTimeline: SentimentPoint[];
-  emotionalTones: EmotionalTones;
-  qualification: Qualification;
-  outcome: "qualified" | "follow-up" | "no-interest" | "callback";
+interface CallSummary {
   duration: number;
-  aiRecommendations: string[];
+  finalSentiment: number;
+  finalIntent: number;
+  stage: string;
 }
 
-interface QueuedCall {
-  id: number;
-  companyName: string;
-  contactName: string;
-  contactTitle: string;
-  productSlug: string;
-  status: "pending" | "in-progress" | "completed" | "failed";
-  result?: SimulateResponse;
+type CallStatus = "idle" | "dialing" | "active" | "ended";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatTime(ts: number) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-// ─── Radial Gauge Component ────────────────────────────────────────────────────
+function formatDuration(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}m ${s}s`;
+}
 
-function RadialGauge({
-  value,
-  label,
-  size = 120,
-}: {
-  value: number;
-  label: string;
-  size?: number;
-}) {
-  const radius = (size - 16) / 2;
-  const circumference = Math.PI * radius; // half circle
-  const progress = Math.max(0, Math.min(100, value));
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+function sentimentLabel(v: number) {
+  if (v >= 80) return "Very Positive";
+  if (v >= 55) return "Positive";
+  if (v >= 35) return "Neutral";
+  return "Negative";
+}
 
-  const color =
-    value >= 70
-      ? "#10b981"
-      : value >= 40
-        ? "#f59e0b"
-        : "#ef4444";
+function intentLabel(v: number) {
+  if (v >= 85) return "Hot Lead";
+  if (v >= 70) return "Purchase Ready";
+  if (v >= 50) return "Interested";
+  if (v >= 30) return "Curious";
+  return "Low";
+}
+
+function sentimentColor(v: number) {
+  if (v >= 80) return "#a78bfa";
+  if (v >= 55) return "#34d399";
+  if (v >= 35) return "#fbbf24";
+  return "#f87171";
+}
+
+// Polar coords for arc endpoint
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+// ─── SVG Gauge ───────────────────────────────────────────────────────────────
+
+function Gauge({ score, label, type }: { score: number; label: string; type: "sentiment" | "intent" }) {
+  const pct = Math.max(0, Math.min(100, score));
+  const offset = ARC_LENGTH - (ARC_LENGTH * pct) / 100;
+  const color = type === "sentiment" ? sentimentColor(score) : score > 75 ? "#a78bfa" : "#696aac";
+  const gradId = `gauge-grad-${type}`;
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="relative" style={{ width: size, height: size / 2 + 12 }}>
-        <svg
-          width={size}
-          height={size / 2 + 12}
-          viewBox={`0 0 ${size} ${size / 2 + 12}`}
-        >
-          {/* Background arc */}
-          <path
-            d={`M ${8} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - 8} ${size / 2}`}
-            fill="none"
-            stroke="hsl(var(--muted))"
-            strokeWidth="8"
-            strokeLinecap="round"
-          />
-          {/* Progress arc */}
-          <path
-            d={`M ${8} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - 8} ${size / 2}`}
-            fill="none"
-            stroke={color}
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.5s ease" }}
-          />
-          {/* Value text */}
-          <text
-            x={size / 2}
-            y={size / 2 - 4}
-            textAnchor="middle"
-            fill={color}
-            fontSize="18"
-            fontWeight="bold"
-            style={{ transition: "fill 0.5s ease" }}
-          >
-            {Math.round(value)}
-          </text>
-        </svg>
-      </div>
-      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-        {label}
-      </p>
+    <div className="flex flex-col items-center">
+      <svg viewBox="0 0 200 120" className="w-full max-w-[220px]" overflow="visible">
+        <defs>
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ef4444" />
+            <stop offset="33%" stopColor="#fbbf24" />
+            <stop offset="66%" stopColor="#34d399" />
+            <stop offset="100%" stopColor="#a78bfa" />
+          </linearGradient>
+          {score > 75 && type === "intent" && (
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          )}
+        </defs>
+        {/* Track */}
+        <path
+          d="M 20 100 A 80 80 0 0 1 180 100"
+          stroke="rgba(246,246,253,0.06)"
+          fill="none"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        {/* Fill */}
+        <path
+          d="M 20 100 A 80 80 0 0 1 180 100"
+          stroke={type === "sentiment" ? `url(#${gradId})` : color}
+          fill="none"
+          strokeWidth="12"
+          strokeLinecap="round"
+          strokeDasharray={ARC_LENGTH}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }}
+          filter={score > 75 && type === "intent" ? "url(#glow)" : undefined}
+        />
+        {/* Score */}
+        <text x="100" y="82" textAnchor="middle" fill="white" fontSize="36" fontWeight="300">
+          {Math.round(pct)}
+        </text>
+        {/* Label */}
+        <text x="100" y="104" textAnchor="middle" fill="rgba(246,246,253,0.5)" fontSize="11">
+          {label}
+        </text>
+      </svg>
     </div>
   );
 }
 
-// ─── Qualification Badge ───────────────────────────────────────────────────────
+// ─── Emotion Bar ──────────────────────────────────────────────────────────────
 
-function QualBadge({ score }: { score: number }) {
-  if (score >= 80)
-    return (
-      <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30">
-        <Zap className="w-3 h-3 mr-1" /> Hot Lead
-      </Badge>
-    );
-  if (score >= 60)
-    return (
-      <Badge className="bg-primary/15 text-primary border-primary/30">
-        <TrendingUp className="w-3 h-3 mr-1" /> Qualified
-      </Badge>
-    );
-  if (score >= 35)
-    return (
-      <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30">
-        <Activity className="w-3 h-3 mr-1" /> Warming
-      </Badge>
-    );
+const EMOTION_COLORS: Record<string, string> = {
+  confidence: "#696aac",
+  interest: "#34d399",
+  skepticism: "#fbbf24",
+  excitement: "#a78bfa",
+  frustration: "#f87171",
+  neutrality: "#94a3b8",
+};
+
+function EmotionBar({ name, value }: { name: string; value: number }) {
+  const pct = Math.round(Math.max(0, Math.min(100, (value || 0) * 100)));
+  const color = EMOTION_COLORS[name] ?? "#696aac";
   return (
-    <Badge className="bg-muted text-muted-foreground">
-      <Circle className="w-3 h-3 mr-1" /> Unqualified
-    </Badge>
-  );
-}
-
-// ─── Outcome Badge ─────────────────────────────────────────────────────────────
-
-function OutcomeBadge({ outcome }: { outcome: string }) {
-  const styles: Record<string, string> = {
-    qualified: "bg-emerald-500/15 text-emerald-500",
-    "follow-up": "bg-blue-500/15 text-blue-500",
-    "no-interest": "bg-muted text-muted-foreground",
-    callback: "bg-amber-500/15 text-amber-500",
-  };
-  const labels: Record<string, string> = {
-    qualified: "Qualified",
-    "follow-up": "Follow-up",
-    "no-interest": "No Interest",
-    callback: "Callback",
-  };
-  return (
-    <Badge className={`text-[10px] ${styles[outcome] || "bg-muted text-muted-foreground"}`}>
-      {labels[outcome] || outcome}
-    </Badge>
-  );
-}
-
-// ─── Format seconds ────────────────────────────────────────────────────────────
-
-function formatDuration(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-// ─── Live Call Dashboard ───────────────────────────────────────────────────────
-
-function LiveCallDashboard({
-  queuedCall,
-  result,
-  onCallEnd,
-}: {
-  queuedCall: QueuedCall;
-  result: SimulateResponse;
-  onCallEnd: (result: SimulateResponse) => void;
-}) {
-  const [visibleMessages, setVisibleMessages] = useState<TranscriptMessage[]>([]);
-  const [currentSentiment, setCurrentSentiment] = useState(result.sentimentTimeline[0]?.score ?? 30);
-  const [currentIntent, setCurrentIntent] = useState(result.intentTimeline[0]?.score ?? 10);
-  const [currentTones, setCurrentTones] = useState<EmotionalTones>({
-    curious: 10,
-    interested: 10,
-    skeptical: 20,
-    frustrated: 5,
-    excited: 5,
-    neutral: 50,
-  });
-  const [qualScore, setQualScore] = useState(15);
-  const [aiRec, setAiRec] = useState("Initiating call...");
-  const [elapsed, setElapsed] = useState(0);
-  const [isTyping, setIsTyping] = useState(false);
-  const [isActive, setIsActive] = useState(true);
-  const [callEnded, setCallEnded] = useState(false);
-  const transcriptRef = useRef<HTMLDivElement>(null);
-  const intervalRef = useRef<number | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const msgIndexRef = useRef(0);
-  const { toast } = useToast();
-
-  const totalMessages = result.transcript.length;
-  const sentTimeline = result.sentimentTimeline;
-  const intentTimeline = result.intentTimeline;
-
-  // Auto-scroll transcript
-  useEffect(() => {
-    if (transcriptRef.current) {
-      transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
-    }
-  }, [visibleMessages, isTyping]);
-
-  // Call timer
-  useEffect(() => {
-    if (!isActive) return;
-    timerRef.current = window.setInterval(() => {
-      setElapsed((e) => e + 1);
-    }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isActive]);
-
-  // Playback messages
-  useEffect(() => {
-    if (!isActive) return;
-
-    const playNext = () => {
-      const idx = msgIndexRef.current;
-      if (idx >= totalMessages) {
-        // Call complete
-        clearInterval(intervalRef.current!);
-        clearInterval(timerRef.current!);
-        setIsTyping(false);
-        setIsActive(false);
-        setCallEnded(true);
-        // Final state
-        setCurrentSentiment(sentTimeline[sentTimeline.length - 1]?.score ?? 70);
-        setCurrentIntent(intentTimeline[intentTimeline.length - 1]?.score ?? 70);
-        setCurrentTones(result.emotionalTones);
-        setQualScore(result.qualification.score);
-        setAiRec(result.aiRecommendations[result.aiRecommendations.length - 1] || "Call complete");
-        return;
-      }
-
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        setVisibleMessages((prev) => [...prev, result.transcript[idx]]);
-        msgIndexRef.current = idx + 1;
-
-        // Update metrics proportionally
-        const progress = (idx + 1) / totalMessages;
-
-        // Interpolate sentiment
-        const sentIdx = Math.min(
-          Math.floor(progress * sentTimeline.length),
-          sentTimeline.length - 1
-        );
-        setCurrentSentiment(sentTimeline[sentIdx]?.score ?? currentSentiment);
-
-        // Interpolate intent
-        const intIdx = Math.min(
-          Math.floor(progress * intentTimeline.length),
-          intentTimeline.length - 1
-        );
-        setCurrentIntent(intentTimeline[intIdx]?.score ?? currentIntent);
-
-        // Gradually update emotional tones
-        const toneProgress = Math.min(progress * 1.5, 1);
-        setCurrentTones((prev) => {
-          const target = result.emotionalTones;
-          return {
-            curious: prev.curious + (target.curious - prev.curious) * toneProgress * 0.3,
-            interested: prev.interested + (target.interested - prev.interested) * toneProgress * 0.3,
-            skeptical: prev.skeptical + (target.skeptical - prev.skeptical) * toneProgress * 0.3,
-            frustrated: prev.frustrated + (target.frustrated - prev.frustrated) * toneProgress * 0.3,
-            excited: prev.excited + (target.excited - prev.excited) * toneProgress * 0.3,
-            neutral: prev.neutral + (target.neutral - prev.neutral) * toneProgress * 0.3,
-          };
-        });
-
-        // Update qual score
-        const targetQual = result.qualification.score;
-        setQualScore((prev) => prev + (targetQual - prev) * 0.15);
-
-        // Update AI recommendation
-        const recIdx = Math.floor((progress * result.aiRecommendations.length));
-        if (result.aiRecommendations[recIdx]) {
-          setAiRec(result.aiRecommendations[recIdx]);
-        }
-      }, 1200);
-    };
-
-    intervalRef.current = window.setInterval(playNext, 2800);
-    playNext(); // Play first message immediately
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleEndCall = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (timerRef.current) clearInterval(timerRef.current);
-    setIsActive(false);
-    setCallEnded(true);
-    onCallEnd(result);
-  };
-
-  const toneData = [
-    { name: "Curious", value: Math.round(currentTones.curious), color: "#06b6d4" },
-    { name: "Interested", value: Math.round(currentTones.interested), color: "#10b981" },
-    { name: "Skeptical", value: Math.round(currentTones.skeptical), color: "#f59e0b" },
-    { name: "Frustrated", value: Math.round(currentTones.frustrated), color: "#ef4444" },
-    { name: "Excited", value: Math.round(currentTones.excited), color: "#8b5cf6" },
-    { name: "Neutral", value: Math.round(currentTones.neutral), color: "#6b7280" },
-  ];
-
-  return (
-    <div className="space-y-4">
-      {/* Call header */}
-      <div className="flex items-center justify-between p-4 rounded-xl border border-primary/30 bg-primary/5">
-        <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${isActive ? "bg-rose-500 animate-pulse" : "bg-muted"}`} />
-          <div>
-            <p className="font-semibold text-sm">
-              {callEnded ? "Call Complete" : `ATOM calling ${queuedCall.contactName} at ${queuedCall.companyName}`}
-            </p>
-            <p className="text-xs text-muted-foreground">{queuedCall.contactTitle || "Decision Maker"}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="w-3.5 h-3.5" />
-            <span className="font-mono tabular-nums">{formatDuration(elapsed)}</span>
-          </div>
-          {isActive && (
-            <div className="flex items-center gap-1.5 text-xs text-rose-500">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              Recording
-            </div>
-          )}
-          {callEnded && (
-            <OutcomeBadge outcome={result.outcome} />
-          )}
-        </div>
+    <div className="flex items-center gap-3">
+      <span className="w-24 text-xs capitalize" style={{ color: "rgba(246,246,253,0.6)" }}>
+        {name}
+      </span>
+      <div className="flex-1 h-2 rounded-full" style={{ background: "rgba(246,246,253,0.06)" }}>
+        <div
+          className="h-2 rounded-full"
+          style={{
+            width: `${pct}%`,
+            background: color,
+            transition: "width 0.6s cubic-bezier(0.4,0,0.2,1)",
+          }}
+        />
       </div>
+      <span className="w-9 text-right text-xs" style={{ color: "rgba(246,246,253,0.45)" }}>
+        {pct}%
+      </span>
+    </div>
+  );
+}
 
-      {/* 3-column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* LEFT: Transcript */}
-        <div className="lg:col-span-1">
-          <Card className="border-border/50 h-full">
-            <CardHeader className="pb-3 pt-4 px-4">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-primary" />
-                Live Transcript
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
+// ─── Stage Timeline ───────────────────────────────────────────────────────────
+
+const STAGES = ["Discovery", "Evaluation", "Negotiation", "Close"];
+
+function StageTimeline({ activeStage }: { activeStage: string }) {
+  const activeIdx = STAGES.findIndex(
+    (s) => s.toLowerCase() === (activeStage || "").toLowerCase()
+  );
+  const idx = activeIdx >= 0 ? activeIdx : 0;
+
+  return (
+    <div className="flex items-center gap-1">
+      {STAGES.map((stage, i) => {
+        const isActive = i === idx;
+        const isPast = i < idx;
+        return (
+          <div key={stage} className="flex items-center gap-1 flex-1 min-w-0">
+            <div className="flex flex-col items-center flex-1">
               <div
-                ref={transcriptRef}
-                className="space-y-3 overflow-y-auto"
-                style={{ maxHeight: "340px" }}
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-500"
+                style={{
+                  background: isActive
+                    ? "linear-gradient(135deg, #8587e3, #4c4dac)"
+                    : isPast
+                    ? "rgba(105,106,172,0.4)"
+                    : "rgba(246,246,253,0.06)",
+                  color: isActive || isPast ? "white" : "rgba(246,246,253,0.3)",
+                  boxShadow: isActive ? "0 0 12px rgba(133,135,227,0.6)" : "none",
+                }}
               >
-                {visibleMessages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex gap-2 ${msg.speaker === "ATOM" ? "" : "flex-row-reverse"}`}
-                  >
-                    <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${msg.speaker === "ATOM" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}
-                    >
-                      {msg.speaker === "ATOM" ? "A" : "C"}
-                    </div>
-                    <div
-                      className={`max-w-[85%] p-2.5 rounded-xl text-xs leading-relaxed ${msg.speaker === "ATOM" ? "bg-primary/10 text-foreground" : "bg-muted/50 text-foreground"}`}
-                    >
-                      <p className={`text-[9px] font-semibold mb-1 ${msg.speaker === "ATOM" ? "text-primary" : "text-muted-foreground"}`}>
-                        {msg.speaker === "ATOM" ? "ATOM" : queuedCall.contactName} · {formatDuration(msg.timestamp)}
-                      </p>
-                      {msg.text}
-                    </div>
-                  </div>
-                ))}
-                {isTyping && (
-                  <div className="flex gap-2">
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center bg-primary/20 text-primary text-[10px] font-bold">A</div>
-                    <div className="bg-primary/10 p-2.5 rounded-xl">
-                      <div className="flex gap-1 items-center h-4">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {visibleMessages.length === 0 && !isTyping && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Phone className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-xs">Connecting call...</p>
-                  </div>
-                )}
+                {i + 1}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* CENTER: Metrics */}
-        <div className="lg:col-span-1 space-y-3">
-          {/* Gauges */}
-          <Card className="border-border/50">
-            <CardContent className="pt-4 pb-3 px-4">
-              <div className="flex justify-around">
-                <RadialGauge value={currentSentiment} label="Sentiment" />
-                <RadialGauge value={currentIntent} label="Buyer Intent" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Emotional Tones */}
-          <Card className="border-border/50">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider">Emotional Tones</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 space-y-2">
-              {toneData.map((tone) => (
-                <div key={tone.name} className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground w-16 shrink-0">{tone.name}</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${tone.value}%`, backgroundColor: tone.color }}
-                    />
-                  </div>
-                  <span className="text-[10px] tabular-nums text-muted-foreground w-6 text-right">{tone.value}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Qualification + AI Rec */}
-          <Card className="border-border/50">
-            <CardContent className="pt-4 pb-3 px-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Qualification</span>
-                <QualBadge score={qualScore} />
-              </div>
-              <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <Brain className="w-3 h-3" /> AI Recommendation
-                </p>
-                <p className="text-xs text-foreground leading-relaxed">{aiRec}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* RIGHT: Contact info + signals */}
-        <div className="lg:col-span-1 space-y-3">
-          <Card className="border-border/50">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-primary" />
-                Contact Intel
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 space-y-3">
-              <div className="p-2.5 rounded-lg bg-card border border-border/50 space-y-1">
-                <p className="text-xs font-semibold">{queuedCall.companyName}</p>
-                <p className="text-[10px] text-muted-foreground">Target account</p>
-              </div>
-              <div className="p-2.5 rounded-lg bg-card border border-border/50 space-y-1">
-                <div className="flex items-center gap-2">
-                  <User className="w-3.5 h-3.5 text-muted-foreground" />
-                  <p className="text-xs font-medium">{queuedCall.contactName}</p>
-                </div>
-                {queuedCall.contactTitle && (
-                  <p className="text-[10px] text-muted-foreground">{queuedCall.contactTitle}</p>
-                )}
-              </div>
-              <div className="p-2.5 rounded-lg bg-card border border-border/50">
-                <p className="text-[10px] text-muted-foreground mb-0.5">Product</p>
-                <p className="text-xs font-medium capitalize">{queuedCall.productSlug.replace(/-/g, " ")}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Objections detected */}
-          {callEnded && result.qualification.objections.length > 0 && (
-            <Card className="border-border/50 border-l-2 border-l-amber-500">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3 text-amber-500" /> Objections Detected
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-3 space-y-1.5">
-                {result.qualification.objections.map((obj, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" />
-                    <p className="text-xs text-muted-foreground">{obj}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Key signals */}
-          {callEnded && result.qualification.keySignals.length > 0 && (
-            <Card className="border-border/50 border-l-2 border-l-emerald-500">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Key Signals
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-3 space-y-1.5">
-                {result.qualification.keySignals.map((sig, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" />
-                    <p className="text-xs text-muted-foreground">{sig}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-
-      {/* Call controls */}
-      <div className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card/50">
-        <div className="flex gap-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleEndCall}
-            disabled={callEnded}
-            className="gap-1.5"
-          >
-            <PhoneOff className="w-3.5 h-3.5" />
-            End Call
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5" disabled={!callEnded}>
-            <UserCheck className="w-3.5 h-3.5" />
-            Transfer
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Flag className="w-3.5 h-3.5" />
-            Flag
-          </Button>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {callEnded
-            ? `Call ended · ${formatDuration(result.duration)}`
-            : `${visibleMessages.length}/${totalMessages} messages`}
-        </div>
-      </div>
+              <span
+                className="text-[10px] mt-1 text-center truncate w-full"
+                style={{
+                  color: isActive
+                    ? "#a2a3e9"
+                    : isPast
+                    ? "rgba(246,246,253,0.5)"
+                    : "rgba(246,246,253,0.25)",
+                }}
+              >
+                {stage}
+              </span>
+            </div>
+            {i < STAGES.length - 1 && (
+              <div
+                className="h-px flex-1 mb-4 transition-all duration-500"
+                style={{
+                  background: i < idx ? "rgba(105,106,172,0.5)" : "rgba(246,246,253,0.08)",
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-// ─── Analytics Dashboard ───────────────────────────────────────────────────────
+// ─── Sparkline ────────────────────────────────────────────────────────────────
 
-function AnalyticsDashboard({ calls }: { calls: CallRecord[] }) {
-  const [expandedCall, setExpandedCall] = useState<number | null>(null);
-
-  const completedCalls = calls.filter((c) => c.status === "completed");
-  const avgSentiment =
-    completedCalls.length > 0
-      ? completedCalls.reduce((sum, c) => {
-          const st = JSON.parse(c.sentimentTimeline || "[]") as SentimentPoint[];
-          const last = st[st.length - 1]?.score ?? 50;
-          return sum + last;
-        }, 0) / completedCalls.length
-      : 0;
-  const avgIntent =
-    completedCalls.length > 0
-      ? completedCalls.reduce((sum, c) => {
-          const it = JSON.parse(c.intentTimeline || "[]") as SentimentPoint[];
-          const last = it[it.length - 1]?.score ?? 50;
-          return sum + last;
-        }, 0) / completedCalls.length
-      : 0;
-  const qualifiedCalls = completedCalls.filter((c) => {
-    const q = JSON.parse(c.qualification || "{}") as Qualification;
-    return q.score > 70;
-  });
-  const qualRate =
-    completedCalls.length > 0
-      ? Math.round((qualifiedCalls.length / completedCalls.length) * 100)
-      : 0;
-
-  const outcomeCounts = completedCalls.reduce(
-    (acc, c) => {
-      acc[c.outcome] = (acc[c.outcome] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
-
-  const outcomeData = [
-    { name: "Qualified", value: outcomeCounts["qualified"] || 0, color: "#10b981" },
-    { name: "Follow-up", value: outcomeCounts["follow-up"] || 0, color: "#06b6d4" },
-    { name: "No Interest", value: outcomeCounts["no-interest"] || 0, color: "#6b7280" },
-    { name: "Callback", value: outcomeCounts["callback"] || 0, color: "#f59e0b" },
-  ].filter((d) => d.value > 0);
-
-  // Aggregate emotional tones
-  const avgTones =
-    completedCalls.length > 0
-      ? completedCalls.reduce(
-          (acc, c) => {
-            const t = JSON.parse(c.emotionalTones || "{}") as EmotionalTones;
-            return {
-              curious: acc.curious + t.curious / completedCalls.length,
-              interested: acc.interested + t.interested / completedCalls.length,
-              skeptical: acc.skeptical + t.skeptical / completedCalls.length,
-              frustrated: acc.frustrated + t.frustrated / completedCalls.length,
-              excited: acc.excited + t.excited / completedCalls.length,
-              neutral: acc.neutral + t.neutral / completedCalls.length,
-            };
-          },
-          { curious: 0, interested: 0, skeptical: 0, frustrated: 0, excited: 0, neutral: 0 }
-        )
-      : null;
-
-  const toneChartData = avgTones
-    ? [
-        { name: "Curious", value: Math.round(avgTones.curious) },
-        { name: "Interested", value: Math.round(avgTones.interested) },
-        { name: "Skeptical", value: Math.round(avgTones.skeptical) },
-        { name: "Frustrated", value: Math.round(avgTones.frustrated) },
-        { name: "Excited", value: Math.round(avgTones.excited) },
-        { name: "Neutral", value: Math.round(avgTones.neutral) },
-      ]
-    : [];
-
-  // Use last call's timelines for charts
-  const lastCall = completedCalls[0];
-  const sentChartData = lastCall
-    ? (JSON.parse(lastCall.sentimentTimeline || "[]") as SentimentPoint[]).map((p) => ({
-        time: `${p.time}s`,
-        Sentiment: p.score,
-      }))
-    : [];
-  const intentChartData = lastCall
-    ? (JSON.parse(lastCall.intentTimeline || "[]") as SentimentPoint[]).map((p) => ({
-        time: `${p.time}s`,
-        Intent: p.score,
-      }))
-    : [];
-
-  if (completedCalls.length === 0) {
+function SentimentSparkline({ points }: { points: Array<{ ts: number; value: number }> }) {
+  if (points.length < 2) {
     return (
-      <Card className="border-border/50">
-        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <BarChart3 className="w-8 h-8 mb-3 opacity-40" />
-          <p className="text-sm">No completed calls yet</p>
-          <p className="text-xs mt-1">Run your first ATOM call to see analytics</p>
-        </div>
-      </Card>
+      <div
+        className="h-full flex items-center justify-center text-xs"
+        style={{ color: "rgba(246,246,253,0.3)" }}
+      >
+        Collecting data…
+      </div>
     );
   }
 
+  const W = 280;
+  const H = 72;
+  const values = points.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  const pts = points.map((p, i) => {
+    const x = (i / (points.length - 1)) * W;
+    const y = H - ((p.value - min) / range) * (H - 8) - 4;
+    return `${x},${y}`;
+  });
+
+  const linePath = `M ${pts.join(" L ")}`;
+  const areaPath = `M ${pts[0]} L ${pts.join(" L ")} L ${W},${H} L 0,${H} Z`;
+
   return (
-    <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="border-border/50">
-          <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-2xl font-bold">{completedCalls.length}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Total Calls</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="pt-4 pb-3 px-4">
-            <div className="flex items-end gap-2">
-              <p className="text-2xl font-bold">{Math.round(avgSentiment)}</p>
-              <p className="text-xs text-muted-foreground mb-0.5">/100</p>
-            </div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Avg Sentiment</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="pt-4 pb-3 px-4">
-            <div className="flex items-end gap-2">
-              <p className="text-2xl font-bold">{Math.round(avgIntent)}</p>
-              <p className="text-xs text-muted-foreground mb-0.5">/100</p>
-            </div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Avg Buyer Intent</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-2xl font-bold text-emerald-500">{qualRate}%</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Qualification Rate</p>
-          </CardContent>
-        </Card>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#696aac" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#696aac" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill="url(#sparkGrad)" />
+      <path d={linePath} stroke="#8587e3" strokeWidth="1.5" fill="none" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// ─── Transcript Message ───────────────────────────────────────────────────────
+
+function TxMessage({ entry }: { entry: TranscriptEntry }) {
+  const isAtom = entry.speaker === "ATOM";
+  return (
+    <div className={`flex ${isAtom ? "justify-start" : "justify-end"} mb-3`}>
+      <div
+        className="max-w-[80%] px-4 py-2.5 rounded-xl text-sm"
+        style={
+          isAtom
+            ? {
+                background: "rgba(105,106,172,0.1)",
+                borderLeft: "2px solid #696aac",
+                color: "rgba(246,246,253,0.85)",
+              }
+            : {
+                background: "rgba(246,246,253,0.05)",
+                color: "rgba(246,246,253,0.75)",
+              }
+        }
+      >
+        <div
+          className="text-[10px] mb-1 font-medium uppercase tracking-wider"
+          style={{ color: isAtom ? "#a2a3e9" : "rgba(246,246,253,0.4)" }}
+        >
+          {isAtom ? "ATOM" : "Prospect"} · {formatTime(entry.ts)}
+        </div>
+        <div>{entry.text}</div>
       </div>
-
-      {/* Charts row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm">Sentiment Over Time (Last Call)</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={sentChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                  labelStyle={{ color: "hsl(var(--foreground))" }}
-                />
-                <Line type="monotone" dataKey="Sentiment" stroke="#06b6d4" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm">Buyer Intent Progression (Last Call)</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={intentChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                  labelStyle={{ color: "hsl(var(--foreground))" }}
-                />
-                <Line type="monotone" dataKey="Intent" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm">Emotional Tones Distribution</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={toneChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                />
-                <Bar dataKey="value" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm">Call Outcomes</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 flex items-center justify-center">
-            {outcomeData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie
-                    data={outcomeData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {outcomeData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                  />
-                  <Legend
-                    formatter={(value) => <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>{value}</span>}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-xs text-muted-foreground">No outcome data yet</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Call Log Table */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3 pt-4 px-4">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Activity className="w-4 h-4 text-primary" />
-            Call Log
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="space-y-2">
-            {completedCalls.map((call) => {
-              const qual = JSON.parse(call.qualification || "{}") as Qualification;
-              const sentTL = JSON.parse(call.sentimentTimeline || "[]") as SentimentPoint[];
-              const intTL = JSON.parse(call.intentTimeline || "[]") as SentimentPoint[];
-              const lastSent = sentTL[sentTL.length - 1]?.score ?? 0;
-              const lastInt = intTL[intTL.length - 1]?.score ?? 0;
-              const transcript = JSON.parse(call.transcript || "[]") as TranscriptMessage[];
-              const recs = JSON.parse(call.aiRecommendations || "[]") as string[];
-              const isExpanded = expandedCall === call.id;
-
-              return (
-                <div key={call.id} className="rounded-lg border border-border/50 overflow-hidden">
-                  <button
-                    className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30 transition-colors"
-                    onClick={() => setExpandedCall(isExpanded ? null : call.id)}
-                  >
-                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-2 items-center text-xs">
-                      <div>
-                        <p className="font-medium truncate">{call.companyName}</p>
-                        <p className="text-muted-foreground truncate">{call.contactName}</p>
-                      </div>
-                      <div className="hidden sm:block">
-                        <p className="text-muted-foreground">{formatDuration(call.duration)}</p>
-                      </div>
-                      <div className="hidden sm:block">
-                        <div className="flex items-center gap-1">
-                          <span className="text-muted-foreground">S:</span>
-                          <span className={lastSent >= 60 ? "text-emerald-500" : lastSent >= 40 ? "text-amber-500" : "text-rose-500"}>
-                            {Math.round(lastSent)}
-                          </span>
-                          <span className="text-muted-foreground ml-1">I:</span>
-                          <span className={lastInt >= 60 ? "text-emerald-500" : lastInt >= 40 ? "text-amber-500" : "text-rose-500"}>
-                            {Math.round(lastInt)}
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <OutcomeBadge outcome={call.outcome} />
-                      </div>
-                      <div className="hidden sm:block text-muted-foreground">
-                        {new Date(call.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                    )}
-                  </button>
-
-                  {isExpanded && (
-                    <div className="border-t border-border/50 p-3 space-y-3 bg-muted/20">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Full Transcript</p>
-                          <div className="space-y-2 max-h-48 overflow-y-auto">
-                            {transcript.map((msg, i) => (
-                              <div key={i} className={`text-xs ${msg.speaker === "ATOM" ? "text-primary" : "text-foreground"}`}>
-                                <span className="font-semibold">{msg.speaker === "ATOM" ? "ATOM" : call.contactName}: </span>
-                                {msg.text}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Key Signals</p>
-                            {qual.keySignals?.map((s, i) => (
-                              <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" />{s}
-                              </p>
-                            ))}
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">AI Recommendations</p>
-                            {recs.map((r, i) => (
-                              <p key={i} className="text-xs text-muted-foreground flex items-start gap-1">
-                                <Brain className="w-3 h-3 text-primary mt-0.5 shrink-0" />{r}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
-// ─── Call History Card ──────────────────────────────────────────────────────────
+// ─── Pulsing Dot ─────────────────────────────────────────────────────────────
 
-function CallHistoryCard({ call, qualification, sentimentTimeline, intentTimeline, tones, recommendations, transcript }: {
-  call: CallRecord;
-  qualification: any;
-  sentimentTimeline: any[];
-  intentTimeline: any[];
-  tones: any;
-  recommendations: string[];
-  transcript: any[];
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const callTypeLabels: Record<string, string> = { "simulated": "AI Simulation", "twilio-dial": "Twilio Call", "hume-voice": "Live Voice" };
-  const callTypeColors: Record<string, string> = { "simulated": "bg-primary/15 text-primary", "twilio-dial": "bg-emerald-500/15 text-emerald-500", "hume-voice": "bg-purple-500/15 text-purple-500" };
-  const outcomeColors: Record<string, string> = { "qualified": "bg-emerald-500/15 text-emerald-500", "follow-up": "bg-amber-500/15 text-amber-500", "no-interest": "bg-muted text-muted-foreground", "callback": "bg-blue-500/15 text-blue-500", "pending": "bg-muted text-muted-foreground" };
+function PulsingDot() {
+  return (
+    <span className="relative inline-flex h-2.5 w-2.5">
+      <span
+        className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping"
+        style={{ background: "#34d399" }}
+      />
+      <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: "#34d399" }} />
+    </span>
+  );
+}
 
-  const tonesArray = Object.entries(tones).map(([name, value]) => ({ name, value: Math.round(Number(value)) })).sort((a, b) => b.value - a.value).slice(0, 5);
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function ATOMLeadGen() {
+  const { toast } = useToast();
+
+  // Form
+  const [phone, setPhone] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [productSlug, setProductSlug] = useState("");
+
+  // Call state
+  const [callStatus, setCallStatus] = useState<CallStatus>("idle");
+  const [callSid, setCallSid] = useState<string | null>(null);
+
+  // Analytics
+  const [metrics, setMetrics] = useState<CallMetrics>({
+    sentiment: 0,
+    buyerIntent: 0,
+    stage: "Discovery",
+    emotions: { confidence: 0, interest: 0, skepticism: 0, excitement: 0, frustration: 0, neutrality: 0 },
+    buyingSignals: [],
+  });
+  const [sentimentHistory, setSentimentHistory] = useState<Array<{ ts: number; value: number }>>([]);
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [buyingSignals, setBuyingSignals] = useState<string[]>([]);
+  const [summary, setSummary] = useState<CallSummary | null>(null);
+
+  // Refs
+  const wsRef = useRef<WebSocket | null>(null);
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const callSidRef = useRef<string | null>(null);
+
+  // Auto-scroll transcript
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [transcript]);
+
+  // Cleanup WS on unmount
+  useEffect(() => {
+    return () => {
+      wsRef.current?.close();
+    };
+  }, []);
+
+  const connectWebSocket = useCallback((sid: string) => {
+    const wsUrl = `wss://45-79-202-76.sslip.io/events/${sid}`;
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("[WS] connected", wsUrl);
+    };
+
+    ws.onmessage = (ev) => {
+      let data: any;
+      try {
+        data = JSON.parse(ev.data);
+      } catch {
+        return;
+      }
+
+      if (data.type === "call_started") {
+        setCallStatus("active");
+      } else if (data.type === "call_metrics") {
+        const m: CallMetrics = {
+          sentiment: data.sentiment ?? 0,
+          buyerIntent: data.buyerIntent ?? 0,
+          stage: data.stage ?? "Discovery",
+          emotions: data.emotions ?? {
+            confidence: 0,
+            interest: 0,
+            skepticism: 0,
+            excitement: 0,
+            frustration: 0,
+            neutrality: 0,
+          },
+          buyingSignals: data.buyingSignals ?? [],
+        };
+        setMetrics(m);
+        setSentimentHistory((prev) => [
+          ...prev.slice(-59),
+          { ts: data.ts ?? Date.now(), value: data.sentiment ?? 0 },
+        ]);
+        if (data.buyingSignals?.length) {
+          setBuyingSignals((prev) => {
+            const next = [...prev];
+            for (const sig of data.buyingSignals) {
+              if (!next.includes(sig)) next.push(sig);
+            }
+            return next;
+          });
+        }
+      } else if (data.type === "transcript") {
+        setTranscript((prev) => [
+          ...prev,
+          {
+            speaker: data.speaker as "ATOM" | "PROSPECT",
+            text: data.text,
+            ts: data.ts ?? Date.now(),
+          },
+        ]);
+      } else if (data.type === "call_ended") {
+        setCallStatus("ended");
+        setSummary({
+          duration: data.duration ?? 0,
+          finalSentiment: metrics.sentiment,
+          finalIntent: metrics.buyerIntent,
+          stage: metrics.stage,
+        });
+        ws.close();
+      }
+    };
+
+    ws.onerror = (e) => {
+      console.error("[WS] error", e);
+    };
+
+    ws.onclose = () => {
+      console.log("[WS] closed");
+    };
+  }, [metrics]);
+
+  const handleDial = async () => {
+    if (!phone.trim()) {
+      toast({ title: "Phone number required", variant: "destructive" });
+      return;
+    }
+    setCallStatus("dialing");
+    setTranscript([]);
+    setBuyingSignals([]);
+    setSentimentHistory([]);
+    setSummary(null);
+    setMetrics({
+      sentiment: 0,
+      buyerIntent: 0,
+      stage: "Discovery",
+      emotions: { confidence: 0, interest: 0, skepticism: 0, excitement: 0, frustration: 0, neutrality: 0 },
+      buyingSignals: [],
+    });
+
+    try {
+      const res = await fetch(`${BRIDGE_URL}/call`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: phone.trim(),
+          contactName: contactName.trim() || undefined,
+          companyName: companyName.trim() || undefined,
+          productSlug: productSlug.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      }
+
+      const json = await res.json();
+      const sid: string = json.callSid;
+      setCallSid(sid);
+      callSidRef.current = sid;
+      connectWebSocket(sid);
+      setCallStatus("active");
+    } catch (err: any) {
+      setCallStatus("idle");
+      toast({
+        title: "Failed to connect",
+        description: err?.message ?? "Bridge unreachable. Check your network.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEndCall = () => {
+    wsRef.current?.close();
+    setCallStatus("ended");
+    setSummary((prev) =>
+      prev ?? {
+        duration: 0,
+        finalSentiment: metrics.sentiment,
+        finalIntent: metrics.buyerIntent,
+        stage: metrics.stage,
+      }
+    );
+  };
+
+  const handleNewCall = () => {
+    wsRef.current?.close();
+    setCallStatus("idle");
+    setCallSid(null);
+    setTranscript([]);
+    setBuyingSignals([]);
+    setSentimentHistory([]);
+    setSummary(null);
+    setMetrics({
+      sentiment: 0,
+      buyerIntent: 0,
+      stage: "Discovery",
+      emotions: { confidence: 0, interest: 0, skepticism: 0, excitement: 0, frustration: 0, neutrality: 0 },
+      buyingSignals: [],
+    });
+  };
+
+  const showAnalytics = callStatus === "active" || callStatus === "ended";
 
   return (
-    <Card className="border-border/50">
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-sm font-semibold">{call.contactName || "Unknown"}</h3>
-              <span className="text-xs text-muted-foreground">at {call.companyName}</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              <Badge className={callTypeColors[call.callType] || "bg-muted"} variant="secondary">{callTypeLabels[call.callType] || call.callType}</Badge>
-              <Badge className={outcomeColors[call.outcome] || "bg-muted"} variant="secondary">{call.outcome}</Badge>
-              {call.sentiment > 0 && <Badge variant="outline" className="text-[10px] gap-1"><Activity className="w-3 h-3" />Sent: {call.sentiment}</Badge>}
-              {call.buyerIntent > 0 && <Badge variant="outline" className="text-[10px] gap-1"><Target className="w-3 h-3" />Intent: {call.buyerIntent}</Badge>}
-              {call.duration > 0 && <Badge variant="outline" className="text-[10px] gap-1"><Clock className="w-3 h-3" />{formatDuration(call.duration)}</Badge>}
-              {call.phoneNumber && <Badge variant="outline" className="text-[10px]">{call.phoneNumber}</Badge>}
-            </div>
-            <p className="text-[10px] text-muted-foreground">{new Date(call.createdAt).toLocaleString()}</p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </Button>
+    <div
+      className="min-h-screen px-4 py-8 md:px-8"
+      style={{ background: "#020202", color: "rgba(246,246,253,0.9)", fontFamily: "inherit" }}
+    >
+      <div className="max-w-4xl mx-auto space-y-6">
+
+        {/* ─── Header ─────────────────────────────────────────────────────── */}
+        <div className="mb-2">
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "rgba(246,246,253,0.95)" }}>
+            ATOM Lead Gen
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "rgba(246,246,253,0.4)" }}>
+            AI-powered outbound calling with live analytics
+          </p>
         </div>
 
-        {expanded && (
-          <div className="mt-3 pt-3 border-t border-border/50 space-y-4">
-            {(call.sentiment > 0 || call.buyerIntent > 0) && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-2 rounded-lg bg-muted/30 text-center"><p className="text-lg font-bold">{call.sentiment}</p><p className="text-[10px] text-muted-foreground">Sentiment</p></div>
-                <div className="p-2 rounded-lg bg-muted/30 text-center"><p className="text-lg font-bold">{call.buyerIntent}</p><p className="text-[10px] text-muted-foreground">Buyer Intent</p></div>
-                <div className="p-2 rounded-lg bg-muted/30 text-center"><p className="text-lg font-bold">{qualification.score || 0}</p><p className="text-[10px] text-muted-foreground">Qual Score</p></div>
-                <div className="p-2 rounded-lg bg-muted/30 text-center"><p className="text-lg font-bold">{formatDuration(call.duration)}</p><p className="text-[10px] text-muted-foreground">Duration</p></div>
+        {/* ═══════════════════════════════════════════════════════════════════
+            Section 1: Call Setup
+        ═══════════════════════════════════════════════════════════════════ */}
+        <div
+          className="rounded-2xl p-6"
+          style={{
+            background: "rgba(246,246,253,0.03)",
+            border: "1px solid rgba(246,246,253,0.08)",
+          }}
+        >
+          <div
+            className="text-xs uppercase tracking-wider mb-5"
+            style={{ color: "rgba(246,246,253,0.5)" }}
+          >
+            Call Setup
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+            {/* Phone */}
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: "rgba(246,246,253,0.5)" }}>
+                Phone Number <span style={{ color: "#f87171" }}>*</span>
+              </label>
+              <input
+                type="tel"
+                placeholder="+1 (555) 000-0000"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={callStatus === "active" || callStatus === "dialing"}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{
+                  background: "rgba(246,246,253,0.05)",
+                  border: "1px solid rgba(246,246,253,0.1)",
+                  color: "rgba(246,246,253,0.9)",
+                }}
+              />
+            </div>
+
+            {/* Contact Name */}
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: "rgba(246,246,253,0.5)" }}>
+                Contact Name
+              </label>
+              <input
+                type="text"
+                placeholder="Jane Smith"
+                value={contactName}
+                onChange={(e) => setContactName(e.target.value)}
+                disabled={callStatus === "active" || callStatus === "dialing"}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{
+                  background: "rgba(246,246,253,0.05)",
+                  border: "1px solid rgba(246,246,253,0.1)",
+                  color: "rgba(246,246,253,0.9)",
+                }}
+              />
+            </div>
+
+            {/* Company */}
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: "rgba(246,246,253,0.5)" }}>
+                Company Name
+              </label>
+              <input
+                type="text"
+                placeholder="Acme Corp"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                disabled={callStatus === "active" || callStatus === "dialing"}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{
+                  background: "rgba(246,246,253,0.05)",
+                  border: "1px solid rgba(246,246,253,0.1)",
+                  color: "rgba(246,246,253,0.9)",
+                }}
+              />
+            </div>
+
+            {/* Product */}
+            <div>
+              <label className="block text-xs mb-1.5" style={{ color: "rgba(246,246,253,0.5)" }}>
+                Product / Service to Pitch
+              </label>
+              <input
+                type="text"
+                placeholder="Akamai, TierPoint, CDN…"
+                value={productSlug}
+                onChange={(e) => setProductSlug(e.target.value)}
+                disabled={callStatus === "active" || callStatus === "dialing"}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{
+                  background: "rgba(246,246,253,0.05)",
+                  border: "1px solid rgba(246,246,253,0.1)",
+                  color: "rgba(246,246,253,0.9)",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* CTA row */}
+          {callStatus === "idle" || callStatus === "dialing" ? (
+            <button
+              onClick={handleDial}
+              disabled={callStatus === "dialing"}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all"
+              style={{
+                background: "linear-gradient(135deg, #8587e3, #4c4dac, #696aac)",
+                color: "white",
+                boxShadow: "0 0 20px rgba(133,135,227,0.35)",
+                opacity: callStatus === "dialing" ? 0.7 : 1,
+                cursor: callStatus === "dialing" ? "not-allowed" : "pointer",
+              }}
+            >
+              {callStatus === "dialing" ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Connecting…
+                </>
+              ) : (
+                <>
+                  <PhoneCall size={16} />
+                  Dial with ATOM
+                </>
+              )}
+            </button>
+          ) : callStatus === "active" ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <PulsingDot />
+                <span className="text-sm font-medium" style={{ color: "#34d399" }}>
+                  Call Active
+                  {companyName && ` — ${companyName}`}
+                  {contactName && ` — ${contactName}`}
+                </span>
               </div>
-            )}
-            {sentimentTimeline.length > 0 && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Sentiment</p>
-                  <ResponsiveContainer width="100%" height={100}>
-                    <LineChart data={sentimentTimeline}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 11 }} />
-                      <Line type="monotone" dataKey="score" stroke="hsl(190, 95%, 50%)" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
+              <button
+                onClick={handleEndCall}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+                style={{
+                  background: "rgba(248,113,113,0.15)",
+                  border: "1px solid rgba(248,113,113,0.3)",
+                  color: "#f87171",
+                  cursor: "pointer",
+                }}
+              >
+                <PhoneOff size={14} />
+                End Call
+              </button>
+            </div>
+          ) : (
+            /* ended */
+            <div className="flex items-center justify-between">
+              <span className="text-sm" style={{ color: "rgba(246,246,253,0.5)" }}>
+                Call ended
+              </span>
+              <button
+                onClick={handleNewCall}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium"
+                style={{
+                  background: "linear-gradient(135deg, #8587e3, #4c4dac, #696aac)",
+                  color: "white",
+                  boxShadow: "0 0 16px rgba(133,135,227,0.3)",
+                  cursor: "pointer",
+                }}
+              >
+                <PhoneCall size={14} />
+                New Call
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            Section 2: Live Analytics (only during/after call)
+        ═══════════════════════════════════════════════════════════════════ */}
+        {showAnalytics && (
+          <div
+            className="rounded-2xl p-6 space-y-6"
+            style={{
+              background: "rgba(246,246,253,0.03)",
+              border: "1px solid rgba(246,246,253,0.08)",
+            }}
+          >
+            <div
+              className="text-xs uppercase tracking-wider"
+              style={{ color: "rgba(246,246,253,0.5)" }}
+            >
+              Live Analytics{callStatus === "ended" && " — Final State"}
+            </div>
+
+            {/* ── Row 1: Gauges ── */}
+            <div className="grid grid-cols-2 gap-4">
+              <div
+                className="rounded-xl p-4 flex flex-col items-center"
+                style={{ background: "rgba(246,246,253,0.025)", border: "1px solid rgba(246,246,253,0.06)" }}
+              >
+                <div
+                  className="text-xs uppercase tracking-wider mb-2 self-start"
+                  style={{ color: "rgba(246,246,253,0.45)" }}
+                >
+                  Sentiment
                 </div>
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Buyer Intent</p>
-                  <ResponsiveContainer width="100%" height={100}>
-                    <LineChart data={intentTimeline}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 11 }} />
-                      <Line type="monotone" dataKey="score" stroke="hsl(150, 60%, 45%)" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <Gauge score={metrics.sentiment} label={sentimentLabel(metrics.sentiment)} type="sentiment" />
+              </div>
+              <div
+                className="rounded-xl p-4 flex flex-col items-center"
+                style={{ background: "rgba(246,246,253,0.025)", border: "1px solid rgba(246,246,253,0.06)" }}
+              >
+                <div
+                  className="text-xs uppercase tracking-wider mb-2 self-start"
+                  style={{ color: "rgba(246,246,253,0.45)" }}
+                >
+                  Buyer Intent
+                </div>
+                <Gauge score={metrics.buyerIntent} label={intentLabel(metrics.buyerIntent)} type="intent" />
+              </div>
+            </div>
+
+            {/* ── Row 2: Emotion Bars ── */}
+            <div
+              className="rounded-xl p-4"
+              style={{ background: "rgba(246,246,253,0.025)", border: "1px solid rgba(246,246,253,0.06)" }}
+            >
+              <div
+                className="text-xs uppercase tracking-wider mb-4"
+                style={{ color: "rgba(246,246,253,0.45)" }}
+              >
+                Emotion Analysis
+              </div>
+              <div className="space-y-2.5">
+                {Object.entries(metrics.emotions).map(([name, val]) => (
+                  <EmotionBar key={name} name={name} value={val} />
+                ))}
+              </div>
+            </div>
+
+            {/* ── Row 3: Stage + Sparkline ── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div
+                className="rounded-xl p-4"
+                style={{ background: "rgba(246,246,253,0.025)", border: "1px solid rgba(246,246,253,0.06)" }}
+              >
+                <div
+                  className="text-xs uppercase tracking-wider mb-4"
+                  style={{ color: "rgba(246,246,253,0.45)" }}
+                >
+                  Call Stage
+                </div>
+                <StageTimeline activeStage={metrics.stage} />
+              </div>
+              <div
+                className="rounded-xl p-4"
+                style={{ background: "rgba(246,246,253,0.025)", border: "1px solid rgba(246,246,253,0.06)" }}
+              >
+                <div
+                  className="text-xs uppercase tracking-wider mb-3"
+                  style={{ color: "rgba(246,246,253,0.45)" }}
+                >
+                  Sentiment Timeline
+                </div>
+                <div className="h-20">
+                  <SentimentSparkline points={sentimentHistory} />
                 </div>
               </div>
-            )}
-            {tonesArray.length > 0 && (
+            </div>
+
+            {/* ── Row 4: Buying Signals ── */}
+            {buyingSignals.length > 0 && (
               <div>
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Emotional Tones</p>
-                <div className="space-y-1">{tonesArray.map((t, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="text-[10px] w-20 text-muted-foreground capitalize">{t.name}</span>
-                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-primary" style={{ width: `${t.value}%` }} /></div>
-                    <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">{t.value}%</span>
-                  </div>
-                ))}</div>
-              </div>
-            )}
-            {(qualification.keySignals?.length > 0 || qualification.objections?.length > 0) && (
-              <div className="grid grid-cols-2 gap-3">
-                {qualification.keySignals?.length > 0 && (
-                  <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Key Signals</p>
-                    {qualification.keySignals.map((s: string, i: number) => (<div key={i} className="flex items-start gap-1.5 mb-1"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /><span className="text-xs">{s}</span></div>))}
-                  </div>
-                )}
-                {qualification.objections?.length > 0 && (
-                  <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Objections</p>
-                    {qualification.objections.map((o: string, i: number) => (<div key={i} className="flex items-start gap-1.5 mb-1"><AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" /><span className="text-xs">{o}</span></div>))}
-                  </div>
-                )}
-              </div>
-            )}
-            {recommendations.length > 0 && (
-              <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">AI Recommendations</p>
-                {recommendations.map((r, i) => (<div key={i} className="flex items-start gap-1.5 mb-1"><Brain className="w-3 h-3 text-primary mt-0.5 shrink-0" /><span className="text-xs">{r}</span></div>))}
-              </div>
-            )}
-            {Array.isArray(transcript) && transcript.length > 0 && (
-              <div>
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Full Transcript</p>
-                <div className="max-h-[300px] overflow-y-auto space-y-2 p-2 rounded-lg bg-muted/20">
-                  {transcript.map((msg: any, i: number) => (
-                    <div key={i} className={`flex gap-2 ${msg.speaker === "ATOM" ? "" : "flex-row-reverse"}`}>
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[8px] font-bold ${msg.speaker === "ATOM" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>{msg.speaker === "ATOM" ? "A" : "C"}</div>
-                      <div className={`max-w-[80%] rounded-lg p-2 text-xs ${msg.speaker === "ATOM" ? "bg-primary/10" : "bg-muted"}`}>{msg.text}</div>
-                    </div>
+                <div
+                  className="text-xs uppercase tracking-wider mb-3"
+                  style={{ color: "rgba(246,246,253,0.45)" }}
+                >
+                  Buying Signals
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {buyingSignals.map((sig, i) => (
+                    <span
+                      key={i}
+                      className="px-3 py-1 rounded-full text-xs font-medium"
+                      style={{
+                        background: "rgba(105,106,172,0.2)",
+                        border: "1px solid rgba(133,135,227,0.3)",
+                        color: "#a2a3e9",
+                        animation: "slideIn 0.3s ease",
+                      }}
+                    >
+                      {sig}
+                    </span>
                   ))}
                 </div>
               </div>
             )}
-            {call.callSid && <p className="text-[10px] text-muted-foreground">Call SID: {call.callSid}</p>}
+
+            {/* ── Call Summary (after ended) ── */}
+            {callStatus === "ended" && summary && (
+              <div
+                className="rounded-xl p-4"
+                style={{
+                  background: "rgba(105,106,172,0.08)",
+                  border: "1px solid rgba(133,135,227,0.2)",
+                }}
+              >
+                <div
+                  className="text-xs uppercase tracking-wider mb-3"
+                  style={{ color: "rgba(246,246,253,0.45)" }}
+                >
+                  Call Summary
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <div className="text-xs mb-0.5" style={{ color: "rgba(246,246,253,0.4)" }}>Duration</div>
+                    <div className="text-sm font-medium" style={{ color: "rgba(246,246,253,0.9)" }}>
+                      {summary.duration ? formatDuration(summary.duration) : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs mb-0.5" style={{ color: "rgba(246,246,253,0.4)" }}>Final Sentiment</div>
+                    <div className="text-sm font-medium" style={{ color: sentimentColor(summary.finalSentiment) }}>
+                      {sentimentLabel(summary.finalSentiment)} ({Math.round(summary.finalSentiment)})
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs mb-0.5" style={{ color: "rgba(246,246,253,0.4)" }}>Final Intent</div>
+                    <div className="text-sm font-medium" style={{ color: "#a2a3e9" }}>
+                      {intentLabel(summary.finalIntent)} ({Math.round(summary.finalIntent)})
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs mb-0.5" style={{ color: "rgba(246,246,253,0.4)" }}>Final Stage</div>
+                    <div className="text-sm font-medium" style={{ color: "rgba(246,246,253,0.9)" }}>
+                      {summary.stage}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            Section 3: Live Transcript
+        ═══════════════════════════════════════════════════════════════════ */}
+        {showAnalytics && (
+          <div
+            className="rounded-2xl p-6"
+            style={{
+              background: "rgba(246,246,253,0.03)",
+              border: "1px solid rgba(246,246,253,0.08)",
+            }}
+          >
+            <div
+              className="text-xs uppercase tracking-wider mb-4"
+              style={{ color: "rgba(246,246,253,0.5)" }}
+            >
+              Live Transcript
+            </div>
+
+            <div
+              className="overflow-y-auto pr-1"
+              style={{
+                maxHeight: "420px",
+                minHeight: "120px",
+              }}
+            >
+              {transcript.length === 0 ? (
+                <div
+                  className="text-sm text-center py-10"
+                  style={{ color: "rgba(246,246,253,0.25)" }}
+                >
+                  {callStatus === "active" ? "Waiting for transcript…" : "No transcript recorded."}
+                </div>
+              ) : (
+                transcript.map((entry, i) => <TxMessage key={i} entry={entry} />)
+              )}
+              <div ref={transcriptEndRef} />
+            </div>
           </div>
         )}
       </div>
-    </Card>
-  );
-}
 
-
-
-export default function AtomLeadGen() {
-  const [location] = useLocation();
-  const { toast } = useToast();
-  const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
-  const calls = useCalls();
-
-  // Parse URL params for pre-fill from prospect engine
-  const urlParams = new URLSearchParams(location.split("?")[1] || "");
-  const prefillCompany = urlParams.get("company") || "";
-  const prefillContact = urlParams.get("contact") || "";
-  const prefillTitle = urlParams.get("title") || "";
-  const prefillProduct = urlParams.get("product") || "";
-
-  const [activeTab, setActiveTab] = useState(prefillCompany ? "campaign" : "campaign");
-  const [companyName, setCompanyName] = useState(prefillCompany);
-  const [contactName, setContactName] = useState(prefillContact);
-  const [contactTitle, setContactTitle] = useState(prefillTitle);
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [productSlug, setProductSlug] = useState(prefillProduct);
-  const [isLoading, setIsLoading] = useState(false);
-  const [queue, setQueue] = useState<QueuedCall[]>([]);
-  const [activeCallId, setActiveCallId] = useState<number | null>(null);
-  const [activeResult, setActiveResult] = useState<SimulateResponse | null>(null);
-
-  const activeQueuedCall = queue.find((q) => q.id === activeCallId) || null;
-
-  const handleStartCall = useCallback(async () => {
-    if (!companyName || !contactName || !productSlug) {
-      toast({
-        title: "Missing info",
-        description: "Please fill in company name, contact name, and select a product",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const callId = Date.now();
-    const newCall: QueuedCall = {
-      id: callId,
-      companyName,
-      contactName,
-      contactTitle,
-      productSlug,
-      status: "in-progress",
-    };
-    setQueue((prev) => [newCall, ...prev]);
-    setIsLoading(true);
-
-    // Add to store as pending
-    store.addCall({
-      id: callId,
-      companyName,
-      contactName,
-      contactTitle,
-      productSlug,
-      transcript: "[]",
-      sentimentTimeline: "[]",
-      intentTimeline: "[]",
-      emotionalTones: "{}",
-      qualification: "{}",
-      outcome: "pending",
-      duration: 0,
-      aiRecommendations: "[]",
-      createdAt: new Date().toISOString(),
-      status: "in-progress",
-    });
-
-    try {
-      const res = await apiRequest("POST", "/api/atom-leadgen/simulate", {
-        companyName,
-        contactName,
-        contactTitle,
-        productSlug,
-      });
-      const data: SimulateResponse = await res.json();
-
-      setQueue((prev) =>
-        prev.map((q) => (q.id === callId ? { ...q, status: "in-progress", result: data } : q))
-      );
-      setActiveCallId(callId);
-      setActiveResult(data);
-      setActiveTab("live");
-    } catch (err: any) {
-      setQueue((prev) =>
-        prev.map((q) => (q.id === callId ? { ...q, status: "failed" } : q))
-      );
-      store.updateCall(callId, { status: "failed" });
-      toast({
-        title: "Call failed",
-        description: err.message || "Failed to simulate call",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [companyName, contactName, contactTitle, productSlug, toast]);
-
-  const handleCallEnd = useCallback(
-    (result: SimulateResponse) => {
-      if (!activeCallId) return;
-
-      setQueue((prev) =>
-        prev.map((q) => (q.id === activeCallId ? { ...q, status: "completed" } : q))
-      );
-
-      store.updateCall(activeCallId, {
-        transcript: JSON.stringify(result.transcript),
-        sentimentTimeline: JSON.stringify(result.sentimentTimeline),
-        intentTimeline: JSON.stringify(result.intentTimeline),
-        emotionalTones: JSON.stringify(result.emotionalTones),
-        qualification: JSON.stringify(result.qualification),
-        outcome: result.outcome,
-        duration: result.duration,
-        aiRecommendations: JSON.stringify(result.aiRecommendations),
-        status: "completed",
-      });
-
-      toast({
-        title: "Call complete",
-        description: `${companyName} · Outcome: ${result.outcome} · Intent: ${result.intentTimeline[result.intentTimeline.length - 1]?.score ?? 0}%`,
-      });
-    },
-    [activeCallId, companyName, toast]
-  );
-
-  const queueStatusColors: Record<string, string> = {
-    pending: "bg-muted text-muted-foreground",
-    "in-progress": "bg-primary/15 text-primary",
-    completed: "bg-emerald-500/15 text-emerald-500",
-    failed: "bg-rose-500/15 text-rose-500",
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <PhoneCall className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">ATOM Lead Gen</h1>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
-              BETA
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">AI-powered voice cold caller with live sentiment analysis</p>
-        </div>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
-          <TabsTrigger value="campaign">Campaign</TabsTrigger>
-          <TabsTrigger value="voice">
-            <span className="flex items-center gap-1.5">
-              <Radio className="w-3 h-3" />
-              Live Voice
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="live" disabled={!activeResult}>
-            <span className="flex items-center gap-1.5">
-              Sim Call
-              {activeResult && !queue.find((q) => q.id === activeCallId && q.status === "completed") && (
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-              )}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="history">
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3 h-3" />
-              History ({calls.length})
-            </span>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ── TAB: Live Voice (Hume EVI) ── */}
-        <TabsContent value="voice" className="mt-4">
-          <HumeVoiceCallWrapper
-            companyName={companyName || "Target Company"}
-            contactName={contactName || "Decision Maker"}
-            productName={products.find(p => p.slug === productSlug)?.name || "Antimatter AI"}
-            productSlug={productSlug || "antimatter-ai"}
-          />
-        </TabsContent>
-
-        {/* ── TAB 1: Campaign ── */}
-        <TabsContent value="campaign" className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Input form */}
-            <Card className="border-border/50">
-              <CardHeader className="pb-3 pt-4 px-4">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-primary" />
-                  Start New Call
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Company Name *</Label>
-                    <Input
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="Acme Corp"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Contact Name *</Label>
-                    <Input
-                      value={contactName}
-                      onChange={(e) => setContactName(e.target.value)}
-                      placeholder="Jane Smith"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Title / Role</Label>
-                    <Input
-                      value={contactTitle}
-                      onChange={(e) => setContactTitle(e.target.value)}
-                      placeholder="VP of Engineering"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Phone (optional)</Label>
-                    <Input
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+1 555-0100"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Product to Pitch *</Label>
-                  <Select value={productSlug} onValueChange={setProductSlug}>
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder="Select a product..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((p) => (
-                        <SelectItem key={p.slug} value={p.slug}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    className="w-full gap-2"
-                    onClick={handleStartCall}
-                    disabled={isLoading || !companyName || !contactName || !productSlug}
-                  >
-                    {isLoading ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" />Simulating...</>
-                    ) : (
-                      <><Brain className="w-4 h-4" />AI Simulate</>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
-                    onClick={async () => {
-                      if (!phoneNumber) {
-                        toast({ title: "Phone required", description: "Enter a phone number to dial", variant: "destructive" });
-                        return;
-                      }
-                      try {
-                        const res = await apiRequest("POST", "/api/atom-leadgen/call", {
-                          phoneNumber,
-                          contactName,
-                          companyName,
-                          productSlug,
-                        });
-                        const data = await res.json();
-                        // Save Twilio call to history
-                        store.addCall({
-                          id: Date.now(),
-                          companyName,
-                          contactName,
-                          contactTitle: "",
-                          productSlug,
-                          phoneNumber,
-                          callType: "twilio-dial",
-                          callSid: data.callSid || "",
-                          transcript: "[Live Twilio call - no transcript available]",
-                          sentimentTimeline: "[]",
-                          intentTimeline: "[]",
-                          emotionalTones: "{}",
-                          qualification: JSON.stringify({ qualified: false, score: 0, keySignals: [], objections: [] }),
-                          outcome: "pending",
-                          duration: 0,
-                          aiRecommendations: "[]",
-                          createdAt: new Date().toISOString(),
-                          status: "completed",
-                          sentiment: 0,
-                          buyerIntent: 0,
-                        });
-                        toast({ title: "Call initiated", description: `Dialing ${contactName || phoneNumber}... SID: ${data.callSid?.slice(-6)}` });
-                      } catch (err: any) {
-                        toast({ title: "Call failed", description: err.message, variant: "destructive" });
-                      }
-                    }}
-                    disabled={!phoneNumber || !companyName}
-                  >
-                    <Phone className="w-4 h-4" />Dial (Twilio)
-                  </Button>
-                </div>
-
-                {isLoading && (
-                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                    <div className="flex items-center gap-2 text-sm text-primary">
-                      <Brain className="w-4 h-4 animate-pulse" />
-                      <span className="font-medium">ATOM generating realistic cold call simulation...</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Campaign queue */}
-            <Card className="border-border/50">
-              <CardHeader className="pb-3 pt-4 px-4">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Users className="w-4 h-4 text-primary" />
-                  Campaign Queue
-                  {queue.length > 0 && (
-                    <Badge variant="outline" className="ml-auto text-[10px]">{queue.length}</Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                {queue.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                    <PhoneCall className="w-8 h-8 mb-2 opacity-30" />
-                    <p className="text-xs">No calls queued yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {queue.map((q) => (
-                      <div
-                        key={q.id}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${q.id === activeCallId ? "border-primary/40 bg-primary/5" : "border-border/50"}`}
-                        onClick={() => {
-                          if (q.result) {
-                            setActiveCallId(q.id);
-                            setActiveResult(q.result);
-                            setActiveTab("live");
-                          }
-                        }}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{q.companyName}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{q.contactName} · {q.productSlug.replace(/-/g, " ")}</p>
-                        </div>
-                        <Badge className={`text-[10px] ${queueStatusColors[q.status]}`}>
-                          {q.status === "in-progress" && <Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" />}
-                          {q.status}
-                        </Badge>
-                        {q.result && (
-                          <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* ── TAB 2: Live Call ── */}
-        <TabsContent value="live" className="mt-4">
-          {activeQueuedCall && activeResult ? (
-            <LiveCallDashboard
-              key={activeCallId!}
-              queuedCall={activeQueuedCall}
-              result={activeResult}
-              onCallEnd={handleCallEnd}
-            />
-          ) : (
-            <Card className="border-border/50">
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Phone className="w-8 h-8 mb-3 opacity-30" />
-                <p className="text-sm">No active call</p>
-                <p className="text-xs mt-1">Start a call from the Campaign tab</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => setActiveTab("campaign")}
-                >
-                  Go to Campaign
-                </Button>
-              </div>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* ── TAB 3: Analytics ── */}
-        <TabsContent value="analytics" className="mt-4">
-          <AnalyticsDashboard calls={calls} />
-        </TabsContent>
-
-        {/* ── TAB 4: Call History ── */}
-        <TabsContent value="history" className="mt-4 space-y-3">
-          {calls.length === 0 ? (
-            <Card className="border-border/50">
-              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Clock className="w-8 h-8 mb-3 opacity-40" />
-                <p className="text-sm">No call history yet</p>
-                <p className="text-xs mt-1">Run a campaign or dial a prospect to see history here</p>
-              </CardContent>
-            </Card>
-          ) : (
-            calls.map((call) => {
-              const qual = (() => { try { return JSON.parse(call.qualification); } catch { return { score: 0, keySignals: [], objections: [] }; } })();
-              const sentTL = (() => { try { return JSON.parse(call.sentimentTimeline); } catch { return []; } })();
-              const intentTL = (() => { try { return JSON.parse(call.intentTimeline); } catch { return []; } })();
-              const tones = (() => { try { return JSON.parse(call.emotionalTones); } catch { return {}; } })();
-              const recs = (() => { try { return JSON.parse(call.aiRecommendations); } catch { return []; } })();
-              const transcript = (() => { try { return JSON.parse(call.transcript); } catch { return []; } })();
-              return (
-                <CallHistoryCard
-                  key={call.id}
-                  call={call}
-                  qualification={qual}
-                  sentimentTimeline={sentTL}
-                  intentTimeline={intentTL}
-                  tones={tones}
-                  recommendations={recs}
-                  transcript={transcript}
-                />
-              );
-            })
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* slide-in animation */}
+      <style>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        input::placeholder { color: rgba(246,246,253,0.2); }
+        input:focus { border-color: rgba(133,135,227,0.4) !important; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(246,246,253,0.1); border-radius: 9999px; }
+      `}</style>
     </div>
   );
 }
