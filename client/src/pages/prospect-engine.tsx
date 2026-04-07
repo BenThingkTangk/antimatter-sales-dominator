@@ -377,6 +377,7 @@ export default function ProspectEngine() {
   const { toast } = useToast();
   const [scanIndustry, setScanIndustry] = useState("All Industries");
   const [productFocus, setProductFocus] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
   const prospects = useProspects();
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
 
@@ -395,6 +396,7 @@ export default function ProspectEngine() {
     },
     onSuccess: (data: Prospect[]) => {
       store.addProspects(data);
+      setHasSearched(true);
       const totalContacts = data.reduce((sum, p) => sum + (JSON.parse(p.contacts || "[]")).length, 0);
 
       const entry: LocalProspectEntry = {
@@ -561,7 +563,7 @@ export default function ProspectEngine() {
             </div>
           </Card>
 
-          {prospects.length > 0 && (
+          {hasSearched && prospects.length > 0 && (
             <div className="grid grid-cols-4 gap-3">
               <Card className="border-border/50 border-l-2 border-l-rose-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-rose-500">{hot.length}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Hot (75+)</p></div></Card>
               <Card className="border-border/50 border-l-2 border-l-amber-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-amber-500">{warm.length}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Warm (50-74)</p></div></Card>
@@ -570,7 +572,7 @@ export default function ProspectEngine() {
             </div>
           )}
 
-          {prospects.length > 0 ? (
+          {hasSearched && prospects.length > 0 ? (
             <div className="space-y-2">{prospects.map(p => <ProspectCard key={p.id} prospect={p} products={products} />)}</div>
           ) : (
             <Card className="border-border/50"><div className="flex flex-col items-center justify-center py-16 text-muted-foreground"><Radar className="w-8 h-8 mb-3 opacity-40" /><p className="text-sm">No prospects yet — scan to discover targets with decision maker contacts</p></div></Card>
