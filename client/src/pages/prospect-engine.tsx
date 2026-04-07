@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
@@ -10,13 +10,52 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Radar, Loader2, Signal, ChevronDown, ChevronUp, Flame,
-  Mail, Phone, Linkedin, User, Globe, RefreshCw, ShieldCheck, AlertCircle, CheckCircle2, PhoneCall
+  Mail, Phone, Linkedin, User, Globe, RefreshCw, ShieldCheck, AlertCircle, CheckCircle2, PhoneCall,
+  History, Plus
 } from "lucide-react";
 import type { Product } from "@shared/schema";
 
 const scanIndustries = ["All Industries","Healthcare & Life Sciences","Financial Services & Banking","Real Estate & PropTech","Defense & Government","Technology & SaaS","Insurance","Manufacturing","Retail & E-Commerce"];
 const urgencyColors: Record<string, string> = { critical: "bg-rose-500/15 text-rose-500", high: "bg-amber-500/15 text-amber-500", medium: "bg-blue-500/15 text-blue-500", low: "bg-muted text-muted-foreground" };
 const statusColors: Record<string, string> = { new: "bg-primary/15 text-primary", contacted: "bg-blue-500/15 text-blue-500", engaged: "bg-amber-500/15 text-amber-500", qualified: "bg-emerald-500/15 text-emerald-500", closed: "bg-muted text-muted-foreground" };
+
+const STORAGE_KEY = "atom_prospect_history";
+
+interface LocalProspectEntry {
+  id: string;
+  scanIndustry: string;
+  productFocus: string;
+  prospects: Prospect[];
+  timestamp: number;
+}
+
+function formatTimestamp(ts: number): string {
+  const now = Date.now();
+  const diff = now - ts;
+  const hours = diff / (1000 * 60 * 60);
+  if (hours < 1) {
+    const mins = Math.floor(diff / (1000 * 60));
+    return mins <= 1 ? "just now" : `${mins}m ago`;
+  }
+  if (hours < 24) return `${Math.floor(hours)}h ago`;
+  const d = new Date(ts);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function loadHistory(): LocalProspectEntry[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries: LocalProspectEntry[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  } catch {}
+}
 
 function ScoreBar({ score }: { score: number }) {
   const color = score >= 80 ? "bg-rose-500" : score >= 60 ? "bg-amber-500" : "bg-blue-500";
@@ -264,12 +303,90 @@ function ProspectCard({ prospect, products }: { prospect: Prospect; products: Pr
   );
 }
 
+// Read-only prospect card for history view (no enrich/status mutations)
+function HistoryProspectCard({ prospect, products }: { prospect: Prospect; products: Product[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const matchedProducts = JSON.parse(prospect.matchedProducts || "[]") as string[];
+  const signals = JSON.parse(prospect.signals || "[]") as string[];
+  const contacts = JSON.parse(prospect.contacts || "[]") as Contact[];
+
+  return (
+    <Card className={`border-border/50 transition-all ${prospect.score >= 80 ? "border-l-2 border-l-rose-500" : prospect.score >= 60 ? "border-l-2 border-l-amber-500" : ""}`}>
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              {prospect.score >= 80 && <Flame className="w-4 h-4 text-rose-500 shrink-0" />}
+              <h3 className="font-semibold text-sm truncate">{prospect.companyName}</h3>
+              {prospect.domain && (
+                <a href={`https://${prospect.domain}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-primary">
+                  <Globe className="w-3 h-3" />{prospect.domain}
+                </a>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              <Badge variant="outline" className="text-[10px]">{prospect.industry}</Badge>
+              <Badge variant="outline" className="text-[10px]">{prospect.companySize}</Badge>
+              <Badge className={`text-[10px] ${urgencyColors[prospect.urgency]}`}>{prospect.urgency}</Badge>
+              <Badge className={`text-[10px] ${statusColors[prospect.status]}`}>{prospect.status}</Badge>
+              {contacts.length > 0 && (
+                <Badge className="bg-emerald-500/15 text-emerald-500 text-[10px] gap-0.5">
+                  <User className="w-3 h-3" />{contacts.length} contacts
+                </Badge>
+              )}
+            </div>
+            <ScoreBar score={prospect.score} />
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="shrink-0">
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </Button>
+        </div>
+
+        {expanded && (
+          <div className="mt-3 pt-3 border-t border-border/50 space-y-3">
+            <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Why They Need Us</p><p className="text-sm leading-relaxed">{prospect.reason}</p></div>
+
+            {signals.length > 0 && (
+              <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Market Signals</p>
+                {signals.map((s, i) => <div key={i} className="flex items-start gap-2"><Signal className="w-3 h-3 text-primary mt-0.5 shrink-0" /><p className="text-xs text-muted-foreground">{s}</p></div>)}
+              </div>
+            )}
+
+            {matchedProducts.length > 0 && (
+              <div><p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Recommended Products</p>
+                <div className="flex flex-wrap gap-1.5">{matchedProducts.map(slug => <Badge key={slug} variant="secondary" className="text-[10px]">{products.find(p => p.slug === slug)?.name || slug}</Badge>)}</div>
+              </div>
+            )}
+
+            {contacts.length > 0 && (
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Decision Makers</p>
+                <div className="space-y-2">
+                  {contacts.map((c, i) => <ContactCard key={i} contact={c} />)}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export default function ProspectEngine() {
   const { toast } = useToast();
   const [scanIndustry, setScanIndustry] = useState("All Industries");
   const [productFocus, setProductFocus] = useState("");
   const prospects = useProspects();
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [localHistory, setLocalHistory] = useState<LocalProspectEntry[]>([]);
+  const [expandedHistoryEntry, setExpandedHistoryEntry] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocalHistory(loadHistory());
+  }, []);
 
   const scanProspects = useMutation({
     mutationFn: async () => {
@@ -279,10 +396,28 @@ export default function ProspectEngine() {
     onSuccess: (data: Prospect[]) => {
       store.addProspects(data);
       const totalContacts = data.reduce((sum, p) => sum + (JSON.parse(p.contacts || "[]")).length, 0);
+
+      const entry: LocalProspectEntry = {
+        id: `${Date.now()}-${Math.random()}`,
+        scanIndustry,
+        productFocus,
+        prospects: data,
+        timestamp: Date.now(),
+      };
+      const updated = [entry, ...loadHistory()].slice(0, 20);
+      saveHistory(updated);
+      setLocalHistory(updated);
+
       toast({ title: "Scan complete", description: `Found ${data.length} prospects with ${totalContacts} decision makers` });
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
+
+  const clearHistory = () => {
+    saveHistory([]);
+    setLocalHistory([]);
+    toast({ title: "History cleared" });
+  };
 
   const hot = prospects.filter(p => p.score >= 75);
   const warm = prospects.filter(p => p.score >= 50 && p.score < 75);
@@ -293,48 +428,154 @@ export default function ProspectEngine() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center"><Radar className="w-5 h-5 text-rose-500" /></div>
-        <div><h1 className="text-xl font-bold">Prospect Engine</h1><p className="text-sm text-muted-foreground">AI prospect discovery + ATOM proprietary decision maker enrichment</p></div>
+        <div className="flex-1">
+          <h1 className="text-xl font-bold">Prospect Engine</h1>
+          <p className="text-sm text-muted-foreground">AI prospect discovery + ATOM proprietary decision maker enrichment</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {showHistory && (
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => setShowHistory(false)}>
+              <Plus className="w-3.5 h-3.5" />New Search
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className={`h-8 text-xs gap-1.5 ${showHistory ? "bg-[#696aac]/10 border-[#696aac]" : ""}`}
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            <History className="w-3.5 h-3.5" />
+            History
+            {localHistory.length > 0 && (
+              <span className="bg-[#696aac] text-white text-xs rounded-full px-1.5 py-0 leading-4">{localHistory.length}</span>
+            )}
+          </Button>
+        </div>
       </div>
 
-      <Card className="border-border/50">
-        <div className="p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <Select value={scanIndustry} onValueChange={setScanIndustry}>
-                <SelectTrigger><SelectValue placeholder="Select industry" /></SelectTrigger>
-                <SelectContent>{scanIndustries.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <input
-                type="text"
-                value={productFocus}
-                onChange={(e) => setProductFocus(e.target.value)}
-                placeholder="e.g. Akamai, Five9, TierPoint, Antimatter AI..."
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            </div>
-            <Button onClick={() => scanProspects.mutate()} disabled={scanProspects.isPending} className="sm:w-auto w-full">
-              {scanProspects.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Scanning...</> : <><Radar className="w-4 h-4 mr-2" />Scan + Enrich</>}
-            </Button>
-          </div>
-          {scanProspects.isPending && <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20"><div className="flex items-center gap-2 text-sm text-primary"><Radar className="w-4 h-4 animate-pulse" /><span className="font-medium">ATOM scanning prospects and enriching decision makers...</span></div></div>}
-        </div>
-      </Card>
+      {showHistory ? (
+        <div className="space-y-3">
+          {localHistory.length === 0 ? (
+            <Card className="border-border/50">
+              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <History className="w-8 h-8 mb-3 opacity-40" />
+                <p className="text-sm">No prospect scans yet</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {localHistory.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="rounded-xl border border-[rgba(246,246,253,0.08)] bg-[rgba(246,246,253,0.03)] overflow-hidden"
+                  style={{ borderLeftWidth: "2px", borderLeftColor: "#696aac" }}
+                >
+                  <button
+                    className="w-full text-left p-4"
+                    onClick={() => setExpandedHistoryEntry(expandedHistoryEntry === entry.id ? null : entry.id)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {entry.scanIndustry} scan{entry.productFocus ? ` for ${entry.productFocus}` : ""} — {entry.prospects.length} prospects
+                        </p>
+                        <p className="text-xs text-foreground/40 mt-0.5">{formatTimestamp(entry.timestamp)}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge variant="outline" className="text-[10px]">
+                          {entry.prospects.reduce((sum, p) => sum + (JSON.parse(p.contacts || "[]")).length, 0)} contacts
+                        </Badge>
+                        {expandedHistoryEntry === entry.id ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                      </div>
+                    </div>
+                    {expandedHistoryEntry !== entry.id && (
+                      <div className="flex gap-1.5 mt-2 flex-wrap">
+                        {entry.prospects.slice(0, 4).map((p, i) => (
+                          <span key={i} className="text-[10px] text-muted-foreground border border-border/40 px-1.5 py-0.5 rounded">{p.companyName}</span>
+                        ))}
+                        {entry.prospects.length > 4 && <span className="text-[10px] text-muted-foreground">+{entry.prospects.length - 4} more</span>}
+                      </div>
+                    )}
+                  </button>
 
-      {prospects.length > 0 && (
-        <div className="grid grid-cols-4 gap-3">
-          <Card className="border-border/50 border-l-2 border-l-rose-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-rose-500">{hot.length}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Hot (75+)</p></div></Card>
-          <Card className="border-border/50 border-l-2 border-l-amber-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-amber-500">{warm.length}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Warm (50-74)</p></div></Card>
-          <Card className="border-border/50 border-l-2 border-l-blue-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-blue-500">{cold.length}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Cold (&lt;50)</p></div></Card>
-          <Card className="border-border/50 border-l-2 border-l-emerald-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-emerald-500">{totalContacts}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Contacts</p></div></Card>
+                  {expandedHistoryEntry === entry.id && (
+                    <div className="px-4 pb-4 space-y-3 border-t border-border/30 pt-3">
+                      {/* Stats row */}
+                      <div className="grid grid-cols-4 gap-2">
+                        {(() => {
+                          const h = entry.prospects.filter(p => p.score >= 75).length;
+                          const w = entry.prospects.filter(p => p.score >= 50 && p.score < 75).length;
+                          const c = entry.prospects.filter(p => p.score < 50).length;
+                          const tc = entry.prospects.reduce((sum, p) => sum + (JSON.parse(p.contacts || "[]")).length, 0);
+                          return (
+                            <>
+                              <Card className="border-border/50 border-l-2 border-l-rose-500"><div className="p-2 text-center"><p className="text-lg font-bold text-rose-500">{h}</p><p className="text-[9px] text-muted-foreground uppercase tracking-wider">Hot</p></div></Card>
+                              <Card className="border-border/50 border-l-2 border-l-amber-500"><div className="p-2 text-center"><p className="text-lg font-bold text-amber-500">{w}</p><p className="text-[9px] text-muted-foreground uppercase tracking-wider">Warm</p></div></Card>
+                              <Card className="border-border/50 border-l-2 border-l-blue-500"><div className="p-2 text-center"><p className="text-lg font-bold text-blue-500">{c}</p><p className="text-[9px] text-muted-foreground uppercase tracking-wider">Cold</p></div></Card>
+                              <Card className="border-border/50 border-l-2 border-l-emerald-500"><div className="p-2 text-center"><p className="text-lg font-bold text-emerald-500">{tc}</p><p className="text-[9px] text-muted-foreground uppercase tracking-wider">Contacts</p></div></Card>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      {/* Prospect list */}
+                      <div className="space-y-2">
+                        {entry.prospects.map((p, i) => (
+                          <HistoryProspectCard key={i} prospect={p} products={products} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div className="flex justify-end pt-1">
+                <button onClick={clearHistory} className="text-xs text-red-400 hover:text-red-300 transition-colors">Clear History</button>
+              </div>
+            </>
+          )}
         </div>
-      )}
-
-      {prospects.length > 0 ? (
-        <div className="space-y-2">{prospects.map(p => <ProspectCard key={p.id} prospect={p} products={products} />)}</div>
       ) : (
-        <Card className="border-border/50"><div className="flex flex-col items-center justify-center py-16 text-muted-foreground"><Radar className="w-8 h-8 mb-3 opacity-40" /><p className="text-sm">No prospects yet — scan to discover targets with decision maker contacts</p></div></Card>
+        <>
+          <Card className="border-border/50">
+            <div className="p-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <Select value={scanIndustry} onValueChange={setScanIndustry}>
+                    <SelectTrigger><SelectValue placeholder="Select industry" /></SelectTrigger>
+                    <SelectContent>{scanIndustries.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={productFocus}
+                    onChange={(e) => setProductFocus(e.target.value)}
+                    placeholder="e.g. Akamai, Five9, TierPoint, Antimatter AI..."
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+                <Button onClick={() => scanProspects.mutate()} disabled={scanProspects.isPending} className="sm:w-auto w-full">
+                  {scanProspects.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Scanning...</> : <><Radar className="w-4 h-4 mr-2" />Scan + Enrich</>}
+                </Button>
+              </div>
+              {scanProspects.isPending && <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20"><div className="flex items-center gap-2 text-sm text-primary"><Radar className="w-4 h-4 animate-pulse" /><span className="font-medium">ATOM scanning prospects and enriching decision makers...</span></div></div>}
+            </div>
+          </Card>
+
+          {prospects.length > 0 && (
+            <div className="grid grid-cols-4 gap-3">
+              <Card className="border-border/50 border-l-2 border-l-rose-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-rose-500">{hot.length}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Hot (75+)</p></div></Card>
+              <Card className="border-border/50 border-l-2 border-l-amber-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-amber-500">{warm.length}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Warm (50-74)</p></div></Card>
+              <Card className="border-border/50 border-l-2 border-l-blue-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-blue-500">{cold.length}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Cold (&lt;50)</p></div></Card>
+              <Card className="border-border/50 border-l-2 border-l-emerald-500"><div className="p-3 text-center"><p className="text-2xl font-bold text-emerald-500">{totalContacts}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">Contacts</p></div></Card>
+            </div>
+          )}
+
+          {prospects.length > 0 ? (
+            <div className="space-y-2">{prospects.map(p => <ProspectCard key={p.id} prospect={p} products={products} />)}</div>
+          ) : (
+            <Card className="border-border/50"><div className="flex flex-col items-center justify-center py-16 text-muted-foreground"><Radar className="w-8 h-8 mb-3 opacity-40" /><p className="text-sm">No prospects yet — scan to discover targets with decision maker contacts</p></div></Card>
+          )}
+        </>
       )}
     </div>
   );

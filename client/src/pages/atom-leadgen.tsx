@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useProductIntel } from "@/hooks/use-product-intel";
 import { useToast } from "@/hooks/use-toast";
 import { PhoneCall, PhoneOff, Loader2, Clock, ChevronDown, ChevronUp, Search } from "lucide-react";
 
@@ -788,14 +789,28 @@ export default function ATOMLeadGen() {
     setViewMode("live");
 
     try {
+      // Research product intelligence before calling
+      let productIntelData = null;
+      if (productSlug.trim()) {
+        try {
+          const intelRes = await fetch("/api/product-intel/research", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ product: productSlug.trim() }),
+          });
+          if (intelRes.ok) productIntelData = await intelRes.json();
+        } catch {}
+      }
+
       const res = await fetch(`${BRIDGE_URL}/call`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: phone.trim(),
-          contactName: contactName.trim() || undefined,
+          firstName: contactName.trim() || undefined,
           companyName: companyName.trim() || undefined,
-          productSlug: productSlug.trim() || undefined,
+          product: productSlug.trim() || undefined,
+          productIntel: productIntelData || undefined,
         }),
       });
 
