@@ -140,8 +140,8 @@ export default function PitchGenerator() {
 
   const pitchTypeLabel = pitchTypes.find(p => p.value === pitchType)?.label || pitchType;
 
-  // Determine current displayed pitch: from active mutation result or activePitch state or latest store pitch
-  const displayPitch = activePitch || (pitchHistory.length > 0 ? pitchHistory[0]?.content : null);
+  // Only show result from current session (not old store data)
+  const displayPitch = activePitch;
 
   return (
     <div className="space-y-6">

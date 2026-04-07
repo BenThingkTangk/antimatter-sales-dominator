@@ -60,6 +60,8 @@ export default function MarketIntent() {
   const [selectedIndustry, setSelectedIndustry] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("");
   const intelHistory = useIntel();
+  const [hasSearched, setHasSearched] = useState(false);
+  const [sessionResults, setSessionResults] = useState<typeof intelHistory>([]);
 
   const [showHistory, setShowHistory] = useState(false);
   const [localHistory, setLocalHistory] = useState<LocalMarketEntry[]>([]);
@@ -78,6 +80,8 @@ export default function MarketIntent() {
     },
     onSuccess: (data: MarketIntel) => {
       store.addIntel(data);
+      setHasSearched(true);
+      setSessionResults(prev => [data, ...prev]);
 
       const productName = selectedProduct === "all" ? "All Products" : (products.find(p => p.slug === selectedProduct)?.name || selectedProduct || "All Products");
       const entry: LocalMarketEntry = {
@@ -248,7 +252,7 @@ export default function MarketIntent() {
           <div className="lg:col-span-2 space-y-3">
             {analyzeIntent.isPending ? (
               <Card className="border-border/50"><CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin text-primary mb-3" /><p className="text-sm font-medium">Scanning market signals...</p></CardContent></Card>
-            ) : intelHistory.length > 0 ? intelHistory.map((intel) => (
+            ) : sessionResults.length > 0 ? sessionResults.map((intel) => (
               <Card key={intel.id} className="border-border/50">
                 <CardHeader className="pb-2 flex flex-row items-start justify-between">
                   <div><CardTitle className="text-sm">{intel.title}</CardTitle><div className="flex gap-1.5 mt-1.5"><Badge variant="default">{intel.impactLevel} impact</Badge></div></div>

@@ -121,16 +121,8 @@ export default function ObjectionHandler() {
     toast({ title: "History cleared" });
   };
 
-  // Current displayed response
-  const currentResponse = activeResponse || (objectionHistory.length > 0 ? {
-    id: "store",
-    selectedProduct: products.find(p => p.id === objectionHistory[0]?.productId)?.name || "",
-    objectionText: objectionHistory[0]?.objection || "",
-    context: "",
-    selectedCategory: objectionHistory[0]?.category || "",
-    response: objectionHistory[0]?.response || "",
-    timestamp: new Date(objectionHistory[0]?.createdAt || Date.now()).getTime(),
-  } : null);
+  // Only show result from current session (not old store data)
+  const currentResponse = activeResponse;
 
   return (
     <div className="space-y-6">
