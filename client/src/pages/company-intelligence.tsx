@@ -581,7 +581,7 @@ function ProspectsTab({ activeCompany }: { activeCompany: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCompany]);
 
-  const prospectUrl = `#/prospects?company=${encodeURIComponent(activeCompany)}`;
+  const prospectUrl = `#/prospects`;
 
   return (
     <div className="space-y-5">
@@ -720,7 +720,7 @@ function PlaybookTab({ activeCompany }: { activeCompany: string }) {
     }
   };
 
-  const campaignUrl = `#/atom-campaign?company=${encodeURIComponent(activeCompany)}`;
+  const campaignUrl = `#/atom-campaign`;
 
   const sections: PlaybookSection[] = result
     ? [

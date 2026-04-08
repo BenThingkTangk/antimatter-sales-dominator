@@ -377,6 +377,8 @@ export default function ProspectEngine() {
   const { toast } = useToast();
   const [scanIndustry, setScanIndustry] = useState("All Industries");
   const [productFocus, setProductFocus] = useState("");
+  const [geoFilter, setGeoFilter] = useState("All US");
+  const [excludedCompanies, setExcludedCompanies] = useState<string[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const prospects = useProspects();
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
@@ -391,12 +393,20 @@ export default function ProspectEngine() {
 
   const scanProspects = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/prospects/scan", { industry: scanIndustry === "All Industries" ? undefined : scanIndustry, productFocus: productFocus || undefined });
+      const res = await apiRequest("POST", "/api/prospects/scan", {
+        industry: scanIndustry === "All Industries" ? undefined : scanIndustry,
+        productFocus: productFocus || undefined,
+        geo: geoFilter !== "All US" ? geoFilter : undefined,
+        excludeCompanies: excludedCompanies.slice(-40),
+      });
       return res.json();
     },
     onSuccess: (data: Prospect[]) => {
       store.addProspects(data);
       setHasSearched(true);
+      // Track companies shown to avoid repeats
+      const newNames = data.map((p: any) => p.companyName).filter(Boolean);
+      setExcludedCompanies(prev => [...new Set([...prev, ...newNames])]);
       const totalContacts = data.reduce((sum, p) => sum + (JSON.parse(p.contacts || "[]")).length, 0);
 
       const entry: LocalProspectEntry = {
@@ -547,6 +557,33 @@ export default function ProspectEngine() {
                   </Select>
                 </div>
                 <div className="flex-1">
+                  <Select value={geoFilter} onValueChange={setGeoFilter}>
+                    <SelectTrigger><SelectValue placeholder="Geography" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All US">All US</SelectItem>
+                      <SelectItem value="US South">US South (TX, FL, GA, NC, TN...)</SelectItem>
+                      <SelectItem value="US Northeast">US Northeast (NY, NJ, MA, CT, PA...)</SelectItem>
+                      <SelectItem value="US Midwest">US Midwest (IL, OH, MI, IN, MN...)</SelectItem>
+                      <SelectItem value="US West">US West (CA, WA, OR, CO, AZ...)</SelectItem>
+                      <SelectItem value="US Southeast">US Southeast (FL, GA, NC, SC, VA...)</SelectItem>
+                      <SelectItem value="Texas">Texas</SelectItem>
+                      <SelectItem value="California">California</SelectItem>
+                      <SelectItem value="New York">New York</SelectItem>
+                      <SelectItem value="Florida">Florida</SelectItem>
+                      <SelectItem value="Illinois">Illinois</SelectItem>
+                      <SelectItem value="Georgia">Georgia</SelectItem>
+                      <SelectItem value="North Carolina">North Carolina</SelectItem>
+                      <SelectItem value="Washington">Washington</SelectItem>
+                      <SelectItem value="Massachusetts">Massachusetts</SelectItem>
+                      <SelectItem value="Colorado">Colorado</SelectItem>
+                      <SelectItem value="EU">EU (Germany, France, Netherlands...)</SelectItem>
+                      <SelectItem value="UK">United Kingdom</SelectItem>
+                      <SelectItem value="Canada">Canada</SelectItem>
+                      <SelectItem value="Global">Global</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
                   <input
                     type="text"
                     value={productFocus}
@@ -558,6 +595,11 @@ export default function ProspectEngine() {
                 <Button onClick={() => scanProspects.mutate()} disabled={scanProspects.isPending} className="sm:w-auto w-full">
                   {scanProspects.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Scanning...</> : <><Radar className="w-4 h-4 mr-2" />Scan + Enrich</>}
                 </Button>
+                {excludedCompanies.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => { setExcludedCompanies([]); store.clearProspects?.(); }} className="text-xs h-10">
+                    ↺ New Companies ({excludedCompanies.length} excluded)
+                  </Button>
+                )}
               </div>
               {scanProspects.isPending && <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20"><div className="flex items-center gap-2 text-sm text-primary"><Radar className="w-4 h-4 animate-pulse" /><span className="font-medium">ATOM scanning prospects and enriching decision makers...</span></div></div>}
             </div>

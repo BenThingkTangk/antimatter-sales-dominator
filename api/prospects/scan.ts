@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const HUNTER_API_KEY = process.env.HUNTER_API_KEY;
 const APOLLO_API_KEY = process.env.APOLLO_API_KEY;
+const RAG_URL = process.env.RAG_URL || "https://atom-rag.45-79-202-76.sslip.io";
 
 interface EnrichedContact {
   email: string;
@@ -20,10 +21,73 @@ interface EnrichedContact {
   source: string; // "apollo" | "hunter" | "both"
 }
 
+// ─── Geo → Apollo location filters ──────────────────────────────────────────
+function geoToApolloFilters(geo: string | undefined): {
+  personLocations?: string[];
+  organizationLocations?: string[];
+} {
+  if (!geo || geo === "All US" || geo === "Global") return {};
+
+  const stateMap: Record<string, string> = {
+    Alabama: "AL", Alaska: "AK", Arizona: "AZ", Arkansas: "AR", California: "CA",
+    Colorado: "CO", Connecticut: "CT", Delaware: "DE", Florida: "FL", Georgia: "GA",
+    Hawaii: "HI", Idaho: "ID", Illinois: "IL", Indiana: "IN", Iowa: "IA",
+    Kansas: "KS", Kentucky: "KY", Louisiana: "LA", Maine: "ME", Maryland: "MD",
+    Massachusetts: "MA", Michigan: "MI", Minnesota: "MN", Mississippi: "MS",
+    Missouri: "MO", Montana: "MT", Nebraska: "NE", Nevada: "NV",
+    "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
+    "North Carolina": "NC", "North Dakota": "ND", Ohio: "OH", Oklahoma: "OK",
+    Oregon: "OR", Pennsylvania: "PA", "Rhode Island": "RI", "South Carolina": "SC",
+    "South Dakota": "SD", Tennessee: "TN", Texas: "TX", Utah: "UT",
+    Vermont: "VT", Virginia: "VA", Washington: "WA", "West Virginia": "WV",
+    Wisconsin: "WI", Wyoming: "WY",
+  };
+
+  const regionMap: Record<string, string[]> = {
+    "US South": ["TX", "FL", "GA", "NC", "SC", "TN", "AL", "LA", "MS", "AR", "VA", "KY", "WV"],
+    "US East": ["NY", "NJ", "MA", "CT", "PA", "MD", "DE", "RI", "NH", "VT", "ME"],
+    "US Northeast": ["NY", "NJ", "MA", "CT", "PA", "MD", "DE", "RI", "NH", "VT", "ME"],
+    "US East / Northeast": ["NY", "NJ", "MA", "CT", "PA", "MD", "DE", "RI", "NH", "VT", "ME"],
+    "US Midwest": ["IL", "OH", "MI", "IN", "MN", "WI", "MO", "IA", "KS", "NE", "ND", "SD"],
+    "US West": ["CA", "WA", "OR", "CO", "AZ", "NV", "UT", "ID", "MT", "WY", "NM", "AK", "HI"],
+    "US Southeast": ["FL", "GA", "NC", "SC", "VA", "MD", "DC", "DE"],
+  };
+
+  if (regionMap[geo]) {
+    const states = regionMap[geo];
+    const locations = states.map((s) => `${s}, United States`);
+    return { personLocations: locations, organizationLocations: locations };
+  }
+
+  // Check if it's a full state name
+  const abbrev = stateMap[geo];
+  if (abbrev) {
+    return {
+      personLocations: [`${abbrev}, United States`],
+      organizationLocations: [`${abbrev}, United States`],
+    };
+  }
+
+  // EU / UK / Canada
+  if (geo === "EU") {
+    const euCountries = ["Germany", "France", "Netherlands", "Sweden", "Spain", "Italy", "Belgium", "Poland", "Denmark", "Austria"];
+    return { personLocations: euCountries, organizationLocations: euCountries };
+  }
+  if (geo === "UK") {
+    return { personLocations: ["United Kingdom"], organizationLocations: ["United Kingdom"] };
+  }
+  if (geo === "Canada") {
+    return { personLocations: ["Canada"], organizationLocations: ["Canada"] };
+  }
+
+  return {};
+}
+
 // ─── Apollo.io Enrichment (Primary) ─────────────────────────────────────────
 async function enrichWithApollo(
   companyName: string,
-  domain?: string
+  domain?: string,
+  geoFilters?: { personLocations?: string[]; organizationLocations?: string[] }
 ): Promise<{ contacts: EnrichedContact[]; companyPhone: string; employeeCount: number; revenue: string }> {
   if (!APOLLO_API_KEY) return { contacts: [], companyPhone: "", employeeCount: 0, revenue: "" };
 
@@ -60,6 +124,11 @@ async function enrichWithApollo(
       searchBody.q_organization_domains = searchDomain;
     } else {
       searchBody.q_organization_name = companyName;
+    }
+
+    // Apply geo filters to Apollo people search
+    if (geoFilters?.personLocations?.length) {
+      searchBody.person_locations = geoFilters.personLocations;
     }
 
     const peopleRes = await fetch("https://api.apollo.io/api/v1/mixed_people/api_search", {
@@ -220,15 +289,49 @@ function mergeContacts(apollo: EnrichedContact[], hunter: EnrichedContact[]): En
   return [...all.values()].sort((a, b) => b.confidence - a.confidence);
 }
 
+// ─── Fetch RAG context for product intelligence ───────────────────────────────
+async function fetchRagContext(productFocus: string): Promise<string> {
+  try {
+    const res = await fetch(`${RAG_URL}/company/context`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_name: productFocus, module: "pitch" }),
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    return data.context || data.summary || "";
+  } catch {
+    return "";
+  }
+}
+
 // ─── Main Handler ───────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
-    const { industry, productFocus } = req.body;
+    const { industry, productFocus, geo, excludeCompanies = [], sessionId } = req.body;
+
+    // Resolve geo filters for Apollo
+    const geoFilters = geoToApolloFilters(geo);
+
+    // Build a human-readable geo description for the AI prompt
+    const geoDescription = geo && geo !== "All US" && geo !== "Global"
+      ? geo
+      : geo === "Global" ? "anywhere in the world" : "the United States";
+
+    // Step 0: Fetch RAG product intelligence context
+    let ragContext = "";
+    if (productFocus && productFocus !== "all" && productFocus.trim().length > 0) {
+      ragContext = await fetchRagContext(productFocus.trim());
+    }
 
     // Step 1: AI generates real prospect companies based on product and industry
     const isCustomProduct = productFocus && productFocus !== "all" && productFocus.trim().length > 0;
-    
+
+    const excludeList = Array.isArray(excludeCompanies) && excludeCompanies.length > 0
+      ? excludeCompanies
+      : [];
+
     const systemPrompt = `You are an elite B2B sales intelligence analyst. Your job is to identify REAL companies that would be ideal prospects for a specific product or service.
 
 Rules:
@@ -237,28 +340,38 @@ Rules:
 - Consider their current tech stack, pain points, contract cycles, and buying signals
 - Rank by likelihood to buy (score 0-100)
 - Include the company's actual website domain (e.g. "walmart.com", "ge.com")
-- Return ONLY a valid JSON array. No markdown, no code blocks, no explanation.`;
+- You MUST return companies from DIFFERENT industries/sub-sectors — do not return multiple companies from the same industry or vertical
+- Vary company size: include at least 1 enterprise (1000+ employees), 2 mid-market (100-999), and 2 SMB (under 100) if possible
+- Return ONLY a valid JSON array. No markdown, no code blocks, no explanation.
+${excludeList.length > 0 ? `- Do NOT suggest any of these companies which have already been shown: ${excludeList.join(", ")}` : ""}`;
 
     let userPrompt: string;
     if (isCustomProduct) {
-      userPrompt = `Find 5 real companies${industry && industry !== "All Industries" ? ` in the ${industry} industry` : ""} that would be the best prospects for selling them ${productFocus}.
+      const ragSection = ragContext
+        ? `\n\nProduct Intelligence (RAG context):\n${ragContext}\n\nUse the above product intelligence to identify companies with the most relevant pain points and best fit for ${productFocus}.`
+        : "";
+
+      userPrompt = `Find 5 real companies${industry && industry !== "All Industries" ? ` in the ${industry} industry` : ""} located in ${geoDescription} that would be the best prospects for selling them ${productFocus}.${ragSection}
 
 Think about:
 - What does ${productFocus} do? Who buys it?
 - Which companies have the pain points ${productFocus} solves?
 - Which companies might be using a competitor and could be displaced?
 - Which companies are at a size/stage where they'd need this?
+- Spread across DIFFERENT sub-industries and verticals — no two from the same sector
 
 Return JSON array:
 [{"companyName":"string","domain":"company-website.com","industry":"string","score":0-100,"reason":"1-2 sentences explaining exactly why this company would buy ${productFocus}","matchedProducts":["${productFocus.toLowerCase().replace(/\s+/g, '-')}"],"signals":["buying signal 1","buying signal 2"],"companySize":"enterprise|mid-market|smb","urgency":"critical|high|medium|low"}]`;
     } else {
-      userPrompt = `Find 5 real companies${industry && industry !== "All Industries" ? ` in the ${industry} industry` : ""} that would be ideal prospects for Antimatter AI's product ecosystem:
+      userPrompt = `Find 5 real companies${industry && industry !== "All Industries" ? ` in the ${industry} industry` : ""} located in ${geoDescription} that would be ideal prospects for Antimatter AI's product ecosystem:
 - Antimatter AI Platform: Custom AI development and digital product studio
 - ATOM Enterprise: Enterprise AI deployment framework (on-prem, VPC, edge)
 - Vidzee: AI cinematic video from listing photos (real estate)
 - Clinix Agent: AI healthcare billing and denied claims recovery
 - Clinix AI: AI clinical documentation automation
 - Red Team ATOM: Quantum-ready autonomous cybersecurity red teaming
+
+Spread companies across DIFFERENT industries/sub-sectors — no two from the same vertical.
 
 Return JSON array:
 [{"companyName":"string","domain":"company-website.com","industry":"string","score":0-100,"reason":"1-2 sentences why they need a specific product","matchedProducts":["product-slug"],"signals":["signal1","signal2"],"companySize":"enterprise|mid-market|smb","urgency":"critical|high|medium|low"}]
@@ -274,7 +387,7 @@ Use slugs: antimatter-ai, atom-enterprise, vidzee, clinix-agent, clinix-ai, red-
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.3,
+        temperature: 0.4,
       }),
     });
     const aiData = await aiRes.json();
@@ -294,7 +407,7 @@ Use slugs: antimatter-ai, atom-enterprise, vidzee, clinix-agent, clinix-ai, red-
       const domain = p.domain || "";
 
       const [apolloResult, hunterContacts] = await Promise.all([
-        enrichWithApollo(company, domain),
+        enrichWithApollo(company, domain, geoFilters),
         enrichWithHunter(company, domain),
       ]);
 

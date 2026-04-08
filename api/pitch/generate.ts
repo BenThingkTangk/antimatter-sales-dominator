@@ -1,45 +1,68 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const RAG_URL = process.env.RAG_URL || "https://atom-rag.45-79-202-76.sslip.io";
 
-const SYSTEM = `You are the Antimatter AI Sales Dominator. You create devastating sales pitches. Be direct, confident, data-driven. Use specific numbers. No fluff. Every word closes deals.`;
-
-const PRODUCTS: Record<string, any> = {
-  "antimatter-ai": { name: "Antimatter AI Platform", desc: "Full-service AI dev, product design, healthcare apps, IoT, GTM strategy. 20+ projects, 100% satisfaction, 3-5x faster time-to-market.", edge: "AI-native from day one. Design + engineering + AI + GTM under one roof." },
-  "atom-enterprise": { name: "ATOM Enterprise AI", desc: "Enterprise AI framework. Deploy voice/search/workflow agents in VPC, on-prem, or edge. Zero-training guarantee, full IP ownership, Akamai+Linode edge.", edge: "Framework not tool. Hard isolation. Zero-training. Beats Kore.ai, Copilot Studio." },
-  "vidzee": { name: "Vidzee", desc: "AI listing photos to cinematic real estate videos in 5 min. Save $200-500/video. 12,400+ videos by 2,800+ agents.", edge: "Replaces $500 videographer with 5-minute AI." },
-  "clinix-agent": { name: "Clinix Agent", desc: "AI billing/denial appeals for healthcare. Success-based pricing 0.6-1.2% paid claims.", edge: "Stedi rails + ML signals. Pay only on success." },
-  "clinix-ai": { name: "Clinix AI", desc: "AI SOAP notes, ICD-10/CPT/DSM-5-TR coding. Cut documentation 70%. Save 2-3 hrs/day.", edge: "Clinical context understanding. Real-time coding + EHR integration." },
-  "red-team-atom": { name: "Red Team ATOM", desc: "Autonomous quantum-ready red team range. PQC engine, MITRE ATLAS heatmapping.", edge: "First quantum-ready red team. Continuous simulation vs annual pen tests." }
-};
+async function getRAGContext(company: string, module: string): Promise<string> {
+  if (!company || company.trim().length < 2) return "";
+  try {
+    const res = await fetch(`${RAG_URL}/company/context`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_name: company.trim(), module }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return "";
+    const d = await res.json();
+    return d.context || "";
+  } catch { return ""; }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+
+  const { product, pitchType, industry, persona, company } = req.body;
+  const target = company || product || "";
+
+  // Fetch RAG context for both target and product in parallel
+  const [targetCtx, productCtx] = await Promise.all([
+    target ? getRAGContext(target, "pitch") : Promise.resolve(""),
+    product && product !== target ? getRAGContext(product, "pitch") : Promise.resolve(""),
+  ]);
+
+  const ragContext = [
+    targetCtx ? `INTELLIGENCE FOR "${target}":\n${targetCtx}` : "",
+    productCtx ? `PRODUCT INTELLIGENCE FOR "${product}":\n${productCtx}` : "",
+  ].filter(Boolean).join("\n\n");
+
   try {
-    const { productSlug, pitchType, targetPersona, customContext } = req.body;
-    const p = PRODUCTS[productSlug];
-    if (!p) return res.status(404).json({ error: "Product not found" });
-
-    const labels: Record<string, string> = { elevator: "30-second elevator pitch", email: "cold outreach email", "cold-call": "cold call script", "demo-intro": "demo intro hook", "executive-brief": "C-suite executive brief" };
-
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: SYSTEM },
-          { role: "user", content: `Generate a ${labels[pitchType] || pitchType} for ${p.name}. Product: ${p.desc} Edge: ${p.edge} Persona: ${targetPersona}${customContext ? ` Context: ${customContext}` : ""}. Be specific with metrics, address pain points, include CTA.` },
+          { role: "system", content: "You are the world's #1 B2B enterprise sales rep. Generate specific, compelling pitches grounded in real company intelligence." },
+          { role: "user", content: `Generate a ${pitchType || "discovery"} pitch${company ? ` for ${company}` : ""}${product ? ` selling ${product}` : ""}${industry && industry !== "All Industries" ? ` in the ${industry} industry` : ""}${persona ? ` targeting ${persona}` : ""}.
+
+${ragContext ? `USE THIS INTELLIGENCE TO MAKE THE PITCH HIGHLY SPECIFIC:\n${ragContext}\n` : ""}
+
+Structure the pitch with clear sections:
+**OPENER** (10 seconds, creates curiosity and gets attention)
+**VALUE PITCH** (30 seconds, addresses specific pain points from the intelligence above)
+**PROOF POINT** (specific stat, case study, or differentiation relevant to their situation)
+**CALL TO ACTION** (specific ask for next step)
+
+Make it conversational, human, and reference SPECIFIC details from the intelligence. No generic phrases.` },
         ],
-        temperature: 0.7,
+        temperature: 0.5,
       }),
     });
     const aiData = await aiRes.json();
     const content = aiData.choices?.[0]?.message?.content || "";
-    const productId = Object.keys(PRODUCTS).indexOf(productSlug) + 1;
-    res.json({ id: Date.now(), productId, pitchType, targetPersona, content, createdAt: new Date().toISOString() });
+
+    return res.json({ content, hasRagContext: ragContext.length > 50 });
   } catch (err: any) {
-    console.error("Pitch error:", err);
-    res.status(500).json({ error: err.message || "Failed to generate pitch" });
+    return res.status(500).json({ error: err.message });
   }
 }

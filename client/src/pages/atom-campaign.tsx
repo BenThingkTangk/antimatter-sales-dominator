@@ -5,7 +5,13 @@ const BRIDGE_URL = "https://45-79-202-76.sslip.io";
 
 // Product is now free-text input, not a fixed list
 
-const GEO_OPTIONS = ["US", "EU", "US + EU", "Global"];
+const GEO_OPTIONS = [
+  "All US", "US South (TX, FL, GA, NC, TN...)", "US Northeast (NY, NJ, MA, CT...)",
+  "US Midwest (IL, OH, MI, IN, MN...)", "US West (CA, WA, OR, CO, AZ...)",
+  "US Southeast (FL, GA, NC, SC, VA...)", "Texas", "California", "New York",
+  "Florida", "Illinois", "Georgia", "North Carolina", "Washington",
+  "Massachusetts", "Colorado", "EU", "UK", "Canada", "Global",
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Phase = "setup" | "researching" | "review" | "active" | "paused" | "complete";
@@ -1893,7 +1899,7 @@ export default function AtomCampaign() {
   const [form, setForm] = useState<CampaignForm>({
     brief: "",
     targetIndustry: "",
-    targetGeo: "US",
+    targetGeo: "All US",
     targetCount: 10,
     productSlug: "",
     alertEmail: "",
@@ -2332,7 +2338,7 @@ export default function AtomCampaign() {
     buyingSignalsRef.current = [];
     setShowHistoryOverlay(false);
     setExpandedHistoryId(null);
-    setForm({ brief: "", targetIndustry: "", targetGeo: "US", targetCount: 10, productSlug: "", alertEmail: "" });
+    setForm({ brief: "", targetIndustry: "", targetGeo: "All US", targetCount: 10, productSlug: "", alertEmail: "" });
     setPhase("setup");
   }, []);
 
