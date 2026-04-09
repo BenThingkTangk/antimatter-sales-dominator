@@ -379,12 +379,12 @@ function mergeContacts(apollo: EnrichedContact[], hunter: EnrichedContact[]): En
   }
 
   const all = new Map<string, EnrichedContact>();
-  for (const c of [...byEmail.values(), ...byName.values()]) {
+  for (const c of Array.from(byEmail.values()).concat(Array.from(byName.values()))) {
     const key = c.email ? c.email.toLowerCase() : `${c.firstName}_${c.lastName}`.toLowerCase();
     if (!all.has(key)) all.set(key, c);
   }
 
-  return [...all.values()].sort((a, b) => b.confidence - a.confidence);
+  return Array.from(all.values()).sort((a, b) => b.confidence - a.confidence);
 }
 
 // ─── Fetch RAG context for product intelligence ──────────────────────────────
@@ -600,7 +600,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Merge company data — Apollo primary, PDL supplement
       const finalEmployeeCount = apolloResult.employeeCount || pdlData.employeeCount || 0;
       const finalRevenue = apolloResult.revenue || pdlData.revenue || "";
-      const finalTechStack = [...new Set([...apolloResult.techStack, ...pdlData.techStack])].slice(0, 10);
+      const finalTechStack = Array.from(new Set(apolloResult.techStack.concat(pdlData.techStack))).slice(0, 10);
 
       return {
         apolloResult,
