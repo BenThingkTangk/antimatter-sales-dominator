@@ -117,7 +117,7 @@ function industryToApolloTags(industry: string | undefined): string[] {
 }
 
 // ─── Apollo primary search — returns people + their organizations ─────────────
-// Uses POST /v1/mixed_people/search which is the real Apollo API endpoint
+// Uses POST /v1/mixed_people/api_search (new endpoint — old /search is deprecated)
 
 async function searchApolloProspects(
   filters: ScanFilters,
@@ -170,7 +170,7 @@ async function searchApolloProspects(
       searchBody.organization_not_names = filters.excludeCompanies;
     }
 
-    const res = await fetch("https://api.apollo.io/v1/mixed_people/search", {
+    const res = await fetch("https://api.apollo.io/v1/mixed_people/api_search", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -181,7 +181,7 @@ async function searchApolloProspects(
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      console.error(`Apollo mixed_people/search failed: ${res.status} ${errText}`);
+      console.error(`Apollo mixed_people/api_search failed: ${res.status} ${errText}`);
       return [];
     }
 
@@ -564,7 +564,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const employeeSizeRangeStr = employeeSizeToApolloRangeStr(filters.employeeSize);
 
     // ── STEP 1: Query Apollo's real search API as PRIMARY source ─────────────
-    console.log("[scan] Querying Apollo mixed_people/search with filters:", JSON.stringify({
+    console.log("[scan] Querying Apollo mixed_people/api_search with filters:", JSON.stringify({
       geo: filters.geo,
       industry: filters.industry,
       employeeSize: filters.employeeSize,
