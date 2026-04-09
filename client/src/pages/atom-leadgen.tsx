@@ -789,19 +789,18 @@ export default function ATOMLeadGen() {
     setViewMode("live");
 
     try {
-      // Research product intelligence before calling
+      // Start product intel fetch in background (non-blocking)
+      // The bridge will also try to fetch RAG context on its own
       let productIntelData = null;
-      if (productSlug.trim()) {
-        try {
-          const intelRes = await fetch("/api/product-intel/research", {
+      const intelPromise = productSlug.trim()
+        ? fetch("/api/product-intel/research", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ product: productSlug.trim() }),
-          });
-          if (intelRes.ok) productIntelData = await intelRes.json();
-        } catch {}
-      }
+          }).then(r => r.ok ? r.json() : null).catch(() => null)
+        : Promise.resolve(null);
 
+      // Start the call immediately — don't wait for intel
       const res = await fetch(`${BRIDGE_URL}/call`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
