@@ -645,3 +645,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: err.message || "Failed to scan prospects" });
   }
 }
+
+// v2.0 — Gold Standard rebuild 2026-04-09T12:33:45Z
