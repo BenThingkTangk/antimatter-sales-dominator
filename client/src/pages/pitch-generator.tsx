@@ -441,7 +441,7 @@ export default function PitchGenerator() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" id="pitch-main-grid">
           {/* Config Panel */}
           <div className="lg:col-span-2 space-y-3">
             <div className="rounded-xl bg-black/40 backdrop-blur-md border border-white/[0.07] p-5 space-y-4">
@@ -579,13 +579,15 @@ export default function PitchGenerator() {
             ) : activeResult ? (
               <>
                 {/* Confidence + Emotion Analysis Row */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Confidence Gauge */}
                   <div className="rounded-xl bg-black/40 backdrop-blur-md border border-white/[0.07] p-4">
                     <p className="text-[11px] text-white/40 uppercase tracking-wider font-medium mb-3">AI Confidence Score</p>
-                    <div className="flex items-center gap-4">
-                      <CircularGauge score={activeResult.confidenceScore || 72} size={100} />
-                      <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                      <div className="w-full max-w-[120px] mx-auto sm:mx-0 sm:w-auto">
+                        <CircularGauge score={activeResult.confidenceScore || 72} size={100} />
+                      </div>
+                      <div className="flex-1 min-w-0 text-center sm:text-left">
                         <p className="text-xs text-white/50 leading-relaxed">
                           {activeResult.confidenceReasoning || "Based on available context and pitch parameters."}
                         </p>
@@ -656,7 +658,7 @@ export default function PitchGenerator() {
                   )}
 
                   {/* Action buttons */}
-                  <div className="mt-4 flex items-center gap-2 pt-3 border-t border-white/[0.05]">
+                  <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-3 border-t border-white/[0.05]">
                     <Button size="sm"
                       className="text-xs h-7 bg-[#696aac]/20 hover:bg-[#696aac]/30 text-[#a2a3e9] border border-[#696aac]/25 gap-1.5"
                       onClick={() => generatePitch.mutate()}
@@ -697,7 +699,7 @@ export default function PitchGenerator() {
                 )}
 
                 {/* Follow-up + Objections Row */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {activeResult.suggestedFollowUp && (
                     <div className="rounded-xl bg-black/40 backdrop-blur-md border border-white/[0.07] p-4">
                       <p className="text-[11px] text-white/40 uppercase tracking-wider font-medium mb-2 flex items-center gap-1.5">

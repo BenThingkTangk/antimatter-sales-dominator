@@ -994,7 +994,7 @@ export default function ProspectEngine() {
             AI-powered prospect discovery · Apollo Pro + Hunter.io + PDL enrichment
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {hasSearched && (
             <Button
               variant="outline"
@@ -1114,7 +1114,7 @@ export default function ProspectEngine() {
                   {expandedHistoryEntry === entry.id && (
                     <div className="px-4 pb-4 space-y-3 border-t border-white/[0.06] pt-3">
                       {/* Stats */}
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {(() => {
                           const h = entry.prospects.filter((p) => p.score >= 75).length;
                           const w = entry.prospects.filter(
@@ -1494,7 +1494,7 @@ export default function ProspectEngine() {
 
           {/* ── Results Stats ─────────────────────────────────────────────── */}
           {hasSearched && prospects.length > 0 && (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: "Hot (75+)", count: hot.length, color: "text-rose-400", border: "border-l-rose-500" },
                 { label: "Warm (50-74)", count: warm.length, color: "text-amber-400", border: "border-l-amber-500" },

@@ -192,8 +192,8 @@ function SentimentGauge({ sentiment }: { sentiment: MarketSentiment }) {
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <div className="relative">
-        <svg width={200} height={110} viewBox="0 0 200 110">
+      <div className="relative w-full max-w-[200px] mx-auto">
+        <svg width="100%" height="auto" viewBox="0 0 200 110" style={{ aspectRatio: "200/110" }}>
           {/* Background track */}
           <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
             fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={10} strokeLinecap="round" />
@@ -645,16 +645,16 @@ export default function MarketIntent() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 items-start">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
                     {/* Gauge */}
-                    <div className="col-span-1 flex items-center justify-center">
+                    <div className="sm:col-span-1 flex items-center justify-center">
                       {activeResult.marketSentiment && (
                         <SentimentGauge sentiment={activeResult.marketSentiment} />
                       )}
                     </div>
 
                     {/* Summary + Title */}
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <h3 className="text-base font-semibold text-white/90 mb-2 leading-snug">{activeResult.title}</h3>
                       <p className="text-sm text-white/50 leading-relaxed">{activeResult.summary}</p>
 
@@ -676,7 +676,7 @@ export default function MarketIntent() {
                 </div>
 
                 {/* Tab Navigator */}
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 overflow-x-auto tabs-scroll pb-1">
                   {OUTPUT_TABS.map(tab => (
                     <button key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
@@ -730,7 +730,8 @@ export default function MarketIntent() {
                 {activeTab === "competition" && (
                   <div className="rounded-xl bg-black/40 backdrop-blur-md border border-white/[0.07] overflow-hidden">
                     {activeResult.competitiveMoves?.length > 0 ? (
-                      <table className="w-full">
+                      <div className="overflow-x-auto">
+                      <table className="w-full min-w-[400px]">
                         <thead>
                           <tr className="border-b border-white/[0.05]">
                             <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-white/30 uppercase tracking-wider">Competitor</th>
@@ -761,6 +762,7 @@ export default function MarketIntent() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     ) : (
                       <div className="text-center py-10 text-white/25 text-sm">No competitive moves detected</div>
                     )}

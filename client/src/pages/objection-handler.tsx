@@ -541,9 +541,9 @@ export default function ObjectionHandler() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 items-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
                     {/* Hostility vs Curiosity meter */}
-                    <div className="col-span-2 space-y-4">
+                    <div className="sm:col-span-2 space-y-4">
                       <SentimentMeter
                         label="Hostility vs Curiosity"
                         value={activeResult.sentiment?.hostility || 40}
@@ -559,7 +559,7 @@ export default function ObjectionHandler() {
                       </div>
                     </div>
 
-                    <div className="space-y-3 flex flex-col items-center">
+                    <div className="space-y-3 flex flex-row sm:flex-col items-center justify-center gap-6 sm:gap-3">
                       <BuyingSignalGauge score={activeResult.sentiment?.buyingSignalStrength || 50} />
                       <CircularClosingProb score={activeResult.closingProbability || 50} />
                     </div>
@@ -614,7 +614,7 @@ export default function ObjectionHandler() {
                     <p className="text-[11px] text-white/40 uppercase tracking-wider font-medium mb-3">Response Strategies</p>
 
                     {/* Strategy tabs */}
-                    <div className="flex gap-1.5 mb-4">
+                    <div className="flex gap-1.5 mb-4 overflow-x-auto tabs-scroll pb-1">
                       {activeResult.strategies.map((s, i) => (
                         <button key={i}
                           onClick={() => setActiveStrategyTab(i)}

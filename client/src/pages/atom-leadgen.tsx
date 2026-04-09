@@ -1126,7 +1126,7 @@ export default function ATOMLeadGen() {
                 <button
                   onClick={handleDial}
                   disabled={callStatus === "dialing"}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-sm transition-all"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl font-medium text-sm transition-all"
                   style={{
                     background: "linear-gradient(135deg, #8587e3, #4c4dac, #696aac)",
                     color: "white",
@@ -1148,7 +1148,7 @@ export default function ATOMLeadGen() {
                   )}
                 </button>
               ) : callStatus === "active" ? (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <PulsingDot />
                     <span className="text-sm font-medium" style={{ color: "#34d399" }}>

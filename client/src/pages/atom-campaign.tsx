@@ -836,7 +836,7 @@ function PhaseSetup({
           </div>
 
           {/* Industry + Geo row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="campaign-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
               <label style={S.label}>Target Industry</label>
               <input
@@ -862,7 +862,7 @@ function PhaseSetup({
           </div>
 
           {/* Count + Product row */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="campaign-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
               <label style={S.label}>Target Count</label>
               <input
@@ -1084,7 +1084,7 @@ function PhaseReview({
   const estMinutes = withPhone * 4;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, padding: "32px 24px", alignItems: "start" }}>
+    <div className="campaign-review-grid" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, padding: "32px 24px", alignItems: "start" }}>
       {/* Left: target list */}
       <div>
         <h3 style={{ fontSize: 16, fontWeight: 700, color: "#c7c8f2", margin: "0 0 16px" }}>
@@ -1758,7 +1758,7 @@ function PhaseLiveDashboard({
         </div>
 
         {/* Stats row */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+        <div className="campaign-stats-bar" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
           {[
             { label: "Dialed", value: stats.dialed, color: "#c7c8f2" },
             { label: "Connected", value: stats.connected, color: "#a2a3e9" },
@@ -1775,7 +1775,7 @@ function PhaseLiveDashboard({
       </div>
 
       {/* Middle split view */}
-      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 20, minHeight: 0 }}>
+      <div className="campaign-split-view" style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 20, minHeight: 0 }}>
         {/* Live call panel */}
         <div>
           <LiveCallPanel
@@ -1845,7 +1845,7 @@ function PhaseComplete({
       </div>
 
       {/* Summary stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
+      <div className="campaign-complete-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
         {[
           { label: "Total Calls", value: stats.dialed },
           { label: "Connected", value: stats.connected },

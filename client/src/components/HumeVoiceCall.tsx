@@ -409,7 +409,7 @@ KEEP RESPONSES UNDER 2 SENTENCES. Ask one question at a time. Listen more than y
 
   // LOCKED: ATOM Sales Agent config + ATOM Jobs High voice
   const HUME_CONFIG_ID = "42271e30-8773-43bd-81e5-c411e6aa990a";
-  const HUME_VOICE_ID = "0aa00500-ee13-47c1-b056-1fa14d9db2f1"; // ATOM Jobs High
+  const HUME_VOICE_ID = "863032e6-762b-4397-8ebd-ca3581fbc385"; // ATOM Jobs 250
 
   return (
     <VoiceProvider
