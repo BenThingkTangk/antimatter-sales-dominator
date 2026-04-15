@@ -162,9 +162,17 @@ async function searchApolloProspects(
       searchBody.q_organization_keyword_tags = industryTags;
     }
 
-    // Keywords filter
+    // Keywords filter — only use short keywords (Apollo q_keywords is very literal)
+    // Long phrases return 0 results, so extract just key terms
     if (filters.keywords) {
-      searchBody.q_keywords = filters.keywords;
+      const kw = filters.keywords.trim();
+      // If keywords look like a brief/sentence (>40 chars or has common words), skip
+      // Apollo works best with company names or single technology terms
+      if (kw.length <= 40 && !kw.includes(" for ") && !kw.includes(" and ") && !kw.includes(" to ")) {
+        searchBody.q_keywords = kw;
+      }
+      // Otherwise, try to extract a tech/company name from the keywords
+      // e.g. "Cloudflare CDN takeout" → just skip, let industry + titles do the work
     }
 
     // Exclude known companies

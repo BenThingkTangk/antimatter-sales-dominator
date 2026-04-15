@@ -72,8 +72,8 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(0,200,200,0.10)" }}>
-            <Zap className="w-5 h-5" style={{ color: "#00c8c8" }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(105,106,172,0.10)" }}>
+            <Zap className="w-5 h-5" style={{ color: "#696aac" }} />
           </div>
           <div>
             <h1 className="text-xl font-bold">Command Center</h1>
@@ -93,8 +93,8 @@ export default function Dashboard() {
         <Link href="/pitch">
           <Card className="border-border/50 hover:border-primary/50 transition-all cursor-pointer group" data-testid="link-pitch-generator">
             <div className="p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors" style={{ background: "rgba(0,200,200,0.08)" }}>
-                <TrendingUp className="w-4 h-4" style={{ color: "#00c8c8" }} />
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors" style={{ background: "rgba(105,106,172,0.08)" }}>
+                <TrendingUp className="w-4 h-4" style={{ color: "#696aac" }} />
               </div>
               <div>
                 <p className="text-sm font-medium">ATOM Pitch</p>

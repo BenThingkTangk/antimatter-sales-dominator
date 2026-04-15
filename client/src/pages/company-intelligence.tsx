@@ -187,7 +187,7 @@ function formatTimestamp(ts: number): string {
 function priorityColor(level: string): string {
   if (level === "high") return "bg-rose-500/15 text-rose-400 border-rose-500/25";
   if (level === "medium") return "bg-amber-500/15 text-amber-400 border-amber-500/25";
-  return "bg-teal-500/15 text-teal-400 border-teal-500/25";
+  return "bg-violet-500/15 text-violet-400 border-violet-500/25";
 }
 
 function threatColor(t: string): string {
@@ -199,7 +199,7 @@ function threatColor(t: string): string {
 function severityColor(s: string): string {
   if (s === "critical") return "bg-rose-500/15 text-rose-400 border-rose-500/25";
   if (s === "high") return "bg-amber-500/15 text-amber-400 border-amber-500/25";
-  return "bg-teal-500/15 text-teal-400 border-teal-500/25";
+  return "bg-violet-500/15 text-violet-400 border-violet-500/25";
 }
 
 function strengthColor(s: string): string {
@@ -237,7 +237,7 @@ function Gauge({ value, label, color }: { value: number; label: string; color: s
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold tabular-nums" style={{ color, fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+          <span className="text-xl font-bold tabular-nums" style={{ color, fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
             {value}
           </span>
           <span className="text-[9px] text-white/30 font-mono">/100</span>
@@ -277,12 +277,12 @@ function HistoryDrawer({
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] shrink-0">
           <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-teal-400" />
-            <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+            <History className="w-4 h-4 text-violet-400" />
+            <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
               WarBook History
             </span>
             {history.length > 0 && (
-              <Badge className="bg-teal-500/15 text-teal-400 border-teal-500/20 text-[10px] font-mono">{history.length}</Badge>
+              <Badge className="bg-violet-500/15 text-violet-400 border-violet-500/20 text-[10px] font-mono">{history.length}</Badge>
             )}
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0 text-white/40 hover:text-white hover:bg-white/5">
@@ -298,11 +298,11 @@ function HistoryDrawer({
             </div>
           ) : (
             history.map((entry) => (
-              <div key={entry.id} className="rounded-xl border border-white/[0.08] bg-[#161618] p-3 hover:border-teal-500/20 transition-all group">
+              <div key={entry.id} className="rounded-xl border border-white/[0.08] bg-[#161618] p-3 hover:border-violet-500/20 transition-all group">
                 <div className="flex items-start justify-between gap-2">
                   <button className="flex-1 text-left" onClick={() => { onRestore(entry); onClose(); }}>
                     <div className="flex items-center gap-2 mb-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-teal-400" />
+                      <Building2 className="w-3.5 h-3.5 text-violet-400" />
                       <span className="text-sm font-semibold text-[#e8e8ea]">{entry.company}</span>
                       <Badge className={`text-[9px] font-mono ml-auto ${priorityColor(entry.result.warbook?.priorityLevel || "low")}`}>
                         {entry.result.warbook?.priorityLevel}
@@ -319,7 +319,7 @@ function HistoryDrawer({
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
-                <button className="mt-2 w-full text-[10px] text-teal-400/60 hover:text-teal-400 transition-colors text-left flex items-center gap-1"
+                <button className="mt-2 w-full text-[10px] text-violet-400/60 hover:text-violet-400 transition-colors text-left flex items-center gap-1"
                   onClick={() => { onRestore(entry); onClose(); }}>
                   <ArrowLeft className="w-3 h-3 rotate-180" />View WarBook
                 </button>
@@ -377,12 +377,12 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
             {/* Left: Company info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap mb-3">
-                <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
-                  <Building2 className="w-5 h-5 text-teal-400" />
+                <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5 text-violet-400" />
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-[#e8e8ea]"
-                    style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif", letterSpacing: "-0.03em" }}>
+                    style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif", letterSpacing: "-0.03em" }}>
                     {result.company}
                   </h2>
                   {wb?.overview?.stockTicker && (
@@ -422,7 +422,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
               {wb?.overview?.website && (
                 <a href={wb.overview.website.startsWith("http") ? wb.overview.website : `https://${wb.overview.website}`}
                   target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-teal-400 hover:text-teal-300 transition-colors">
+                  className="inline-flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors">
                   <Globe className="w-3.5 h-3.5" />{wb.overview.website}
                   <ExternalLink className="w-3 h-3 opacity-60" />
                 </a>
@@ -432,28 +432,28 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
               <div className="flex items-center gap-2 mt-3">
                 <span className="text-[10px] text-white/25 font-mono">DATA SOURCES:</span>
                 {result.sources?.perplexity && <Badge className="bg-blue-500/10 text-blue-300 border-blue-500/20 text-[9px] font-mono">ATOM Web Intel</Badge>}
-                {result.sources?.apollo && <Badge className="bg-teal-500/10 text-teal-300 border-teal-500/20 text-[9px] font-mono">ATOM Contacts</Badge>}
+                {result.sources?.apollo && <Badge className="bg-violet-500/10 text-violet-300 border-violet-500/20 text-[9px] font-mono">ATOM Contacts</Badge>}
                 {result.sources?.pdl && <Badge className="bg-purple-500/10 text-purple-300 border-purple-500/20 text-[9px] font-mono">ATOM Enrich</Badge>}
               </div>
             </div>
 
             {/* Right: Gauges */}
             <div className="flex items-center gap-6 lg:border-l lg:border-white/[0.06] lg:pl-5">
-              <Gauge value={wb?.sentimentScore || 0} label="Sentiment" color="#00c8c8" />
+              <Gauge value={wb?.sentimentScore || 0} label="Sentiment" color="#696aac" />
               <Gauge value={wb?.buyerIntentScore || 0} label="Buyer Intent" color="#a855f7" />
             </div>
           </div>
 
           {/* Executive Summary */}
           {wb?.executiveSummary && (
-            <div className="mt-4 p-4 rounded-xl border border-teal-500/15 bg-teal-500/[0.04]">
+            <div className="mt-4 p-4 rounded-xl border border-violet-500/15 bg-violet-500/[0.04]">
               <div className="flex items-start gap-2">
-                <Brain className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+                <Brain className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-teal-400/60 mb-1.5">Executive Summary</p>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-violet-400/60 mb-1.5">Executive Summary</p>
                   <p className="text-sm text-white/70 leading-relaxed">{wb.executiveSummary}</p>
                 </div>
-                <button onClick={() => copyText(wb.executiveSummary)} className="ml-auto shrink-0 p-1 text-white/20 hover:text-teal-400 transition-colors">
+                <button onClick={() => copyText(wb.executiveSummary)} className="ml-auto shrink-0 p-1 text-white/20 hover:text-violet-400 transition-colors">
                   <Copy className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -471,9 +471,9 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
             return (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all whitespace-nowrap ${
-                  active ? "bg-teal-500/15 text-teal-300 border border-teal-500/25" : "text-white/35 hover:text-white/60 hover:bg-white/[0.04]"
+                  active ? "bg-violet-500/15 text-violet-300 border border-violet-500/25" : "text-white/35 hover:text-white/60 hover:bg-white/[0.04]"
                 }`}
-                style={{ fontFamily: "'Satoshi', Arial, sans-serif" }}
+                style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />{t.label}
               </button>
@@ -511,7 +511,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                       <Icon className="w-3 h-3 text-white/25" />
                       <p className="text-[9px] font-mono uppercase tracking-wider text-white/25">{item.label}</p>
                     </div>
-                    <p className="text-sm font-semibold text-white/80" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                    <p className="text-sm font-semibold text-white/80" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                       {item.value || "—"}
                     </p>
                   </CardContent>
@@ -524,8 +524,8 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
             <Card className="bg-[#111113] border-white/[0.08]">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Cpu className="w-4 h-4 text-teal-400" />
-                  <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                  <Cpu className="w-4 h-4 text-violet-400" />
+                  <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                     Tech Stack
                   </span>
                 </div>
@@ -552,12 +552,12 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
             </Card>
           ) : (
             result.contacts.map((c, i) => (
-              <Card key={i} className="bg-[#111113] border-white/[0.08] hover:border-teal-500/20 transition-all">
+              <Card key={i} className="bg-[#111113] border-white/[0.08] hover:border-violet-500/20 transition-all">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
-                        <span className="text-sm font-bold text-teal-400">
+                      <div className="w-10 h-10 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-violet-400">
                           {c.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
@@ -573,7 +573,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                       size="sm"
                       disabled={!c.phone}
                       onClick={() => callWithAtom(c)}
-                      className="h-8 text-xs px-3 gap-1.5 bg-teal-600/15 hover:bg-teal-600/25 text-teal-300 border border-teal-500/20 shrink-0"
+                      className="h-8 text-xs px-3 gap-1.5 bg-violet-600/15 hover:bg-violet-600/25 text-violet-300 border border-violet-500/20 shrink-0"
                     >
                       <PhoneCall className="w-3.5 h-3.5" />Call with ATOM
                     </Button>
@@ -581,12 +581,12 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                   {/* Contact details row */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 pl-[52px]">
                     {c.email && (
-                      <a href={`mailto:${c.email}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-teal-400 transition-colors">
+                      <a href={`mailto:${c.email}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-violet-400 transition-colors">
                         <Mail className="w-3.5 h-3.5" />{c.email}
                       </a>
                     )}
                     {c.phone && (
-                      <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-teal-400 transition-colors">
+                      <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-violet-400 transition-colors">
                         <Phone className="w-3.5 h-3.5" />{c.phone}
                       </a>
                     )}
@@ -606,7 +606,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                     <Badge className="bg-white/5 text-white/30 border-white/[0.06] text-[9px] px-1.5 py-0 h-4 font-mono">
                       {c.title?.toLowerCase().includes("vp") || c.title?.toLowerCase().includes("vice") ? "vp" : c.title?.toLowerCase().includes("director") ? "director" : c.title?.toLowerCase().includes("chief") || c.title?.toLowerCase().includes("cto") || c.title?.toLowerCase().includes("ceo") ? "c-suite" : "senior"}
                     </Badge>
-                    <Badge className="bg-teal-500/10 text-teal-400 border-teal-500/20 text-[9px] px-1.5 py-0 h-4 font-mono">ATOM Verified</Badge>
+                    <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/20 text-[9px] px-1.5 py-0 h-4 font-mono">ATOM Verified</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -657,8 +657,8 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                     <p className="text-sm font-medium text-[#e8e8ea]">{pp.pain}</p>
                   </div>
                   <div className="flex items-start gap-2 mt-2 pl-1">
-                    <Zap className="w-3.5 h-3.5 text-teal-400 shrink-0 mt-0.5" />
-                    <p className="text-xs text-teal-300/70 leading-relaxed"><span className="text-teal-400/60 font-mono text-[10px] uppercase mr-1">How we help:</span>{pp.opportunity}</p>
+                    <Zap className="w-3.5 h-3.5 text-violet-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-violet-300/70 leading-relaxed"><span className="text-violet-400/60 font-mono text-[10px] uppercase mr-1">How we help:</span>{pp.opportunity}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -678,7 +678,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3 mb-1.5">
                     <div className="flex items-start gap-2">
-                      <Activity className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+                      <Activity className="w-4 h-4 text-violet-400 shrink-0 mt-0.5" />
                       <p className="text-sm text-[#e8e8ea]">{sig.signal}</p>
                     </div>
                     <Badge className={`text-[10px] font-mono border shrink-0 ${strengthColor(sig.strength)}`}>
@@ -707,8 +707,8 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
               <div className="space-y-3">
                 {wb.recentNews.map((n, i) => (
                   <div key={i} className="relative">
-                    <div className="absolute -left-5 top-3 w-2 h-2 rounded-full bg-teal-500/60 border border-teal-500/40" />
-                    <Card className="bg-[#111113] border-white/[0.08] hover:border-teal-500/20 transition-all">
+                    <div className="absolute -left-5 top-3 w-2 h-2 rounded-full bg-violet-500/60 border border-violet-500/40" />
+                    <Card className="bg-[#111113] border-white/[0.08] hover:border-violet-500/20 transition-all">
                       <CardContent className="p-3.5">
                         <div className="flex items-start justify-between gap-3 mb-1">
                           <p className="text-sm font-medium text-[#e8e8ea]">{n.headline}</p>
@@ -742,7 +742,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                   <CardContent className="p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <DollarSign className="w-4 h-4 text-amber-400" />
-                      <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Pricing & Contract Intel</h4>
+                      <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Pricing & Contract Intel</h4>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-[#161618] rounded-lg p-3 border border-white/[0.05]">
@@ -762,7 +762,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                       {bc.winRate && (
                         <div className="bg-[#161618] rounded-lg p-3 border border-white/[0.05] md:col-span-2">
                           <span className="text-xs text-[#4a4a55] font-mono uppercase tracking-wider">Estimated Win Rate</span>
-                          <p className="text-sm text-teal-400 font-semibold mt-1">{bc.winRate}</p>
+                          <p className="text-sm text-violet-400 font-semibold mt-1">{bc.winRate}</p>
                         </div>
                       )}
                     </div>
@@ -775,7 +775,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                     <CardContent className="p-5">
                       <div className="flex items-center gap-2 mb-3">
                         <Target className="w-4 h-4 text-red-400" />
-                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Known Weaknesses</h4>
+                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Known Weaknesses</h4>
                       </div>
                       <div className="space-y-2">
                         {bc.knownWeaknesses.map((w: string, i: number) => (
@@ -795,7 +795,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                     <CardContent className="p-5">
                       <div className="flex items-center gap-2 mb-3">
                         <MessageSquare className="w-4 h-4 text-amber-400" />
-                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Customer Complaints</h4>
+                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Customer Complaints</h4>
                       </div>
                       <div className="space-y-2">
                         {bc.customerComplaints.map((c: string, i: number) => (
@@ -815,7 +815,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                     <CardContent className="p-5">
                       <div className="flex items-center gap-2 mb-3">
                         <Zap className="w-4 h-4 text-purple-400" />
-                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Feature Gaps (What They're Missing)</h4>
+                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Feature Gaps (What They're Missing)</h4>
                       </div>
                       <div className="space-y-2">
                         {bc.featureGaps.map((g: string, i: number) => (
@@ -831,18 +831,18 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
 
                 {/* Talking Points */}
                 {bc.talkingPoints?.length > 0 && (
-                  <Card className="bg-[#111113] border-teal-500/20">
+                  <Card className="bg-[#111113] border-violet-500/20">
                     <CardContent className="p-5">
                       <div className="flex items-center gap-2 mb-3">
-                        <Swords className="w-4 h-4 text-teal-400" />
-                        <h4 className="text-sm font-bold text-teal-400" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Competitive Talking Points</h4>
+                        <Swords className="w-4 h-4 text-violet-400" />
+                        <h4 className="text-sm font-bold text-violet-400" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Competitive Talking Points</h4>
                       </div>
                       <div className="space-y-2">
                         {bc.talkingPoints.map((tp: string, i: number) => (
-                          <div key={i} className="flex items-start gap-3 bg-teal-500/5 border border-teal-500/10 rounded-lg p-3">
-                            <span className="text-xs font-mono text-teal-400 bg-teal-500/20 px-2 py-0.5 rounded-full shrink-0 mt-0.5">{i + 1}</span>
+                          <div key={i} className="flex items-start gap-3 bg-violet-500/5 border border-violet-500/10 rounded-lg p-3">
+                            <span className="text-xs font-mono text-violet-400 bg-violet-500/20 px-2 py-0.5 rounded-full shrink-0 mt-0.5">{i + 1}</span>
                             <span className="text-sm text-[#e8e8ea]">{tp}</span>
-                            <button onClick={() => copyText(tp)} className="ml-auto shrink-0 text-[#4a4a55] hover:text-teal-400 transition-colors">
+                            <button onClick={() => copyText(tp)} className="ml-auto shrink-0 text-[#4a4a55] hover:text-violet-400 transition-colors">
                               <Copy className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -858,7 +858,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                     <CardContent className="p-5">
                       <div className="flex items-center gap-2 mb-3">
                         <Shield className="w-4 h-4 text-blue-400" />
-                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Their Sales Process Weaknesses</h4>
+                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Their Sales Process Weaknesses</h4>
                       </div>
                       <div className="space-y-2">
                         {bc.salesProcessWeaknesses.map((w: string, i: number) => (
@@ -886,7 +886,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <MessageSquare className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                  <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                     Predicted Objections
                   </span>
                 </div>
@@ -899,13 +899,13 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                         </Badge>
                         <p className="text-xs font-medium text-white/80">"{obj.objection}"</p>
                         <button onClick={() => copyText(`Objection: ${obj.objection}\n\nCounter: ${obj.counterStrategy}`)}
-                          className="ml-auto shrink-0 p-0.5 text-white/15 hover:text-teal-400 transition-colors">
+                          className="ml-auto shrink-0 p-0.5 text-white/15 hover:text-violet-400 transition-colors">
                           <Copy className="w-3 h-3" />
                         </button>
                       </div>
                       <div className="flex items-start gap-2 pl-1">
-                        <Shield className="w-3 h-3 text-teal-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-teal-300/70 leading-relaxed">{obj.counterStrategy}</p>
+                        <Shield className="w-3 h-3 text-violet-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-violet-300/70 leading-relaxed">{obj.counterStrategy}</p>
                       </div>
                     </div>
                   ))}
@@ -919,16 +919,16 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
             <Card className="bg-[#111113] border-white/[0.08]">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Target className="w-4 h-4 text-teal-400" />
-                  <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                  <Target className="w-4 h-4 text-violet-400" />
+                  <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                     Recommended Pitch Angles
                   </span>
                 </div>
                 <div className="space-y-3">
                   {wb.pitchAngles.map((pa, i) => (
-                    <div key={i} className="rounded-lg border border-teal-500/15 bg-teal-500/[0.04] p-3">
+                    <div key={i} className="rounded-lg border border-violet-500/15 bg-violet-500/[0.04] p-3">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <p className="text-sm font-semibold text-teal-300">{pa.angle}</p>
+                        <p className="text-sm font-semibold text-violet-300">{pa.angle}</p>
                         <Badge className="bg-purple-500/10 text-purple-300 border-purple-500/20 text-[9px] font-mono shrink-0">
                           {pa.targetPersona}
                         </Badge>
@@ -937,7 +937,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                         <MessageSquare className="w-3 h-3 text-white/25 shrink-0 mt-0.5" />
                         <p className="text-xs text-white/55 italic">"{pa.openingLine}"</p>
                         <button onClick={() => copyText(pa.openingLine)}
-                          className="ml-auto shrink-0 p-0.5 text-white/15 hover:text-teal-400 transition-colors">
+                          className="ml-auto shrink-0 p-0.5 text-white/15 hover:text-violet-400 transition-colors">
                           <Copy className="w-3 h-3" />
                         </button>
                       </div>
@@ -953,8 +953,8 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
             <Card className="bg-[#111113] border-white/[0.08]">
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Phone className="w-4 h-4 text-teal-400" />
-                  <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                  <Phone className="w-4 h-4 text-violet-400" />
+                  <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                     Call Strategy
                   </span>
                 </div>
@@ -983,9 +983,9 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                     <ul className="space-y-1.5">
                       {wb.callStrategy.keyQuestions.map((q, i) => (
                         <li key={i} className="flex items-start gap-2 text-xs text-white/60">
-                          <span className="text-teal-400/60 font-mono shrink-0">{i + 1}.</span>
+                          <span className="text-violet-400/60 font-mono shrink-0">{i + 1}.</span>
                           <span>{q}</span>
-                          <button onClick={() => copyText(q)} className="ml-auto shrink-0 p-0.5 text-white/10 hover:text-teal-400 transition-colors">
+                          <button onClick={() => copyText(q)} className="ml-auto shrink-0 p-0.5 text-white/10 hover:text-violet-400 transition-colors">
                             <Copy className="w-3 h-3" />
                           </button>
                         </li>
@@ -1011,7 +1011,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
           <div className="mt-1 p-3 bg-[#111113] border border-white/[0.08] rounded-xl space-y-1">
             {result.citations.map((url, i) => (
               <a key={i} href={url} target="_blank" rel="noreferrer"
-                className="flex items-center gap-2 text-[11px] text-white/30 hover:text-teal-400 transition-colors truncate">
+                className="flex items-center gap-2 text-[11px] text-white/30 hover:text-violet-400 transition-colors truncate">
                 <ExternalLink className="w-3 h-3 shrink-0" />
                 <span className="truncate">{url}</span>
               </a>
@@ -1115,16 +1115,16 @@ export default function CompanyIntelligence() {
   };
 
   return (
-    <div className="space-y-6 min-h-screen" style={{ fontFamily: "'Satoshi', Arial, sans-serif" }}>
+    <div className="space-y-6 min-h-screen" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
-              <Brain className="w-5 h-5 text-teal-400" />
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+              <Brain className="w-5 h-5 text-violet-400" />
             </div>
             <h1 className="text-2xl font-bold text-[#e8e8ea] tracking-tight"
-              style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif", letterSpacing: "-0.03em" }}>
+              style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif", letterSpacing: "-0.03em" }}>
               ATOM WarBook
             </h1>
           </div>
@@ -1147,7 +1147,7 @@ export default function CompanyIntelligence() {
       </div>
 
       {/* Input Card — always visible */}
-      <Card className={`border transition-all ${result ? "border-teal-500/15 bg-teal-500/[0.02]" : "border-white/[0.08] bg-[#111113]"}`}>
+      <Card className={`border transition-all ${result ? "border-violet-500/15 bg-violet-500/[0.02]" : "border-white/[0.08] bg-[#111113]"}`}>
         <CardContent className="p-5">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 space-y-1.5">
@@ -1160,7 +1160,7 @@ export default function CompanyIntelligence() {
                 onChange={(e) => setCompany(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g. Cloudflare, Akamai, Salesforce..."
-                className="w-full h-10 px-3 text-sm rounded-lg border border-white/[0.08] bg-[#161618] text-[#e8e8ea] placeholder:text-white/20 focus:outline-none focus:border-teal-500/40 transition-colors"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-white/[0.08] bg-[#161618] text-[#e8e8ea] placeholder:text-white/20 focus:outline-none focus:border-violet-500/40 transition-colors"
               />
             </div>
             <div className="flex-1 space-y-1.5">
@@ -1173,15 +1173,15 @@ export default function CompanyIntelligence() {
                 onChange={(e) => setWebsite(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="https://cloudflare.com"
-                className="w-full h-10 px-3 text-sm rounded-lg border border-white/[0.08] bg-[#161618] text-[#e8e8ea] placeholder:text-white/20 focus:outline-none focus:border-teal-500/40 transition-colors"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-white/[0.08] bg-[#161618] text-[#e8e8ea] placeholder:text-white/20 focus:outline-none focus:border-violet-500/40 transition-colors"
               />
             </div>
             <div className="sm:self-end">
               <Button
                 onClick={buildWarBook}
                 disabled={!company.trim() || loading}
-                className="h-10 px-6 text-sm font-semibold bg-teal-600 hover:bg-teal-500 text-white gap-2 w-full sm:w-auto transition-all"
-                style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}
+                className="h-10 px-6 text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white gap-2 w-full sm:w-auto transition-all"
+                style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}
               >
                 {loading ? (
                   <><Loader2 className="w-4 h-4 animate-spin" />Building...</>
@@ -1196,15 +1196,15 @@ export default function CompanyIntelligence() {
 
       {/* Loading State */}
       {loading && (
-        <Card className="bg-[#111113] border-teal-500/20">
+        <Card className="bg-[#111113] border-violet-500/20">
           <CardContent className="p-6">
             <div className="flex items-center gap-3 mb-5">
               <div className="relative w-8 h-8">
-                <div className="absolute inset-0 rounded-full border-2 border-teal-500/20" />
-                <div className="absolute inset-0 rounded-full border-2 border-teal-500 border-r-transparent animate-spin" />
+                <div className="absolute inset-0 rounded-full border-2 border-violet-500/20" />
+                <div className="absolute inset-0 rounded-full border-2 border-violet-500 border-r-transparent animate-spin" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                <p className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                   Building WarBook for {company}
                 </p>
                 <p className="text-xs text-white/30">ATOM Intelligence scanning...</p>
@@ -1220,13 +1220,13 @@ export default function CompanyIntelligence() {
                   <div key={i} className={`flex items-center gap-3 transition-all ${done ? "opacity-50" : active ? "opacity-100" : "opacity-20"}`}>
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border ${
                       done ? "bg-emerald-500/20 border-emerald-500/30" :
-                      active ? "bg-teal-500/20 border-teal-500/30" :
+                      active ? "bg-violet-500/20 border-violet-500/30" :
                       "bg-white/5 border-white/10"
                     }`}>
                       {done
                         ? <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                         : active
-                        ? <Loader2 className="w-3 h-3 text-teal-400 animate-spin" />
+                        ? <Loader2 className="w-3 h-3 text-violet-400 animate-spin" />
                         : <Icon className="w-3 h-3 text-white/25" />
                       }
                     </div>
@@ -1255,10 +1255,10 @@ export default function CompanyIntelligence() {
       {!result && !loading && (
         <Card className="bg-[#111113] border-white/[0.08]">
           <CardContent className="py-16 flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-teal-500/5 border border-teal-500/10 flex items-center justify-center mb-2">
-              <Brain className="w-8 h-8 text-teal-400/40" />
+            <div className="w-16 h-16 rounded-2xl bg-violet-500/5 border border-violet-500/10 flex items-center justify-center mb-2">
+              <Brain className="w-8 h-8 text-violet-400/40" />
             </div>
-            <p className="text-base font-semibold text-white/30" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+            <p className="text-base font-semibold text-white/30" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
               Enter a company to build their WarBook
             </p>
             <p className="text-sm text-white/20 text-center max-w-sm">
@@ -1268,7 +1268,7 @@ export default function CompanyIntelligence() {
             <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
               {["Cloudflare", "Akamai", "Salesforce", "HubSpot", "Snowflake"].map((ex) => (
                 <button key={ex} onClick={() => setCompany(ex)}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-white/[0.08] text-white/30 hover:text-teal-400 hover:border-teal-500/20 hover:bg-teal-500/5 transition-all font-mono">
+                  className="text-xs px-3 py-1.5 rounded-lg border border-white/[0.08] text-white/30 hover:text-violet-400 hover:border-violet-500/20 hover:bg-violet-500/5 transition-all font-mono">
                   {ex}
                 </button>
               ))}

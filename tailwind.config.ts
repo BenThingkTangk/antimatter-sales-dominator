@@ -75,12 +75,21 @@ export default {
           foreground: "hsl(var(--sidebar-accent-foreground) / <alpha-value>)",
           border: "var(--sidebar-accent-border)"
         },
-        // ATOM brand teal — direct access
+        // Antimatter AI brand accent — direct access
+        "brand": {
+          DEFAULT: "#696aac",
+          dim: "#3e3f7e",
+          light: "#a2a3e9",
+          lighter: "#c7c8f2",
+          faint: "rgba(105,106,172,0.06)",
+          glow: "rgba(105,106,172,0.15)",
+        },
+        // Legacy teal alias → now maps to brand purple
         teal: {
-          DEFAULT: "#00c8c8",
-          dim: "#00a0a0",
-          glow: "rgba(0,200,200,0.15)",
-          faint: "rgba(0,200,200,0.06)",
+          DEFAULT: "#696aac",
+          dim: "#3e3f7e",
+          glow: "rgba(105,106,172,0.15)",
+          faint: "rgba(105,106,172,0.06)",
         },
         // AI agent palette
         "atom-claude": "#c084fc",
@@ -95,9 +104,9 @@ export default {
         },
       },
       fontFamily: {
-        // ATOM design system fonts
-        display: ["Cabinet Grotesk", "Arial", "Helvetica", "sans-serif"],
-        sans: ["Satoshi", "Arial", "Helvetica", "sans-serif"],
+        // Antimatter AI design system font
+        display: ["Plus Jakarta Sans", "Arial", "Helvetica", "sans-serif"],
+        sans: ["Plus Jakarta Sans", "Arial", "Helvetica", "sans-serif"],
         serif: ["Georgia", "serif"],
         mono: ["JetBrains Mono", "Courier New", "monospace"],
       },

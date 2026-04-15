@@ -16,21 +16,21 @@ const navItems = [
   { href: "/prospects", icon: Radar, label: "ATOM Prospect", description: "AI prospect scanner", beta: false },
   { href: "/atom-leadgen", icon: PhoneCall, label: "ATOM Lead Gen", description: "AI voice cold caller", beta: false },
   { href: "/atom-campaign", icon: Megaphone, label: "ATOM Campaign", description: "Voice campaign engine", beta: false },
-  { href: "/company-intelligence", icon: Brain, label: "ATOM WarBook", description: "RAG company intelligence", beta: false },
+  { href: "/company-intelligence", icon: Brain, label: "ATOM WarBook", description: "Company intelligence", beta: false },
 ];
 
-// ATOM Logo SVG — atomic orbital mark
+// ATOM Logo SVG — atomic orbital mark (Antimatter AI purple brand)
 function AtomLogo({ size = 36 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 36 36" fill="none" aria-label="ATOM logo">
       <circle cx="18" cy="18" r="17" stroke="currentColor" strokeWidth="1.5" opacity="0.2"/>
-      <ellipse cx="18" cy="18" rx="10" ry="17" stroke="#00c8c8" strokeWidth="1.5" fill="none"/>
-      <ellipse cx="18" cy="18" rx="17" ry="10" stroke="#00c8c8" strokeWidth="1.5" fill="none" opacity="0.5"/>
-      <circle cx="18" cy="18" r="3" fill="#00c8c8"/>
-      <circle cx="18" cy="5" r="2" fill="#00c8c8" opacity="0.7"/>
-      <circle cx="18" cy="31" r="2" fill="#00c8c8" opacity="0.4"/>
-      <circle cx="5" cy="18" r="2" fill="#00c8c8" opacity="0.4"/>
-      <circle cx="31" cy="18" r="2" fill="#00c8c8" opacity="0.7"/>
+      <ellipse cx="18" cy="18" rx="10" ry="17" stroke="#8587e3" strokeWidth="1.5" fill="none"/>
+      <ellipse cx="18" cy="18" rx="17" ry="10" stroke="#8587e3" strokeWidth="1.5" fill="none" opacity="0.5"/>
+      <circle cx="18" cy="18" r="3" fill="#696aac"/>
+      <circle cx="18" cy="5" r="2" fill="#a2a3e9" opacity="0.7"/>
+      <circle cx="18" cy="31" r="2" fill="#a2a3e9" opacity="0.4"/>
+      <circle cx="5" cy="18" r="2" fill="#a2a3e9" opacity="0.4"/>
+      <circle cx="31" cy="18" r="2" fill="#a2a3e9" opacity="0.7"/>
     </svg>
   );
 }
@@ -62,14 +62,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
-      {/* Ambient teal glow at bottom */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 blur-3xl opacity-10 rounded-full translate-y-1/2" style={{ background: "#00c8c8" }} />
+      {/* Ambient accent glow at bottom */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 blur-3xl opacity-10 rounded-full translate-y-1/2" style={{ background: "#3e3f7e" }} />
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-16 border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
         {!isMobile && collapsed ? (
           /* Collapsed: show ATOM mark only */
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(0,200,200,0.08)", border: "1px solid rgba(0,200,200,0.18)" }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(105,106,172,0.08)", border: "1px solid rgba(105,106,172,0.18)" }}>
             <AtomLogo size={22} />
           </div>
         ) : (
@@ -81,11 +81,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="min-w-0 flex-1">
               <h1
                 className="text-lg font-bold tracking-tight leading-none truncate"
-                style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif", color: "#e8e8ea", letterSpacing: "-0.03em" }}
+                style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif", color: "#f6f6fd", letterSpacing: "-0.03em" }}
               >
-                AT<span style={{ color: "#00c8c8" }}>O</span>M
+                AT<span style={{ color: "#696aac" }}>O</span>M
               </h1>
-              <p className="text-[10px] tracking-widest uppercase mt-0.5" style={{ color: "rgba(255,255,255,0.3)", fontFamily: "'Satoshi', Arial, sans-serif" }}>
+              <p className="text-[10px] tracking-widest uppercase mt-0.5" style={{ color: "rgba(255,255,255,0.3)", fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                 Sales Dominator
               </p>
             </div>
@@ -104,7 +104,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto" style={{ fontFamily: "'Satoshi', Arial, sans-serif" }}>
+      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
         {navItems.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;
@@ -115,13 +115,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               href={item.href}
               className={`relative flex items-center gap-3 px-3 py-2.5 text-sm transition-all rounded-lg border-l-2 pl-[10px] ${
                 isActive
-                  ? "border-l-[#00c8c8]"
+                  ? "border-l-[#696aac]"
                   : "border-transparent"
               }`}
               style={isActive ? {
-                background: "rgba(0,200,200,0.08)",
-                color: "#00c8c8",
-                boxShadow: "inset 0 0 12px rgba(0,200,200,0.06)"
+                background: "rgba(105,106,172,0.08)",
+                color: "#a2a3e9",
+                boxShadow: "inset 0 0 12px rgba(105,106,172,0.06)"
               } : {
                 color: "rgba(255,255,255,0.45)"
               }}
@@ -129,7 +129,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             >
               <Icon
                 className="w-4 h-4 shrink-0"
-                style={{ color: isActive ? "#00c8c8" : "rgba(255,255,255,0.35)" }}
+                style={{ color: isActive ? "#a2a3e9" : "rgba(255,255,255,0.35)" }}
               />
               {(!collapsed || isMobile) && (
                 <span className="truncate min-w-0 font-normal">
@@ -157,7 +157,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="relative border-t p-2 space-y-1 shrink-0" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
         {(!collapsed || isMobile) && (
           <div className="px-3 py-2">
-            <p className="text-xs font-light" style={{ color: "rgba(255,255,255,0.4)", fontFamily: "'Satoshi', Arial, sans-serif" }}>
+            <p className="text-xs font-light" style={{ color: "rgba(255,255,255,0.4)", fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
               ATOM · Nirmata Holdings · © 2026
             </p>
           </div>
@@ -204,7 +204,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           className={`relative hidden md:flex flex-col border-r text-sidebar-foreground transition-all duration-300 overflow-hidden ${
             collapsed ? "w-16" : "w-64"
           }`}
-          style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,0.08)" }}
+          style={{ background: "#020202", borderColor: "rgba(255,255,255,0.08)" }}
         >
           <SidebarContent isMobile={false} />
         </aside>
@@ -221,7 +221,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Drawer */}
             <aside
               className="absolute left-0 top-0 bottom-0 w-72 flex flex-col border-r text-sidebar-foreground overflow-hidden z-10"
-              style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,0.08)" }}
+              style={{ background: "#020202", borderColor: "rgba(255,255,255,0.08)" }}
             >
               <SidebarContent isMobile={true} />
             </aside>
@@ -233,7 +233,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Mobile top bar — visible only on mobile */}
           <header
             className="flex md:hidden items-center gap-3 h-14 px-4 border-b shrink-0"
-            style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,0.08)" }}
+            style={{ background: "#020202", borderColor: "rgba(255,255,255,0.08)" }}
           >
             <button
               onClick={() => setMobileOpen(true)}
@@ -249,9 +249,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <AtomLogo size={22} />
                 <span
                   className="text-sm font-bold tracking-tight"
-                  style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif", color: "#e8e8ea", letterSpacing: "-0.02em" }}
+                  style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif", color: "#f6f6fd", letterSpacing: "-0.02em" }}
                 >
-                  AT<span style={{ color: "#00c8c8" }}>O</span>M
+                  AT<span style={{ color: "#696aac" }}>O</span>M
                 </span>
               </div>
             </div>

@@ -5,6 +5,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const SAMBANOVA_API_KEY = process.env.SAMBANOVA_API_KEY;
 const APOLLO_API_KEY = process.env.APOLLO_API_KEY;
 const PDL_API_KEY = process.env.PDL_API_KEY;
 
@@ -108,20 +109,45 @@ CONTACTS: ${contacts.length > 0 ? contacts.map((c: any) => `${c.name} - ${c.titl
 
 Return JSON: {"overview":{"description":"2-3 sentences","industry":"","founded":"","headquarters":"","employeeCount":"","revenue":"","website":"","stockTicker":null},"executiveSummary":"3-4 sentence brief for a salesperson","techStack":["tech1","tech2"],"competitors":[{"name":"","threat":"high/medium/low","differentiator":""}],"painPoints":[{"pain":"","severity":"critical/high/medium","opportunity":""}],"buyingSignals":[{"signal":"","strength":"strong/moderate/weak","source":""}],"recentNews":[{"headline":"","date":"","relevance":""}],"objectionPredictions":[{"objection":"","probability":"high/medium/low","counterStrategy":""}],"pitchAngles":[{"angle":"","targetPersona":"","openingLine":""}],"callStrategy":{"bestTimeToCall":"","gatekeeperTips":"","toneRecommendation":"","keyQuestions":["q1","q2","q3"]},"battleCard":{"pricingModel":"their pricing structure","contractTerms":"typical contract details","knownWeaknesses":["weakness 1","weakness 2"],"customerComplaints":["complaint 1","complaint 2"],"featureGaps":["missing feature 1","missing feature 2"],"salesProcessWeaknesses":["weakness 1"],"talkingPoints":["point 1","point 2","point 3"],"winRate":"estimated win rate against them","switchingCost":"what it takes to switch away from them"},"sentimentScore":75,"buyerIntentScore":60,"priorityLevel":"high/medium/low"}`;
 
-    const gptRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: synthesis }], response_format: { type: "json_object" }, temperature: 0.3 }),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!gptRes.ok) throw new Error(`GPT ${gptRes.status}`);
-    const gptData = await gptRes.json();
-    const warbook = JSON.parse(gptData.choices[0].message.content);
+    // Try SambaNova first (faster inference), fall back to OpenAI
+    let warbook: any;
+    let synthesisEngine = "openai";
+    if (SAMBANOVA_API_KEY) {
+      try {
+        const sambaRes = await fetch("https://api.sambanova.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${SAMBANOVA_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "Meta-Llama-3.3-70B-Instruct", messages: [{ role: "user", content: synthesis }], temperature: 0.3, stream: false }),
+          signal: AbortSignal.timeout(25000),
+        });
+        if (sambaRes.ok) {
+          const sambaData = await sambaRes.json();
+          const raw = sambaData.choices?.[0]?.message?.content || "{}";
+          // Extract JSON from response (SambaNova may include markdown)
+          const jsonMatch = raw.match(/\{[\s\S]*\}/);
+          warbook = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+          synthesisEngine = "sambanova";
+        }
+      } catch (e: any) {
+        console.log(`[WarBook] SambaNova failed (${e.message}), falling back to OpenAI`);
+      }
+    }
+    if (!warbook) {
+      const gptRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: synthesis }], response_format: { type: "json_object" }, temperature: 0.3 }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!gptRes.ok) throw new Error(`GPT ${gptRes.status}`);
+      const gptData = await gptRes.json();
+      warbook = JSON.parse(gptData.choices[0].message.content);
+    }
 
     return res.json({
       company, warbook, contacts, companyProfile: profile,
       citations: [...overviewRes.citations, ...competitiveRes.citations, ...newsRes.citations, ...painRes.citations, ...battleCardRes.citations],
-      sources: { perplexity: !!overviewRes.content, apollo: contacts.length > 0, pdl: !!profile },
+      sources: { perplexity: !!overviewRes.content, apollo: contacts.length > 0, pdl: !!profile, synthesisEngine },
       generatedAt: new Date().toISOString(),
     });
   } catch (e: any) {

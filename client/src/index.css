@@ -3,30 +3,34 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ATOM SALES DOMINATOR — Design System
+   ATOM SALES DOMINATOR — Antimatter AI Design System
    ATOM · Nirmata Holdings
-   Dark-first teal brand palette
+   Dark-first purple brand palette
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ─── ATOM Design Tokens ──────────────────────────────────────────────────── */
+/* ─── ATOM / Antimatter AI Design Tokens ─────────────────────────────────── */
 :root {
-  /* ── Color Primitives ── */
-  --atom-teal:        #00c8c8;
-  --atom-teal-dim:    #00a0a0;
-  --atom-teal-glow:   rgba(0, 200, 200, 0.15);
-  --atom-teal-faint:  rgba(0, 200, 200, 0.06);
+  /* ── Color Primitives (Antimatter AI Brand) ── */
+  --atom-accent:      #696aac;
+  --atom-accent-dim:  #4c4dac;
+  --atom-accent-glow: rgba(105, 106, 172, 0.15);
+  --atom-accent-faint:rgba(105, 106, 172, 0.06);
+  --atom-primary:     #3e3f7e;
+  --atom-secondary:   #a2a3e9;
+  --atom-tertiary:    #c7c8f2;
+  --atom-lightaccent: #e3e3f8;
 
-  --atom-bg-base:     #0b0b0c;
-  --atom-surface-1:   #111113;
-  --atom-surface-2:   #161618;
-  --atom-surface-3:   #1c1c1f;
-  --atom-surface-4:   #222226;
+  --atom-bg-base:     #020202;
+  --atom-surface-1:   #0a0a0e;
+  --atom-surface-2:   #111115;
+  --atom-surface-3:   #18181d;
+  --atom-surface-4:   #1f1f26;
 
   --atom-border:      rgba(255, 255, 255, 0.08);
   --atom-border-mid:  rgba(255, 255, 255, 0.12);
   --atom-border-hi:   rgba(255, 255, 255, 0.18);
 
-  --atom-text-primary: #e8e8ea;
+  --atom-text-primary: #f6f6fd;
   --atom-text-muted:   #8a8a96;
   --atom-text-faint:   #4a4a55;
 
@@ -36,9 +40,9 @@
   --atom-samba:   #f5c842;
   --atom-gpt:     #74c0fc;
 
-  /* ── Typography ── */
-  --font-display: 'Cabinet Grotesk', Arial, Helvetica, sans-serif;
-  --font-sans:    'Satoshi', Arial, Helvetica, sans-serif;
+  /* ── Typography (Plus Jakarta Sans) ── */
+  --font-display: 'Plus Jakarta Sans', Arial, Helvetica, sans-serif;
+  --font-sans:    'Plus Jakarta Sans', Arial, Helvetica, sans-serif;
   --font-serif:   Georgia, serif;
   --font-mono:    'JetBrains Mono', 'Courier New', monospace;
 
@@ -60,7 +64,7 @@
   --shadow-lg:  0px 12px 24px rgba(0, 0, 0, 0.6), 0px 4px 8px rgba(0, 0, 0, 0.3);
   --shadow-xl:  0px 20px 40px rgba(0, 0, 0, 0.7), 0px 8px 16px rgba(0, 0, 0, 0.3);
   --shadow-2xl: 0px 32px 64px rgba(0, 0, 0, 0.8);
-  --shadow-teal: 0 0 20px rgba(0, 200, 200, 0.2), 0 0 40px rgba(0, 200, 200, 0.08);
+  --shadow-accent: 0 0 20px rgba(105, 106, 172, 0.2), 0 0 40px rgba(105, 106, 172, 0.08);
 
   /* ── Elevation overlays ── */
   --button-outline: rgba(255, 255, 255, 0.10);
@@ -70,41 +74,41 @@
   --elevate-2: rgba(255, 255, 255, 0.09);
 
   /* ══ Tailwind / shadcn compatibility (HSL format) ══ */
-  --background:            240 7% 4%;
-  --foreground:            240 5% 91%;
-  --card:                  240 6% 7%;
-  --card-foreground:       240 5% 91%;
-  --card-border:           240 6% 10%;
-  --popover:               240 6% 7%;
-  --popover-foreground:    240 5% 91%;
-  --popover-border:        240 6% 12%;
-  --primary:               180 100% 39%;
-  --primary-foreground:    0 0% 0%;
+  --background:            240 7% 1%;
+  --foreground:            245 70% 97%;
+  --card:                  240 10% 4%;
+  --card-foreground:       245 70% 97%;
+  --card-border:           240 8% 8%;
+  --popover:               240 10% 4%;
+  --popover-foreground:    245 70% 97%;
+  --popover-border:        240 8% 10%;
+  --primary:               239 37% 46%;
+  --primary-foreground:    0 0% 100%;
   --secondary:             240 5% 12%;
-  --secondary-foreground:  240 5% 91%;
-  --muted:                 240 4% 16%;
+  --secondary-foreground:  245 70% 97%;
+  --muted:                 240 4% 14%;
   --muted-foreground:      240 4% 55%;
-  --accent:                240 4% 16%;
-  --accent-foreground:     240 5% 91%;
+  --accent:                240 4% 14%;
+  --accent-foreground:     245 70% 97%;
   --destructive:           0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border:                240 4% 16%;
-  --input:                 240 4% 16%;
-  --ring:                  180 100% 39%;
+  --border:                240 4% 14%;
+  --input:                 240 4% 14%;
+  --ring:                  239 37% 46%;
   --radius:                0.75rem;
 
   /* Sidebar */
-  --sidebar:               240 7% 4%;
-  --sidebar-foreground:    180 100% 50%;
-  --sidebar-border:        240 4% 10%;
-  --sidebar-primary:       180 100% 39%;
-  --sidebar-primary-foreground: 0 0% 0%;
-  --sidebar-accent:        240 5% 11%;
-  --sidebar-accent-foreground: 240 5% 91%;
-  --sidebar-ring:          180 100% 39%;
+  --sidebar:               240 7% 1%;
+  --sidebar-foreground:    239 37% 70%;
+  --sidebar-border:        240 4% 8%;
+  --sidebar-primary:       239 37% 46%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent:        240 5% 9%;
+  --sidebar-accent-foreground: 245 70% 97%;
+  --sidebar-ring:          239 37% 46%;
 
   /* Chart colors */
-  --chart-1: 180 100% 39%;
+  --chart-1: 239 37% 46%;
   --chart-2: 280 80% 75%;
   --chart-3: 150 60% 55%;
   --chart-4: 45 95% 62%;
@@ -136,30 +140,30 @@
   --popover:               220 16% 96%;
   --popover-foreground:    220 20% 10%;
   --popover-border:        220 12% 88%;
-  --primary:               180 100% 35%;
+  --primary:               239 37% 42%;
   --primary-foreground:    0 0% 100%;
   --secondary:             220 12% 90%;
   --secondary-foreground:  220 20% 10%;
   --muted:                 220 12% 92%;
   --muted-foreground:      220 10% 45%;
-  --accent:                180 30% 90%;
+  --accent:                239 30% 92%;
   --accent-foreground:     220 20% 10%;
   --destructive:           0 72% 50%;
   --destructive-foreground: 0 0% 98%;
   --border:                220 12% 88%;
   --input:                 220 12% 78%;
-  --ring:                  180 100% 35%;
+  --ring:                  239 37% 42%;
 
   --sidebar:               222 30% 8%;
-  --sidebar-foreground:    180 80% 65%;
+  --sidebar-foreground:    239 37% 70%;
   --sidebar-border:        222 20% 14%;
-  --sidebar-primary:       180 100% 35%;
+  --sidebar-primary:       239 37% 42%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent:        222 20% 14%;
-  --sidebar-accent-foreground: 180 80% 65%;
-  --sidebar-ring:          180 100% 35%;
+  --sidebar-accent-foreground: 239 37% 70%;
+  --sidebar-ring:          239 37% 42%;
 
-  --chart-1: 180 100% 35%;
+  --chart-1: 239 37% 42%;
   --chart-2: 270 60% 55%;
   --chart-3: 150 60% 42%;
   --chart-4: 40 80% 55%;
@@ -226,7 +230,7 @@
 
 /* ─── Focus Visible ───────────────────────────────────────────────────────── */
 :focus-visible {
-  outline: 2px solid var(--atom-teal);
+  outline: 2px solid var(--atom-accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
@@ -241,23 +245,27 @@
   }
 }
 
-/* ─── ATOM Glow Effects ───────────────────────────────────────────────────── */
-.glow-teal {
-  box-shadow: 0 0 20px rgba(0, 200, 200, 0.15), 0 0 40px rgba(0, 200, 200, 0.05);
+/* ─── ATOM Glow Effects (Antimatter AI purple) ────────────────────────────── */
+.glow-accent {
+  box-shadow: 0 0 20px rgba(105, 106, 172, 0.15), 0 0 40px rgba(105, 106, 172, 0.05);
 }
 
-.glow-teal-intense {
-  box-shadow: 0 0 25px rgba(0, 200, 200, 0.4), inset 0 0 6.7px rgba(255, 255, 255, 0.15);
+.glow-accent-intense {
+  box-shadow: 0 0 25px rgba(105, 106, 172, 0.4), inset 0 0 6.7px rgba(255, 255, 255, 0.15);
 }
+
+/* Legacy alias */
+.glow-teal { box-shadow: 0 0 20px rgba(105, 106, 172, 0.15), 0 0 40px rgba(105, 106, 172, 0.05); }
+.glow-teal-intense { box-shadow: 0 0 25px rgba(105, 106, 172, 0.4), inset 0 0 6.7px rgba(255, 255, 255, 0.15); }
 
 .btn-atom {
-  background: linear-gradient(135deg, #00e0e0 -10%, #00c8c8 50%, #00a0a0 110%);
-  box-shadow: 0px 0px 12px rgba(0, 200, 200, 0.4), inset 0px 0px 2px rgba(255, 255, 255, 0.3);
-  color: #000;
+  background: linear-gradient(93.92deg, #8587e3 -13.51%, #4c4dac 40.91%, #696aac 113.69%);
+  box-shadow: 0px 0px 10px #696aac, inset 0px 0px 2px rgba(255, 255, 255, 0.61);
+  color: #fff;
 }
 
 .btn-atom:hover {
-  box-shadow: 0px 0px 28px rgba(0, 200, 200, 0.6), inset 0px 0px 6.7px rgba(255, 255, 255, 0.3);
+  box-shadow: 0px 0px 25px #696aac, inset 0px 0px 6.7px rgba(255, 255, 255, 0.9);
 }
 
 /* ─── Animations ──────────────────────────────────────────────────────────── */
@@ -363,12 +371,15 @@
     inset: -1px;
   }
 
-  /* ATOM-specific text utilities */
-  .text-teal { color: var(--atom-teal); }
-  .bg-teal-glow { background-color: var(--atom-teal-glow); }
-  .bg-teal-faint { background-color: var(--atom-teal-faint); }
-  .border-teal { border-color: var(--atom-teal); }
-  .border-teal-faint { border-color: rgba(0, 200, 200, 0.2); }
+  /* ATOM brand accent utilities */
+  .text-brand { color: var(--atom-accent); }
+  .text-teal { color: var(--atom-accent); }
+  .bg-brand-glow { background-color: var(--atom-accent-glow); }
+  .bg-teal-glow { background-color: var(--atom-accent-glow); }
+  .bg-teal-faint { background-color: var(--atom-accent-faint); }
+  .border-brand { border-color: var(--atom-accent); }
+  .border-teal { border-color: var(--atom-accent); }
+  .border-teal-faint { border-color: rgba(105, 106, 172, 0.2); }
 }
 
 /* ─── Mobile Responsiveness ───────────────────────────────────────────────── */
