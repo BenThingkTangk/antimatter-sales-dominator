@@ -647,30 +647,31 @@ export default function AtomCampaign() {
       for (const p of prospects) {
         const contacts = JSON.parse(p.contacts || "[]");
         totalContacts += contacts.length;
+        const companyPhone = p.companyPhone || "";
         if (contacts.length > 0) {
-          for (const c of contacts.slice(0, 2)) {
-            if (c.phone) {
-              built.push({
-                id: `${p.id || p.companyName}_${c.firstName}_${c.lastName}`,
-                companyName: p.companyName,
-                contactName: `${c.firstName} ${c.lastName}`.trim(),
-                title: c.position || "",
-                phone: c.phone,
-                email: c.email || "",
-                selected: true,
-              });
-            }
+          for (const c of contacts.slice(0, 3)) {
+            // Use contact phone, or fall back to company main phone
+            const phone = c.phone || c.mobilePhone || companyPhone;
+            built.push({
+              id: `${p.id || p.companyName}_${c.firstName}_${c.lastName}`,
+              companyName: p.companyName,
+              contactName: `${c.firstName} ${c.lastName}`.trim() || "Decision Maker",
+              title: c.position || "",
+              phone: phone,
+              email: c.email || "",
+              selected: !!phone, // auto-select if we have a phone
+            });
           }
         } else if (p.domain) {
-          // Company without contacts — add as placeholder
+          // Company without contacts — add with company phone if available
           built.push({
             id: `${p.id || p.companyName}_co`,
             companyName: p.companyName,
             contactName: "Decision Maker",
-            title: "Unknown",
-            phone: "",
+            title: "Main Line",
+            phone: companyPhone,
             email: "",
-            selected: false,
+            selected: !!companyPhone,
           });
         }
       }
