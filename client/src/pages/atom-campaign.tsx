@@ -225,13 +225,13 @@ interface CampaignStats {
 
 function statusColor(status: CallStatus): string {
   switch (status) {
-    case "queued": return "text-white/30 border-white/10 bg-white/5";
+    case "queued": return "text-white/50 border-white/10 bg-white/5";
     case "calling": return "text-amber-400 border-amber-500/30 bg-amber-500/10";
     case "connected": return "text-violet-400 border-violet-500/30 bg-violet-500/10";
     case "completed": return "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
     case "failed": return "text-rose-400 border-rose-500/30 bg-rose-500/10";
-    case "skipped": return "text-white/20 border-white/[0.06] bg-white/[0.03]";
-    default: return "text-white/30 border-white/10 bg-white/5";
+    case "skipped": return "text-white/35 border-white/[0.10] bg-white/[0.03]";
+    default: return "text-white/50 border-white/10 bg-white/5";
   }
 }
 
@@ -304,17 +304,17 @@ function StepIndicator({ current }: { current: Step }) {
               <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold font-mono border ${
                 active ? "bg-violet-500 border-violet-400 text-black" :
                 done ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" :
-                "bg-white/5 border-white/10 text-white/30"
+                "bg-white/5 border-white/10 text-white/50"
               }`}>
                 {done ? <CheckCheck className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
               </div>
-              <span className={`text-xs font-medium ${active ? "text-violet-300" : done ? "text-white/50" : "text-white/25"}`}
+              <span className={`text-xs font-medium ${active ? "text-violet-300" : done ? "text-white/50" : "text-white/40"}`}
                 style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                 {step.label}
               </span>
             </div>
             {i < steps.length - 1 && (
-              <ChevronRight className={`w-4 h-4 mx-1 ${i < idx ? "text-white/30" : "text-white/10"}`} />
+              <ChevronRight className={`w-4 h-4 mx-1 ${i < idx ? "text-white/50" : "text-white/10"}`} />
             )}
           </div>
         );
@@ -340,36 +340,36 @@ function AdvancedTargetingPanel({
   };
 
   return (
-    <div className="space-y-4 pt-3 border-t border-white/[0.06]">
-      <p className="text-[10px] font-mono uppercase tracking-wider text-white/30">
+    <div className="space-y-4 pt-3 border-t border-white/[0.10]">
+      <p className="text-[10px] font-mono uppercase tracking-wider text-white/50">
         Advanced Targeting — override AI filters
       </p>
 
       {/* Row 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/55 flex items-center gap-1">
             <Briefcase className="w-3 h-3" />Industry
           </label>
           <Select value={filters.industry} onValueChange={(v) => set("industry", v)}>
-            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.08] text-white/60 hover:border-violet-500/30">
+            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.12] text-white/60 hover:border-violet-500/30">
               <SelectValue placeholder="Any industry" />
             </SelectTrigger>
-            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80 max-h-64">
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.12] text-white/80 max-h-64">
               {INDUSTRIES.map((i) => <SelectItem key={i} value={i} className="text-xs hover:bg-violet-500/10">{i}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/55 flex items-center gap-1">
             <MapPin className="w-3 h-3" />Geography
           </label>
           <Select value={filters.geography} onValueChange={(v) => set("geography", v)}>
-            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.08] text-white/60 hover:border-violet-500/30">
+            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.12] text-white/60 hover:border-violet-500/30">
               <SelectValue placeholder="Any geo" />
             </SelectTrigger>
-            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80 max-h-64">
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.12] text-white/80 max-h-64">
               {GEO_OPTIONS.map((g) => (
                 <SelectItem key={g} value={GEO_VALUES[g] || g} className="text-xs hover:bg-violet-500/10">{g}</SelectItem>
               ))}
@@ -378,28 +378,28 @@ function AdvancedTargetingPanel({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/55 flex items-center gap-1">
             <Users className="w-3 h-3" />Company Size
           </label>
           <Select value={filters.companySize} onValueChange={(v) => set("companySize", v)}>
-            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.08] text-white/60 hover:border-violet-500/30">
+            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.12] text-white/60 hover:border-violet-500/30">
               <SelectValue placeholder="Any size" />
             </SelectTrigger>
-            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80">
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.12] text-white/80">
               {EMPLOYEE_SIZES.map((s) => <SelectItem key={s.value} value={s.value || "_any"} className="text-xs hover:bg-violet-500/10">{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/55 flex items-center gap-1">
             <DollarSign className="w-3 h-3" />Revenue
           </label>
           <Select value={filters.revenueRange} onValueChange={(v) => set("revenueRange", v)}>
-            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.08] text-white/60 hover:border-violet-500/30">
+            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.12] text-white/60 hover:border-violet-500/30">
               <SelectValue placeholder="Any revenue" />
             </SelectTrigger>
-            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80">
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.12] text-white/80">
               {REVENUE_RANGES.map((r) => <SelectItem key={r.value} value={r.value || "_any"} className="text-xs hover:bg-violet-500/10">{r.label}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -409,7 +409,7 @@ function AdvancedTargetingPanel({
       {/* Row 2 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/55 flex items-center gap-1">
             <Cpu className="w-3 h-3" />Tech Stack
           </label>
           <input
@@ -417,11 +417,11 @@ function AdvancedTargetingPanel({
             value={filters.techStack}
             onChange={(e) => set("techStack", e.target.value)}
             placeholder="e.g. Salesforce, AWS, HubSpot"
-            className="w-full h-8 px-3 text-xs rounded-md border border-white/[0.08] bg-[#161618] text-white/60 placeholder:text-white/20 focus:outline-none focus:border-violet-500/40 transition-colors"
+            className="w-full h-8 px-3 text-xs rounded-md border border-white/[0.12] bg-[#161618] text-white/60 placeholder:text-white/35 focus:outline-none focus:border-violet-500/40 transition-colors"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/55 flex items-center gap-1">
             <Search className="w-3 h-3" />Keywords
           </label>
           <input
@@ -429,14 +429,14 @@ function AdvancedTargetingPanel({
             value={filters.keywords}
             onChange={(e) => set("keywords", e.target.value)}
             placeholder="e.g. digital transformation, cloud migration"
-            className="w-full h-8 px-3 text-xs rounded-md border border-white/[0.08] bg-[#161618] text-white/60 placeholder:text-white/20 focus:outline-none focus:border-violet-500/40 transition-colors"
+            className="w-full h-8 px-3 text-xs rounded-md border border-white/[0.12] bg-[#161618] text-white/60 placeholder:text-white/35 focus:outline-none focus:border-violet-500/40 transition-colors"
           />
         </div>
       </div>
 
       {/* Job Titles */}
       <div className="space-y-2">
-        <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+        <label className="text-[10px] font-mono uppercase tracking-wider text-white/55 flex items-center gap-1">
           <User className="w-3 h-3" />Job Titles
         </label>
         <div className="flex flex-wrap gap-1.5">
@@ -449,7 +449,7 @@ function AdvancedTargetingPanel({
                 className={`text-[10px] font-mono px-2 py-1 rounded border transition-all ${
                   active
                     ? "bg-violet-500/20 text-violet-300 border-violet-500/40"
-                    : "bg-white/[0.03] text-white/35 border-white/[0.08] hover:border-white/20 hover:text-white/55"
+                    : "bg-white/[0.03] text-white/55 border-white/[0.12] hover:border-white/20 hover:text-white/55"
                 }`}
               >
                 {t}
@@ -803,6 +803,7 @@ export default function AtomCampaign() {
 
         // Deduplicate by company name and parse into Target objects
         let newTargets = 0;
+        const seenContactKeys = new Set(allTargets.map((t) => `${t.contactName.toLowerCase()}_${t.companyName.toLowerCase()}`));
         for (const p of prospects) {
           if (seenCompanyNames.has(p.companyName)) continue;
           seenCompanyNames.add(p.companyName);
@@ -810,6 +811,10 @@ export default function AtomCampaign() {
 
           const parsed = parseProspectToTargets(p);
           for (const t of parsed) {
+            // Deduplicate by contact name + company
+            const key = `${t.contactName.toLowerCase()}_${t.companyName.toLowerCase()}`;
+            if (seenContactKeys.has(key)) continue;
+            seenContactKeys.add(key);
             if (allTargets.length < maxTargets) {
               allTargets.push(t);
               newTargets++;
@@ -914,7 +919,7 @@ export default function AtomCampaign() {
     setTargets((prev) => prev.map((t) => t.id === id ? { ...t, selected: !t.selected } : t));
   };
 
-  const selectAll = () => setTargets((prev) => prev.map((t) => ({ ...t, selected: !!t.phone })));
+  const selectAll = () => setTargets((prev) => prev.map((t) => ({ ...t, selected: true })));
 
   const deselectAll = () => setTargets((prev) => prev.map((t) => ({ ...t, selected: false })));
 
@@ -1180,7 +1185,7 @@ export default function AtomCampaign() {
         </div>
         {step !== "brief" && (
           <Button variant="outline" size="sm" onClick={() => { setStep("brief"); setTargets([]); setCalls(new Map()); setTargetStats(null); }}
-            className="h-8 text-xs border-white/[0.08] text-white/40 hover:text-white hover:border-white/20 bg-transparent">
+            className="h-8 text-xs border-white/[0.12] text-white/40 hover:text-white hover:border-white/20 bg-transparent">
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />New Campaign
           </Button>
         )}
@@ -1193,7 +1198,7 @@ export default function AtomCampaign() {
 
       {/* ── STEP 1: Brief ──────────────────────────────────────────────────── */}
       {step === "brief" && (
-        <Card className="bg-[#111113] border-white/[0.08]">
+        <Card className="bg-[#111113] border-white/[0.12]">
           <CardContent className="p-6 space-y-5">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-violet-400" />
@@ -1213,14 +1218,14 @@ export default function AtomCampaign() {
                 onChange={(e) => setBrief(e.target.value)}
                 placeholder={`Cloudflare CDN takeout for Akamai. Akamai will match and beat Cloudflare pricing and eat up to 6 months of remaining contract to switch to Akamai.\n\nTarget mid-market tech companies on Cloudflare who are scaling fast and frustrated with costs. CTOs and VP Engineering at 50-500 person SaaS companies.`}
                 rows={8}
-                className="w-full px-4 py-3 text-sm rounded-xl border border-white/[0.08] bg-[#161618] text-[#e8e8ea] placeholder:text-white/20 focus:outline-none focus:border-violet-500/40 transition-colors resize-none leading-relaxed"
+                className="w-full px-4 py-3 text-sm rounded-xl border border-white/[0.12] bg-[#161618] text-[#e8e8ea] placeholder:text-white/35 focus:outline-none focus:border-violet-500/40 transition-colors resize-none leading-relaxed"
                 style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}
               />
 
               {/* Advanced Targeting toggle */}
               <button
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center gap-2 text-xs text-white/35 hover:text-violet-400 transition-colors"
+                className="flex items-center gap-2 text-xs text-white/55 hover:text-violet-400 transition-colors"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
                 Advanced Targeting
@@ -1231,7 +1236,7 @@ export default function AtomCampaign() {
                   advancedFilters.jobTitles.length > 0 ||
                   advancedFilters.techStack ||
                   advancedFilters.keywords) && (
-                  <Badge className="bg-violet-500/10 text-violet-400/70 border-violet-500/15 text-[9px] font-mono">
+                  <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/15 text-[9px] font-mono">
                     filters set
                   </Badge>
                 )}
@@ -1245,7 +1250,7 @@ export default function AtomCampaign() {
               )}
 
               <div className="flex items-center justify-between">
-                <p className="text-xs text-white/25">
+                <p className="text-xs text-white/40">
                   {brief.length} chars · the richer your brief, the better ATOM can target
                 </p>
                 <Button
@@ -1264,8 +1269,8 @@ export default function AtomCampaign() {
             </div>
 
             {/* Example briefs */}
-            <div className="border-t border-white/[0.06] pt-4 space-y-2">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">Example Briefs</p>
+            <div className="border-t border-white/[0.10] pt-4 space-y-2">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-white/40">Example Briefs</p>
               <div className="grid gap-2">
                 {[
                   "Cloudflare CDN takeout for Akamai. Match pricing + eat 6 months of contract to switch.",
@@ -1273,7 +1278,7 @@ export default function AtomCampaign() {
                   "Salesforce CPQ replacement pitch for companies overpaying. VP Sales and RevOps leaders.",
                 ].map((ex) => (
                   <button key={ex} onClick={() => setBrief(ex)}
-                    className="text-left text-xs text-white/30 hover:text-violet-400 transition-colors px-3 py-2 rounded-lg border border-white/[0.06] hover:border-violet-500/20 hover:bg-violet-500/5">
+                    className="text-left text-xs text-white/50 hover:text-violet-400 transition-colors px-3 py-2 rounded-lg border border-white/[0.10] hover:border-violet-500/20 hover:bg-violet-500/5">
                     "{ex}"
                   </button>
                 ))}
@@ -1302,12 +1307,12 @@ export default function AtomCampaign() {
                     </div>
                   ))}
                   <div className="flex items-center gap-2 text-xs">
-                    <Loader2 className="w-3 h-3 text-white/20 animate-spin shrink-0" />
-                    <span className="text-white/25">Processing...</span>
+                    <Loader2 className="w-3 h-3 text-white/35 animate-spin shrink-0" />
+                    <span className="text-white/40">Processing...</span>
                   </div>
                 </div>
                 <div className="space-y-2 mt-2">
-                  {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 bg-white/[0.04]" />)}
+                  {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 bg-white/[0.07]" />)}
                 </div>
               </CardContent>
             </Card>
@@ -1328,7 +1333,7 @@ export default function AtomCampaign() {
                       <p className="text-xs font-semibold text-violet-300" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                         {targetStats.companies} companies
                       </p>
-                      <p className="text-[10px] text-white/30 font-mono">{targetStats.contacts} contacts</p>
+                      <p className="text-[10px] text-white/50 font-mono">{targetStats.contacts} contacts</p>
                     </div>
                   )}
                 </div>
@@ -1336,14 +1341,14 @@ export default function AtomCampaign() {
 
               {/* Max Targets selector */}
               <div className="shrink-0 flex flex-col gap-1.5">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-white/55 flex items-center gap-1">
                   <ListFilter className="w-3 h-3" />Max Targets
                 </label>
                 <Select value={String(maxTargets)} onValueChange={(v) => setMaxTargets(Number(v))}>
-                  <SelectTrigger className="h-9 w-40 text-xs bg-[#161618] border-white/[0.08] text-white/60 hover:border-violet-500/30">
+                  <SelectTrigger className="h-9 w-40 text-xs bg-[#161618] border-white/[0.12] text-white/60 hover:border-violet-500/30">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80">
+                  <SelectContent className="bg-[#1c1c1f] border-white/[0.12] text-white/80">
                     {MAX_TARGET_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={String(o.value)} className="text-xs hover:bg-violet-500/10">
                         {o.label}
@@ -1367,17 +1372,17 @@ export default function AtomCampaign() {
 
           {/* Rich Target Table */}
           {!isBuilding && targets.length > 0 && (
-            <Card className="bg-[#111113] border-white/[0.08]">
+            <Card className="bg-[#111113] border-white/[0.12]">
               <CardContent className="p-0">
 
                 {/* ── Stats Bar ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 border-b border-white/[0.06]">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 border-b border-white/[0.10]">
                   {[
                     {
                       label: "Total Targets",
                       value: targets.length,
                       icon: Target,
-                      color: "text-white/70",
+                      color: "text-white/85",
                       bg: "",
                     },
                     {
@@ -1406,9 +1411,9 @@ export default function AtomCampaign() {
                     return (
                       <div
                         key={stat.label}
-                        className={`px-4 py-3 flex items-center gap-3 ${idx < 3 ? "border-r border-white/[0.06]" : ""}`}
+                        className={`px-4 py-3 flex items-center gap-3 ${idx < 3 ? "border-r border-white/[0.10]" : ""}`}
                       >
-                        <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-white/[0.07] flex items-center justify-center shrink-0">
                           <Icon className={`w-4 h-4 ${stat.color}`} />
                         </div>
                         <div>
@@ -1416,7 +1421,7 @@ export default function AtomCampaign() {
                             style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                             {stat.value}
                           </p>
-                          <p className="text-[10px] text-white/30 font-mono mt-0.5">{stat.label}</p>
+                          <p className="text-[10px] text-white/50 font-mono mt-0.5">{stat.label}</p>
                         </div>
                       </div>
                     );
@@ -1424,20 +1429,20 @@ export default function AtomCampaign() {
                 </div>
 
                 {/* ── Table Controls ── */}
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] gap-3 flex-wrap">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.10] gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-violet-400" />
                     <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                       Campaign Targets
                     </span>
-                    <Badge className="bg-violet-500/10 text-violet-400/70 border-violet-500/15 text-[10px] font-mono">
+                    <Badge className="bg-violet-500/10 text-violet-400 border-violet-500/15 text-[10px] font-mono">
                       {selectedTargets.length} selected
                     </Badge>
                   </div>
 
                   {/* Sort controls */}
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono text-white/25 mr-1">Sort:</span>
+                    <span className="text-[10px] font-mono text-white/40 mr-1">Sort:</span>
                     {([
                       { field: "score" as SortField, label: "Score" },
                       { field: "companyName" as SortField, label: "Company" },
@@ -1449,7 +1454,7 @@ export default function AtomCampaign() {
                         className={`flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded border transition-all ${
                           sortField === field
                             ? "bg-violet-500/15 text-violet-300 border-violet-500/30"
-                            : "bg-white/[0.03] text-white/30 border-white/[0.06] hover:border-white/15 hover:text-white/50"
+                            : "bg-white/[0.03] text-white/50 border-white/[0.10] hover:border-white/15 hover:text-white/50"
                         }`}
                       >
                         {label}
@@ -1482,13 +1487,13 @@ export default function AtomCampaign() {
                 {/* ── Column Headers ── */}
                 <div className="grid grid-cols-[28px_52px_minmax(160px,1.8fr)_minmax(140px,1.5fr)_minmax(120px,1fr)_minmax(120px,1fr)_100px_80px] gap-2 items-center px-4 py-2 border-b border-white/[0.04] min-w-[900px]">
                   <div />
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">Score</p>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">Company</p>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">Contact</p>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">Phone</p>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">Email / LinkedIn</p>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">Signals</p>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/25">Conf.</p>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/40">Score</p>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/40">Company</p>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/40">Contact</p>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/40">Phone</p>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/40">Email / LinkedIn</p>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/40">Signals</p>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/40">Conf.</p>
                 </div>
 
                 {/* ── Target Rows ── */}
@@ -1497,22 +1502,22 @@ export default function AtomCampaign() {
                     {sortedTargets.map((t) => (
                       <div
                         key={t.id}
-                        onClick={() => t.phone && toggleTarget(t.id)}
+                        onClick={() => toggleTarget(t.id)}
                         className={`grid grid-cols-[28px_52px_minmax(160px,1.8fr)_minmax(140px,1.5fr)_minmax(120px,1fr)_minmax(120px,1fr)_100px_80px] gap-2 items-center px-4 py-2.5 transition-colors ${
                           t.phone ? "cursor-pointer" : "cursor-default"
                         } ${
                           t.selected && t.phone
-                            ? "bg-violet-500/[0.05] hover:bg-violet-500/[0.08]"
+                            ? "bg-violet-500/[0.10] hover:bg-violet-500/[0.10]"
                             : t.phone
                             ? "hover:bg-white/[0.025]"
-                            : "opacity-50 hover:bg-white/[0.015]"
+                            : "opacity-70 hover:bg-white/[0.015]"
                         }`}
                       >
                         {/* Checkbox */}
                         <input
                           type="checkbox"
-                          checked={t.selected && !!t.phone}
-                          disabled={!t.phone}
+                          checked={t.selected}
+                          
                           onChange={() => toggleTarget(t.id)}
                           onClick={(e) => e.stopPropagation()}
                           className="w-3.5 h-3.5 rounded border-white/20 bg-transparent accent-violet-400 cursor-pointer"
@@ -1528,20 +1533,20 @@ export default function AtomCampaign() {
                         {/* Company */}
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <Building2 className="w-3 h-3 text-white/30 shrink-0" />
-                            <span className="text-xs text-white/85 truncate font-semibold">{t.companyName}</span>
+                            <Building2 className="w-3 h-3 text-white/50 shrink-0" />
+                            <span className="text-xs text-white truncate font-semibold">{t.companyName}</span>
                           </div>
                           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                             {t.domain && (
-                              <span className="text-[10px] text-white/30 font-mono truncate">{t.domain}</span>
+                              <span className="text-[10px] text-white/50 font-mono truncate">{t.domain}</span>
                             )}
                             {t.industry && (
-                              <Badge className="bg-white/[0.04] text-white/35 border-white/[0.08] text-[9px] font-mono px-1 py-0 h-4 shrink-0">
+                              <Badge className="bg-white/[0.07] text-white/55 border-white/[0.12] text-[9px] font-mono px-1 py-0 h-4 shrink-0">
                                 {t.industry.split(" ")[0]}
                               </Badge>
                             )}
                             {t.companySize && (
-                              <Badge className="bg-white/[0.04] text-white/25 border-white/[0.06] text-[9px] font-mono px-1 py-0 h-4 shrink-0">
+                              <Badge className="bg-white/[0.07] text-white/40 border-white/[0.10] text-[9px] font-mono px-1 py-0 h-4 shrink-0">
                                 {t.companySize}
                               </Badge>
                             )}
@@ -1551,21 +1556,21 @@ export default function AtomCampaign() {
                         {/* Contact */}
                         <div className="min-w-0">
                           <div className="flex items-center gap-1 min-w-0">
-                            <User className="w-3 h-3 text-white/25 shrink-0" />
-                            <span className="text-xs text-white/75 truncate font-medium">{t.contactName}</span>
+                            <User className="w-3 h-3 text-white/40 shrink-0" />
+                            <span className="text-xs text-white/90 truncate font-medium">{t.contactName}</span>
                           </div>
                           <div className="flex items-center gap-1 mt-0.5">
-                            <span className="text-[10px] text-white/35 truncate">{t.title}</span>
+                            <span className="text-[10px] text-white/55 truncate">{t.title}</span>
                             {t.seniority && (
-                              <Badge className="bg-violet-500/[0.08] text-violet-400/50 border-violet-500/[0.12] text-[9px] font-mono px-1 py-0 h-4 shrink-0">
+                              <Badge className="bg-violet-500/[0.10] text-violet-400/80 border-violet-500/[0.12] text-[9px] font-mono px-1 py-0 h-4 shrink-0">
                                 {t.seniority}
                               </Badge>
                             )}
                           </div>
                           {(t.city || t.state) && (
                             <div className="flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-2.5 h-2.5 text-white/20 shrink-0" />
-                              <span className="text-[10px] text-white/25 truncate">
+                              <MapPin className="w-2.5 h-2.5 text-white/35 shrink-0" />
+                              <span className="text-[10px] text-white/40 truncate">
                                 {[t.city, t.state].filter(Boolean).join(", ")}
                               </span>
                             </div>
@@ -1576,16 +1581,16 @@ export default function AtomCampaign() {
                         <div className="min-w-0">
                           {t.phone ? (
                             <div className="flex items-center gap-1">
-                              <Phone className="w-3 h-3 text-violet-400/70 shrink-0" />
-                              <span className="text-[11px] text-violet-300/80 font-mono truncate">{t.phone}</span>
+                              <Phone className="w-3 h-3 text-violet-400 shrink-0" />
+                              <span className="text-[11px] text-violet-300 font-mono truncate">{t.phone}</span>
                             </div>
                           ) : (
-                            <span className="text-[10px] text-white/20 font-mono">No phone</span>
+                            <span className="text-[10px] text-white/35 font-mono">No phone</span>
                           )}
                           {t.mobilePhone && t.mobilePhone !== t.phone && (
                             <div className="flex items-center gap-1 mt-0.5">
-                              <Phone className="w-2.5 h-2.5 text-violet-400/40 shrink-0" />
-                              <span className="text-[10px] text-violet-300/40 font-mono truncate">{t.mobilePhone}</span>
+                              <Phone className="w-2.5 h-2.5 text-violet-400/70 shrink-0" />
+                              <span className="text-[10px] text-violet-300/70 font-mono truncate">{t.mobilePhone}</span>
                             </div>
                           )}
                         </div>
@@ -1598,11 +1603,11 @@ export default function AtomCampaign() {
                               onClick={(e) => e.stopPropagation()}
                               className="flex items-center gap-1 hover:text-violet-300 transition-colors group"
                             >
-                              <Mail className="w-3 h-3 text-white/25 shrink-0 group-hover:text-violet-400" />
-                              <span className="text-[11px] text-white/40 truncate group-hover:text-violet-300">{t.email}</span>
+                              <Mail className="w-3 h-3 text-white/40 shrink-0 group-hover:text-violet-400" />
+                              <span className="text-[11px] text-white/60 truncate group-hover:text-violet-300">{t.email}</span>
                             </a>
                           ) : (
-                            <span className="text-[10px] text-white/20">—</span>
+                            <span className="text-[10px] text-white/35">—</span>
                           )}
                           {t.linkedin && (
                             <a
@@ -1612,8 +1617,8 @@ export default function AtomCampaign() {
                               onClick={(e) => e.stopPropagation()}
                               className="flex items-center gap-1 hover:text-blue-400 transition-colors group"
                             >
-                              <Link className="w-2.5 h-2.5 text-blue-400/40 shrink-0 group-hover:text-blue-400" />
-                              <span className="text-[10px] text-blue-400/40 truncate group-hover:text-blue-400">LinkedIn</span>
+                              <Link className="w-2.5 h-2.5 text-blue-400/70 shrink-0 group-hover:text-blue-400" />
+                              <span className="text-[10px] text-blue-400/70 truncate group-hover:text-blue-400">LinkedIn</span>
                             </a>
                           )}
                         </div>
@@ -1622,8 +1627,8 @@ export default function AtomCampaign() {
                         <div className="min-w-0 space-y-0.5">
                           {t.buyingSignals.slice(0, 2).map((sig, idx) => (
                             <div key={idx} className="flex items-center gap-1">
-                              <Zap className="w-2.5 h-2.5 text-amber-400/50 shrink-0" />
-                              <span className="text-[9px] text-white/35 truncate leading-tight">{sig}</span>
+                              <Zap className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                              <span className="text-[9px] text-white/55 truncate leading-tight">{sig}</span>
                             </div>
                           ))}
                           {t.buyingSignals.length === 0 && (
@@ -1638,12 +1643,12 @@ export default function AtomCampaign() {
                               ? "bg-emerald-500/10 text-emerald-400/70 border-emerald-500/20"
                               : t.confidence >= 50
                               ? "bg-amber-500/10 text-amber-400/70 border-amber-500/20"
-                              : "bg-white/5 text-white/25 border-white/[0.08]"
+                              : "bg-white/5 text-white/40 border-white/[0.12]"
                           }`}>
                             {t.confidence}%
                           </Badge>
                           {t.phone && (
-                            <Badge className="bg-violet-500/10 text-violet-400/50 border-violet-500/15 text-[9px] font-mono px-1 py-0 h-4">
+                            <Badge className="bg-violet-500/10 text-violet-400/80 border-violet-500/15 text-[9px] font-mono px-1 py-0 h-4">
                               callable
                             </Badge>
                           )}
@@ -1654,13 +1659,13 @@ export default function AtomCampaign() {
                 </div>
 
                 {/* ── Summary Footer ── */}
-                <div className="px-4 py-3 border-t border-white/[0.06] flex items-center justify-between gap-4 flex-wrap">
+                <div className="px-4 py-3 border-t border-white/[0.10] flex items-center justify-between gap-4 flex-wrap">
                   <p className="text-xs text-white/40">
                     <span className="text-white/65 font-medium">{selectedTargets.length}</span> of {targets.length} targets selected
                     {" · "}
                     <span className="text-emerald-400/70">{callableCount} callable</span>
                     {" · "}
-                    <span className="text-white/25">{noPhoneCount} without phone</span>
+                    <span className="text-white/40">{noPhoneCount} without phone</span>
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
@@ -1688,11 +1693,11 @@ export default function AtomCampaign() {
           )}
 
           {!isBuilding && targets.length === 0 && (
-            <Card className="bg-[#111113] border-white/[0.08]">
+            <Card className="bg-[#111113] border-white/[0.12]">
               <CardContent className="py-16 flex flex-col items-center gap-3">
                 <Target className="w-12 h-12 text-white/10" />
-                <p className="text-sm text-white/30">No callable targets found</p>
-                <p className="text-xs text-white/20 text-center max-w-xs">
+                <p className="text-sm text-white/50">No callable targets found</p>
+                <p className="text-xs text-white/35 text-center max-w-xs">
                   Try broadening your brief or use the Advanced Targeting section to adjust filters.
                 </p>
                 <Button variant="outline" size="sm" onClick={() => setStep("brief")}
@@ -1720,7 +1725,7 @@ export default function AtomCampaign() {
           {/* Stats Row */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
-              { label: "Total Calls", value: stats.total, icon: Phone, color: "text-white/70" },
+              { label: "Total Calls", value: stats.total, icon: Phone, color: "text-white/85" },
               { label: "Completed", value: stats.completed, icon: CheckCircle2, color: "text-emerald-400" },
               { label: "Connected", value: stats.connected, icon: PhoneCall, color: "text-violet-400" },
               { label: "Failed", value: stats.failed, icon: AlertCircle, color: "text-rose-400" },
@@ -1729,11 +1734,11 @@ export default function AtomCampaign() {
             ].map((stat) => {
               const Icon = stat.icon;
               return (
-                <Card key={stat.label} className="bg-[#111113] border-white/[0.08]">
+                <Card key={stat.label} className="bg-[#111113] border-white/[0.12]">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <Icon className={`w-3.5 h-3.5 ${stat.color}`} />
-                      <span className="text-[10px] font-mono text-white/30">{stat.label}</span>
+                      <span className="text-[10px] font-mono text-white/50">{stat.label}</span>
                     </div>
                     <p className={`text-xl font-bold tabular-nums ${stat.color}`}
                       style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
@@ -1746,7 +1751,7 @@ export default function AtomCampaign() {
           </div>
 
           {/* Progress Bar */}
-          <Card className="bg-[#111113] border-white/[0.08]">
+          <Card className="bg-[#111113] border-white/[0.12]">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-2">
@@ -1754,7 +1759,7 @@ export default function AtomCampaign() {
                   <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                     Campaign Progress
                   </span>
-                  <span className="text-xs text-white/30 font-mono">{completedCount}/{calls.size}</span>
+                  <span className="text-xs text-white/50 font-mono">{completedCount}/{calls.size}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {isLaunching && (
@@ -1781,14 +1786,14 @@ export default function AtomCampaign() {
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <p className="text-[11px] text-white/25 mt-1.5 font-mono">{progress}% complete</p>
+              <p className="text-[11px] text-white/40 mt-1.5 font-mono">{progress}% complete</p>
             </CardContent>
           </Card>
 
           {/* Call Records */}
-          <Card className="bg-[#111113] border-white/[0.08]">
+          <Card className="bg-[#111113] border-white/[0.12]">
             <CardContent className="p-0">
-              <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
+              <div className="px-4 py-3 border-b border-white/[0.10] flex items-center gap-2">
                 <Signal className="w-4 h-4 text-violet-400" />
                 <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                   Live Call Feed
@@ -1798,7 +1803,7 @@ export default function AtomCampaign() {
               {/* Table Headers */}
               <div className="grid grid-cols-[1fr_1fr_1fr_auto_auto_auto] gap-3 px-4 py-2 border-b border-white/[0.04]">
                 {["Company", "Contact", "Status", "Duration", "Sentiment", "Disposition"].map((h) => (
-                  <p key={h} className="text-[10px] font-mono uppercase tracking-wider text-white/25">{h}</p>
+                  <p key={h} className="text-[10px] font-mono uppercase tracking-wider text-white/40">{h}</p>
                 ))}
               </div>
 
@@ -1806,12 +1811,12 @@ export default function AtomCampaign() {
                 {Array.from(calls.values()).map((rec) => (
                   <div key={rec.targetId} className="grid grid-cols-[1fr_1fr_1fr_auto_auto_auto] gap-3 items-center px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
                     <div className="flex items-center gap-2 min-w-0">
-                      <Building2 className="w-3 h-3 text-white/25 shrink-0" />
-                      <span className="text-xs text-white/70 truncate">{rec.companyName}</span>
+                      <Building2 className="w-3 h-3 text-white/40 shrink-0" />
+                      <span className="text-xs text-white/85 truncate">{rec.companyName}</span>
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs text-white/60 truncate">{rec.contactName}</p>
-                      <p className="text-[10px] text-white/25 font-mono truncate">{rec.phone}</p>
+                      <p className="text-[10px] text-white/40 font-mono truncate">{rec.phone}</p>
                     </div>
                     <Badge className={`text-[10px] font-mono gap-1 px-1.5 w-fit border ${statusColor(rec.status)}`}>
                       {statusIcon(rec.status)}{rec.status}
@@ -1823,7 +1828,7 @@ export default function AtomCampaign() {
                       {rec.sentiment !== undefined ? (
                         <SentimentBar score={rec.sentiment} />
                       ) : (
-                        <span className="text-[10px] text-white/20 font-mono">—</span>
+                        <span className="text-[10px] text-white/35 font-mono">—</span>
                       )}
                     </div>
                     <div className="w-20">
@@ -1832,7 +1837,7 @@ export default function AtomCampaign() {
                           rec.disposition === "hot_lead" ? "bg-rose-500/15 text-rose-400 border-rose-500/20" :
                           rec.disposition === "callback" ? "bg-amber-500/15 text-amber-400 border-amber-500/20" :
                           rec.disposition === "qualified" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" :
-                          "bg-white/5 text-white/30 border-white/10"
+                          "bg-white/5 text-white/50 border-white/10"
                         }`}>
                           {rec.disposition.replace("_", " ")}
                         </Badge>
@@ -1847,7 +1852,7 @@ export default function AtomCampaign() {
               {calls.size === 0 && (
                 <div className="py-12 flex flex-col items-center gap-2">
                   <Phone className="w-10 h-10 text-white/10" />
-                  <p className="text-sm text-white/25">Initializing campaign...</p>
+                  <p className="text-sm text-white/40">Initializing campaign...</p>
                 </div>
               )}
             </CardContent>
