@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Megaphone,
   Loader2,
   CheckCircle2,
@@ -32,6 +39,15 @@ import {
   RefreshCw,
   Activity,
   MessageSquare,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  DollarSign,
+  Cpu,
+  Tag,
+  Briefcase,
+  Search,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -44,6 +60,70 @@ const GEO_OPTIONS = [
   "US Southeast (FL, GA, NC, SC, VA...)", "Texas", "California", "New York",
   "Florida", "Illinois", "Georgia", "North Carolina", "Washington",
   "Massachusetts", "Colorado", "EU", "UK", "Canada", "Global",
+];
+
+const GEO_VALUES: Record<string, string> = {
+  "All US": "All US",
+  "US South (TX, FL, GA, NC, TN...)": "US South",
+  "US Northeast (NY, NJ, MA, CT...)": "US Northeast",
+  "US Midwest (IL, OH, MI, IN, MN...)": "US Midwest",
+  "US West (CA, WA, OR, CO, AZ...)": "US West",
+  "US Southeast (FL, GA, NC, SC, VA...)": "US Southeast",
+  "Texas": "Texas",
+  "California": "California",
+  "New York": "New York",
+  "Florida": "Florida",
+  "Illinois": "Illinois",
+  "Georgia": "Georgia",
+  "North Carolina": "North Carolina",
+  "Washington": "Washington",
+  "Massachusetts": "Massachusetts",
+  "Colorado": "Colorado",
+  "EU": "EU",
+  "UK": "UK",
+  "Canada": "Canada",
+  "Global": "Global",
+};
+
+const INDUSTRIES = [
+  "All Industries", "Technology & SaaS", "Healthcare & Life Sciences",
+  "Financial Services & Banking", "Real Estate & PropTech", "Manufacturing",
+  "Retail & E-Commerce", "Insurance", "Defense & Government", "Energy & Utilities",
+  "Education & EdTech", "Transportation & Logistics", "Media & Entertainment",
+  "Telecommunications", "Legal Services", "Construction & Engineering",
+  "Agriculture & Food Tech", "Hospitality & Travel", "Non-Profit & NGO",
+  "Automotive", "Aerospace", "Cybersecurity", "Biotech & Pharma",
+];
+
+const EMPLOYEE_SIZES = [
+  { value: "", label: "Any Size" },
+  { value: "1-10", label: "1–10 employees" },
+  { value: "11-50", label: "11–50 employees" },
+  { value: "51-200", label: "51–200 employees" },
+  { value: "201-500", label: "201–500 employees" },
+  { value: "501-1000", label: "501–1,000 employees" },
+  { value: "1001-5000", label: "1,001–5,000 employees" },
+  { value: "5001-10000", label: "5,001–10,000 employees" },
+  { value: "10001+", label: "10,000+ employees" },
+];
+
+const REVENUE_RANGES = [
+  { value: "", label: "Any Revenue" },
+  { value: "under-1m", label: "Under $1M" },
+  { value: "1m-10m", label: "$1M – $10M" },
+  { value: "10m-50m", label: "$10M – $50M" },
+  { value: "50m-100m", label: "$50M – $100M" },
+  { value: "100m-500m", label: "$100M – $500M" },
+  { value: "500m-1b", label: "$500M – $1B" },
+  { value: "1b+", label: "$1B+" },
+];
+
+const JOB_TITLE_PRESETS = [
+  "CEO", "CTO", "CIO", "CISO", "CFO", "COO",
+  "VP Engineering", "VP Sales", "VP Operations", "VP IT",
+  "Director of IT", "Director of Engineering",
+  "Head of AI", "Head of Technology",
+  "Chief Digital Officer", "Owner", "Founder",
 ];
 
 // ─── Phone formatter ──────────────────────────────────────────────────────────
@@ -60,6 +140,16 @@ function formatPhoneNumber(raw: string): string {
 
 type Step = "brief" | "targets" | "launch";
 type CallStatus = "queued" | "calling" | "connected" | "completed" | "failed" | "skipped";
+
+interface AdvancedFilters {
+  industry: string;
+  geography: string;
+  companySize: string;
+  revenueRange: string;
+  jobTitles: string[];
+  techStack: string;
+  keywords: string;
+}
 
 interface Target {
   id: string;
@@ -185,6 +275,157 @@ function StepIndicator({ current }: { current: Step }) {
   );
 }
 
+// ─── Advanced Targeting Panel ─────────────────────────────────────────────────
+
+function AdvancedTargetingPanel({
+  filters,
+  onChange,
+}: {
+  filters: AdvancedFilters;
+  onChange: (f: AdvancedFilters) => void;
+}) {
+  const set = (key: keyof AdvancedFilters, val: any) => onChange({ ...filters, [key]: val });
+
+  const toggleTitle = (t: string) => {
+    const cur = filters.jobTitles;
+    set("jobTitles", cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]);
+  };
+
+  return (
+    <div className="space-y-4 pt-3 border-t border-white/[0.06]">
+      <p className="text-[10px] font-mono uppercase tracking-wider text-white/30">
+        Advanced Targeting — override AI filters
+      </p>
+
+      {/* Row 1 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+            <Briefcase className="w-3 h-3" />Industry
+          </label>
+          <Select value={filters.industry} onValueChange={(v) => set("industry", v)}>
+            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.08] text-white/60 hover:border-teal-500/30">
+              <SelectValue placeholder="Any industry" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80 max-h-64">
+              {INDUSTRIES.map((i) => <SelectItem key={i} value={i} className="text-xs hover:bg-teal-500/10">{i}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+            <MapPin className="w-3 h-3" />Geography
+          </label>
+          <Select value={filters.geography} onValueChange={(v) => set("geography", v)}>
+            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.08] text-white/60 hover:border-teal-500/30">
+              <SelectValue placeholder="Any geo" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80 max-h-64">
+              {GEO_OPTIONS.map((g) => (
+                <SelectItem key={g} value={GEO_VALUES[g] || g} className="text-xs hover:bg-teal-500/10">{g}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+            <Users className="w-3 h-3" />Company Size
+          </label>
+          <Select value={filters.companySize} onValueChange={(v) => set("companySize", v)}>
+            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.08] text-white/60 hover:border-teal-500/30">
+              <SelectValue placeholder="Any size" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80">
+              {EMPLOYEE_SIZES.map((s) => <SelectItem key={s.value} value={s.value || "_any"} className="text-xs hover:bg-teal-500/10">{s.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+            <DollarSign className="w-3 h-3" />Revenue
+          </label>
+          <Select value={filters.revenueRange} onValueChange={(v) => set("revenueRange", v)}>
+            <SelectTrigger className="h-8 text-xs bg-[#161618] border-white/[0.08] text-white/60 hover:border-teal-500/30">
+              <SelectValue placeholder="Any revenue" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80">
+              {REVENUE_RANGES.map((r) => <SelectItem key={r.value} value={r.value || "_any"} className="text-xs hover:bg-teal-500/10">{r.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Row 2 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+            <Cpu className="w-3 h-3" />Tech Stack
+          </label>
+          <input
+            type="text"
+            value={filters.techStack}
+            onChange={(e) => set("techStack", e.target.value)}
+            placeholder="e.g. Salesforce, AWS, HubSpot"
+            className="w-full h-8 px-3 text-xs rounded-md border border-white/[0.08] bg-[#161618] text-white/60 placeholder:text-white/20 focus:outline-none focus:border-teal-500/40 transition-colors"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+            <Search className="w-3 h-3" />Keywords
+          </label>
+          <input
+            type="text"
+            value={filters.keywords}
+            onChange={(e) => set("keywords", e.target.value)}
+            placeholder="e.g. digital transformation, cloud migration"
+            className="w-full h-8 px-3 text-xs rounded-md border border-white/[0.08] bg-[#161618] text-white/60 placeholder:text-white/20 focus:outline-none focus:border-teal-500/40 transition-colors"
+          />
+        </div>
+      </div>
+
+      {/* Job Titles */}
+      <div className="space-y-2">
+        <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
+          <User className="w-3 h-3" />Job Titles
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {JOB_TITLE_PRESETS.map((t) => {
+            const active = filters.jobTitles.includes(t);
+            return (
+              <button
+                key={t}
+                onClick={() => toggleTitle(t)}
+                className={`text-[10px] font-mono px-2 py-1 rounded border transition-all ${
+                  active
+                    ? "bg-teal-500/20 text-teal-300 border-teal-500/40"
+                    : "bg-white/[0.03] text-white/35 border-white/[0.08] hover:border-white/20 hover:text-white/55"
+                }`}
+              >
+                {t}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Default advanced filters ─────────────────────────────────────────────────
+
+const DEFAULT_ADVANCED: AdvancedFilters = {
+  industry: "All Industries",
+  geography: "All US",
+  companySize: "",
+  revenueRange: "",
+  jobTitles: [],
+  techStack: "",
+  keywords: "",
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AtomCampaign() {
@@ -195,12 +436,15 @@ export default function AtomCampaign() {
 
   // Step 1 — Campaign Brief
   const [brief, setBrief] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(DEFAULT_ADVANCED);
 
   // Step 2 — AI-built targets
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildProgress, setBuildProgress] = useState<string[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
   const [campaignId] = useState(() => `camp_${Date.now()}`);
+  const [targetStats, setTargetStats] = useState<{ companies: number; contacts: number } | null>(null);
 
   // Step 3 — Live launch
   const [calls, setCalls] = useState<Map<string, CallRecord>>(new Map());
@@ -214,6 +458,62 @@ export default function AtomCampaign() {
 
   // ─── Step 2: Build Targets ─────────────────────────────────────────────────
 
+  // Map free-text geography from AI output to known prospect-scan values
+  function normalizeGeo(geo: string): string | null {
+    if (!geo) return null;
+    const lower = geo.toLowerCase();
+    if (lower.includes("california") || lower === "ca") return "California";
+    if (lower.includes("texas") || lower === "tx") return "Texas";
+    if (lower.includes("new york") || lower === "ny") return "New York";
+    if (lower.includes("florida") || lower === "fl") return "Florida";
+    if (lower.includes("illinois") || lower === "il") return "Illinois";
+    if (lower.includes("georgia") || lower === "ga") return "Georgia";
+    if (lower.includes("washington") || lower === "wa") return "Washington";
+    if (lower.includes("massachusetts") || lower === "ma") return "Massachusetts";
+    if (lower.includes("colorado") || lower === "co") return "Colorado";
+    if (lower.includes("north carolina") || lower === "nc") return "North Carolina";
+    if (lower.includes("united states") || lower.includes("us") || lower.includes("usa")) return "All US";
+    if (lower.includes("europe") || lower.includes("eu")) return "EU";
+    if (lower.includes("united kingdom") || lower.includes("uk")) return "UK";
+    if (lower.includes("canada")) return "Canada";
+    if (lower.includes("global") || lower.includes("worldwide")) return "Global";
+    // US regions
+    if (lower.includes("northeast")) return "US Northeast";
+    if (lower.includes("midwest")) return "US Midwest";
+    if (lower.includes("south")) return "US South";
+    if (lower.includes("west")) return "US West";
+    if (lower.includes("southeast")) return "US Southeast";
+    return null;
+  }
+
+  // Map free-text company size to known values
+  function normalizeCompanySize(sz: string): string | null {
+    if (!sz) return null;
+    const lower = sz.toLowerCase();
+    if (lower.includes("1-10") || lower.includes("1 to 10") || lower.includes("micro")) return "1-10";
+    if (lower.includes("11-50") || lower.includes("11 to 50") || lower.includes("small")) return "11-50";
+    if (lower.includes("51-200") || lower.includes("51 to 200")) return "51-200";
+    if (lower.includes("201-500") || lower.includes("201 to 500") || lower.includes("mid-market")) return "201-500";
+    if (lower.includes("501-1000") || lower.includes("501 to 1000")) return "501-1000";
+    if (lower.includes("1001-5000") || lower.includes("1001 to 5000")) return "1001-5000";
+    if (lower.includes("5001-10000") || lower.includes("5001 to 10000")) return "5001-10000";
+    if (lower.includes("10001") || lower.includes("enterprise") || lower.includes("large")) return "10001+";
+    // Number ranges like "50-500"
+    const match = lower.match(/(\d+)[^\d]+(\d+)/);
+    if (match) {
+      const lo = parseInt(match[1]);
+      const hi = parseInt(match[2]);
+      if (hi <= 10) return "1-10";
+      if (hi <= 50) return "11-50";
+      if (hi <= 200) return "51-200";
+      if (hi <= 500) return "201-500";
+      if (hi <= 1000) return "501-1000";
+      if (hi <= 5000) return "1001-5000";
+      return "5001-10000";
+    }
+    return null;
+  }
+
   const buildTargets = async () => {
     if (!brief.trim()) {
       toast({ title: "Brief required", description: "Enter a campaign brief first.", variant: "destructive" });
@@ -221,53 +521,121 @@ export default function AtomCampaign() {
     }
     setIsBuilding(true);
     setBuildProgress([]);
+    setTargetStats(null);
     setStep("targets");
 
     try {
       // Step 2a: Extract campaign intel from brief
-      setBuildProgress(["Analyzing campaign brief with AI..."]);
-      let pitchData: any = {};
+      setBuildProgress(["Analyzing campaign brief with ATOM AI..."]);
+      let analysisData: any = {};
       try {
-        const pitchRes = await apiRequest("POST", "/api/pitch/generate", { brief });
-        pitchData = await pitchRes.json();
+        const analysisRes = await apiRequest("POST", "/api/campaign/analyze", { brief });
+        analysisData = await analysisRes.json();
       } catch {
-        pitchData = {};
+        // Fallback: try pitch endpoint
+        try {
+          const pitchRes = await apiRequest("POST", "/api/pitch/generate", { brief });
+          const pitchData = await pitchRes.json();
+          analysisData = {
+            industry: pitchData.industry,
+            geography: pitchData.geo,
+            companySize: pitchData.companySize,
+            jobTitles: pitchData.targetPersonas,
+            techStack: pitchData.techStack,
+            keywords: pitchData.keywords,
+            product: pitchData.product || pitchData.productFocus,
+          };
+        } catch {
+          analysisData = {};
+        }
       }
 
-      // Step 2b: Build Apollo filters from the AI-derived intel
-      setBuildProgress((p) => [...p, "Deriving target filters from brief..."]);
+      setBuildProgress((p) => [...p, "Mapping targeting parameters..."]);
 
-      // Parse brief for key signals
-      const briefLower = brief.toLowerCase();
-      const inferredFilters: any = {};
+      // ── Build scan payload, merging AI analysis + manual overrides ──
+      const buildPayload = (broadFallback = false) => {
+        const payload: any = {};
 
-      // Product focus from brief
-      inferredFilters.productFocus = pitchData.product || pitchData.productFocus || brief.split("\n")[0].slice(0, 80);
+        // Product focus
+        const product = analysisData.product || analysisData.productFocus || brief.split("\n")[0].slice(0, 80);
+        if (product) payload.productFocus = product;
 
-      // Industry from pitch data or defaults
-      if (pitchData.industry) inferredFilters.industry = pitchData.industry;
+        // Industry — prefer manual override, then AI
+        const industry = (advancedFilters.industry && advancedFilters.industry !== "All Industries")
+          ? advancedFilters.industry
+          : analysisData.industry;
+        if (industry && industry !== "All Industries") payload.industry = industry;
 
-      // Geography fallback
-      inferredFilters.geo = pitchData.geo || "All US";
+        if (!broadFallback) {
+          // Geography — prefer manual override, then AI (normalized)
+          const geoRaw = (advancedFilters.geography && advancedFilters.geography !== "All US")
+            ? advancedFilters.geography
+            : analysisData.geography;
+          const geo = geoRaw ? normalizeGeo(geoRaw) : null;
+          if (geo && geo !== "All US") payload.geo = geo;
 
-      // Job titles from brief or pitch
-      inferredFilters.jobTitles = pitchData.targetPersonas || ["CEO", "CTO", "CIO", "VP Engineering", "VP IT"];
+          // Company size — prefer manual override, then AI (normalized)
+          const sizeRaw = (advancedFilters.companySize && advancedFilters.companySize !== "_any")
+            ? advancedFilters.companySize
+            : analysisData.companySize;
+          const size = sizeRaw ? normalizeCompanySize(sizeRaw) : null;
+          if (size) payload.employeeSize = size;
 
-      // Keywords from brief
-      inferredFilters.keywords = pitchData.keywords || "";
+          // Revenue
+          if (advancedFilters.revenueRange && advancedFilters.revenueRange !== "_any") {
+            payload.revenueRange = advancedFilters.revenueRange;
+          }
+        }
 
-      setBuildProgress((p) => [...p, "Scanning Apollo for matching companies..."]);
+        // Job titles — prefer manual selection, then AI
+        const titles = advancedFilters.jobTitles.length > 0
+          ? advancedFilters.jobTitles
+          : (analysisData.jobTitles || analysisData.targetPersonas || ["CEO", "CTO", "CIO", "VP Engineering", "VP IT"]);
+        if (titles.length > 0) payload.jobTitles = titles;
 
-      const scanRes = await apiRequest("POST", "/api/prospects/scan", inferredFilters);
-      const scanData = await scanRes.json();
-      const prospects = scanData.prospects || scanData || [];
+        // Tech stack
+        const tech = advancedFilters.techStack || analysisData.techStack;
+        if (tech) payload.techStack = tech;
 
-      setBuildProgress((p) => [...p, `Found ${prospects.length} matching companies. Extracting contacts...`]);
+        // Keywords
+        const kw = advancedFilters.keywords || analysisData.keywords;
+        if (kw) payload.keywords = kw;
+
+        return payload;
+      };
+
+      // ── First attempt: with all filters ──
+      setBuildProgress((p) => [...p, "ATOM Intelligence scanning for matching companies..."]);
+
+      let prospects: any[] = [];
+      try {
+        const payload = buildPayload(false);
+        const scanRes = await apiRequest("POST", "/api/prospects/scan", payload);
+        const scanData = await scanRes.json();
+        prospects = scanData.prospects || scanData || [];
+      } catch {}
+
+      // ── Fallback: remove geo & size constraints if no results ──
+      if (prospects.length === 0) {
+        setBuildProgress((p) => [...p, "No results with tight filters — broadening search..."]);
+        try {
+          const broadPayload = buildPayload(true);
+          const scanRes = await apiRequest("POST", "/api/prospects/scan", broadPayload);
+          const scanData = await scanRes.json();
+          prospects = scanData.prospects || scanData || [];
+        } catch {}
+      }
+
+      const companiesFound = prospects.length;
+
+      setBuildProgress((p) => [...p, `Found ${companiesFound} matching companies. Extracting contacts...`]);
 
       // Flatten prospects → targets
       const built: Target[] = [];
+      let totalContacts = 0;
       for (const p of prospects) {
         const contacts = JSON.parse(p.contacts || "[]");
+        totalContacts += contacts.length;
         if (contacts.length > 0) {
           for (const c of contacts.slice(0, 2)) {
             if (c.phone) {
@@ -297,7 +665,8 @@ export default function AtomCampaign() {
       }
 
       setTargets(built);
-      setBuildProgress((p) => [...p, `✓ ${built.length} callable targets ready`]);
+      setTargetStats({ companies: companiesFound, contacts: totalContacts });
+      setBuildProgress((p) => [...p, `✓ ${built.length} callable targets ready · ${companiesFound} companies · ${totalContacts} contacts`]);
     } catch (err: any) {
       toast({ title: "Failed to build targets", description: err.message, variant: "destructive" });
       setStep("brief");
@@ -505,7 +874,7 @@ export default function AtomCampaign() {
           </p>
         </div>
         {step !== "brief" && (
-          <Button variant="outline" size="sm" onClick={() => { setStep("brief"); setTargets([]); setCalls(new Map()); }}
+          <Button variant="outline" size="sm" onClick={() => { setStep("brief"); setTargets([]); setCalls(new Map()); setTargetStats(null); }}
             className="h-8 text-xs border-white/[0.08] text-white/40 hover:text-white hover:border-white/20 bg-transparent">
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />New Campaign
           </Button>
@@ -531,7 +900,7 @@ export default function AtomCampaign() {
             <div className="space-y-3">
               <p className="text-sm text-white/50 leading-relaxed">
                 Describe your campaign in plain English. ATOM AI will extract product focus, target industry,
-                and ideal personas — then scan Apollo to build your target list automatically.
+                and ideal personas — then scan ATOM Intelligence to build your target list automatically.
               </p>
 
               <textarea
@@ -544,6 +913,33 @@ Target mid-market tech companies on Cloudflare who are scaling fast and frustrat
                 className="w-full px-4 py-3 text-sm rounded-xl border border-white/[0.08] bg-[#161618] text-[#e8e8ea] placeholder:text-white/20 focus:outline-none focus:border-teal-500/40 transition-colors resize-none leading-relaxed"
                 style={{ fontFamily: "'Satoshi', Arial, sans-serif" }}
               />
+
+              {/* Advanced Targeting toggle */}
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center gap-2 text-xs text-white/35 hover:text-teal-400 transition-colors"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Advanced Targeting
+                {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                {(advancedFilters.industry !== "All Industries" ||
+                  advancedFilters.geography !== "All US" ||
+                  advancedFilters.companySize !== "" ||
+                  advancedFilters.jobTitles.length > 0 ||
+                  advancedFilters.techStack ||
+                  advancedFilters.keywords) && (
+                  <Badge className="bg-teal-500/10 text-teal-400/70 border-teal-500/15 text-[9px] font-mono">
+                    filters set
+                  </Badge>
+                )}
+              </button>
+
+              {showAdvanced && (
+                <AdvancedTargetingPanel
+                  filters={advancedFilters}
+                  onChange={setAdvancedFilters}
+                />
+              )}
 
               <div className="flex items-center justify-between">
                 <p className="text-xs text-white/25">
@@ -619,10 +1015,18 @@ Target mid-market tech companies on Cloudflare who are scaling fast and frustrat
             <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-4">
               <div className="flex items-start gap-2">
                 <Megaphone className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-teal-300 mb-1" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>Campaign Brief</p>
                   <p className="text-xs text-white/50 leading-relaxed line-clamp-3">{brief}</p>
                 </div>
+                {targetStats && (
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-semibold text-teal-300" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                      {targetStats.companies} companies
+                    </p>
+                    <p className="text-[10px] text-white/30 font-mono">{targetStats.contacts} contacts</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -641,6 +1045,11 @@ Target mid-market tech companies on Cloudflare who are scaling fast and frustrat
                     <Badge className="bg-teal-500/10 text-teal-400/70 border-teal-500/15 text-[10px] font-mono">
                       {selectedTargets.length} selected
                     </Badge>
+                    {targetStats && (
+                      <Badge className="bg-white/5 text-white/30 border-white/[0.08] text-[10px] font-mono">
+                        {targetStats.companies} companies · {targetStats.contacts} contacts
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={selectAll}
@@ -744,7 +1153,7 @@ Target mid-market tech companies on Cloudflare who are scaling fast and frustrat
                 <Target className="w-12 h-12 text-white/10" />
                 <p className="text-sm text-white/30">No callable targets found</p>
                 <p className="text-xs text-white/20 text-center max-w-xs">
-                  Try broadening your brief or adjusting the industry/geography.
+                  Try broadening your brief or use the Advanced Targeting section to adjust filters.
                 </p>
                 <Button variant="outline" size="sm" onClick={() => setStep("brief")}
                   className="mt-2 border-teal-500/30 text-teal-400 hover:bg-teal-500/10 bg-transparent">

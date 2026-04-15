@@ -151,7 +151,7 @@ type Tab = "intel" | "people" | "competitive" | "pain" | "signals" | "news" | "b
 const LOADING_STEPS = [
   { label: "Searching the web for company intel...", icon: Search },
   { label: "Analyzing competitors & market position...", icon: Shield },
-  { label: "Finding decision makers via Apollo...", icon: Users },
+  { label: "Finding decision makers...", icon: Users },
   { label: "Identifying pain points & opportunities...", icon: Target },
   { label: "Building battle plan & objection handlers...", icon: Crosshair },
 ];
@@ -428,12 +428,12 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                 </a>
               )}
 
-              {/* Sources */}
+              {/* ATOM source badges (replacing third-party names) */}
               <div className="flex items-center gap-2 mt-3">
                 <span className="text-[10px] text-white/25 font-mono">DATA SOURCES:</span>
-                {result.sources?.perplexity && <Badge className="bg-blue-500/10 text-blue-300 border-blue-500/20 text-[9px] font-mono">Perplexity Sonar</Badge>}
-                {result.sources?.apollo && <Badge className="bg-teal-500/10 text-teal-300 border-teal-500/20 text-[9px] font-mono">Apollo</Badge>}
-                {result.sources?.pdl && <Badge className="bg-purple-500/10 text-purple-300 border-purple-500/20 text-[9px] font-mono">PDL</Badge>}
+                {result.sources?.perplexity && <Badge className="bg-blue-500/10 text-blue-300 border-blue-500/20 text-[9px] font-mono">ATOM Web Intel</Badge>}
+                {result.sources?.apollo && <Badge className="bg-teal-500/10 text-teal-300 border-teal-500/20 text-[9px] font-mono">ATOM Contacts</Badge>}
+                {result.sources?.pdl && <Badge className="bg-purple-500/10 text-purple-300 border-purple-500/20 text-[9px] font-mono">ATOM Enrich</Badge>}
               </div>
             </div>
 
@@ -547,7 +547,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
             <Card className="bg-[#111113] border-white/[0.08]">
               <CardContent className="py-12 flex flex-col items-center gap-2">
                 <Users className="w-10 h-10 text-white/10" />
-                <p className="text-sm text-white/30">No contacts found via Apollo</p>
+                <p className="text-sm text-white/30">No contacts found</p>
               </CardContent>
             </Card>
           ) : (
@@ -729,7 +729,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
         </div>
       )}
 
-      {/* BATTLE CARD — competitive intel from Perplexity */}
+      {/* BATTLE CARD — competitive intel from ATOM Deep Research */}
       {tab === "battlecard" && (
         <div className="space-y-5">
           {(() => {
@@ -1129,7 +1129,7 @@ export default function CompanyIntelligence() {
             </h1>
           </div>
           <p className="text-sm text-[#8a8a96] ml-12">
-            Deep company intel · Perplexity Sonar + Apollo + PDL
+            ATOM Deep Intelligence Engine
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -1207,7 +1207,7 @@ export default function CompanyIntelligence() {
                 <p className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
                   Building WarBook for {company}
                 </p>
-                <p className="text-xs text-white/30">Querying Perplexity Sonar, Apollo, and PDL...</p>
+                <p className="text-xs text-white/30">ATOM Intelligence scanning...</p>
               </div>
             </div>
 
@@ -1262,8 +1262,8 @@ export default function CompanyIntelligence() {
               Enter a company to build their WarBook
             </p>
             <p className="text-sm text-white/20 text-center max-w-sm">
-              ATOM will research the company using Perplexity Sonar, find decision makers via Apollo,
-              and build a full intel package with battle plan.
+              ATOM will compile a full intelligence package on this company,
+              including decision makers, pain points, buying signals, and a complete battle plan.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
               {["Cloudflare", "Akamai", "Salesforce", "HubSpot", "Snowflake"].map((ex) => (

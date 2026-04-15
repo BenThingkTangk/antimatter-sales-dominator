@@ -50,6 +50,9 @@ import {
   Trash2,
   Clock,
   ArrowLeft,
+  TrendingUp,
+  Newspaper,
+  Activity,
 } from "lucide-react";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -232,14 +235,20 @@ function exportToCSV(prospects: Prospect[]) {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
+// Full-width gradient score bar matching the screenshot
 function ScoreBar({ score }: { score: number }) {
-  const color = score >= 80 ? "bg-rose-500" : score >= 60 ? "bg-amber-500" : "bg-teal-600";
   return (
     <div className="flex items-center gap-2 w-full">
-      <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-        <div className={`h-full rounded-full ${color} transition-all duration-700`} style={{ width: `${score}%` }} />
+      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{
+            width: `${score}%`,
+            background: "linear-gradient(to right, #22c55e, #eab308, #ef4444)",
+          }}
+        />
       </div>
-      <span className={`text-xs font-bold tabular-nums ${score >= 80 ? "text-rose-500" : score >= 60 ? "text-amber-500" : "text-teal-300"}`}>
+      <span className="text-xs font-bold tabular-nums text-white/70 w-6 text-right font-mono">
         {Math.round(score)}
       </span>
     </div>
@@ -314,7 +323,9 @@ function ContactRow({ contact, prospect, compact = false }: { contact: Contact; 
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           <div className="w-10 h-10 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
-            <User className="w-4 h-4 text-teal-300" />
+            <span className="text-sm font-bold text-teal-400">
+              {(contact.firstName || "?").charAt(0).toUpperCase()}
+            </span>
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -364,89 +375,248 @@ function ContactRow({ contact, prospect, compact = false }: { contact: Contact; 
   );
 }
 
+// ─── ProspectCard (full screenshot-level detail) ─────────────────────────────
+
 function ProspectCard({ prospect, isViewingHistory }: { prospect: Prospect; isViewingHistory: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const contacts: Contact[] = JSON.parse(prospect.contacts || "[]");
   const matchedProducts: string[] = JSON.parse(prospect.matchedProducts || "[]");
   const [, navigate] = useLocation();
 
+  // Parse signals
+  let signals: any[] = [];
+  try {
+    const raw = (prospect as any).signals;
+    if (typeof raw === "string") signals = JSON.parse(raw);
+    else if (Array.isArray(raw)) signals = raw;
+  } catch {}
+
+  // Web intel (recentNews, painPoints)
+  let webIntel: any = null;
+  try {
+    const raw = (prospect as any).webIntel;
+    if (typeof raw === "string") webIntel = JSON.parse(raw);
+    else if (raw && typeof raw === "object") webIntel = raw;
+  } catch {}
+
   const urgencyColor = prospect.urgency === "hot" ? "text-rose-400 border-rose-500/30 bg-rose-500/10"
     : prospect.urgency === "warm" ? "text-amber-400 border-amber-500/30 bg-amber-500/10"
     : "text-teal-400 border-teal-500/30 bg-teal-500/10";
 
+  // Company size label
+  const sizeLabel = (() => {
+    const sz = prospect.companySize || "";
+    if (sz === "enterprise" || sz === "10001+" || sz === "5001-10000" || sz === "1001-5000") return "enterprise";
+    if (sz === "mid-market" || sz === "201-500" || sz === "501-1000") return "mid-market";
+    return "smb";
+  })();
+  const sizeColor = sizeLabel === "enterprise" ? "bg-purple-500/10 text-purple-300 border-purple-500/20"
+    : sizeLabel === "mid-market" ? "bg-blue-500/10 text-blue-300 border-blue-500/20"
+    : "bg-white/5 text-white/40 border-white/10";
+
   return (
     <Card className="bg-[#111113] border-white/[0.08] hover:border-teal-500/20 transition-all duration-200">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
-            <Building2 className="w-5 h-5 text-teal-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 flex-wrap">
-              <div className="min-w-0">
+      <CardContent className="p-0">
+        {/* ── COMPANY HEADER ── */}
+        <div className="p-4 pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+                <Building2 className="w-4 h-4 text-teal-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                {/* Company name + domain */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                  <h3 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
                     {prospect.companyName}
                   </h3>
-                  <Badge className={`text-[10px] px-1.5 py-0 border font-mono ${urgencyColor}`}>
+                  {prospect.domain && (
+                    <a href={`https://${prospect.domain}`} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1 text-[10px] text-white/30 hover:text-teal-400 transition-colors font-mono">
+                      <Globe className="w-2.5 h-2.5" />{prospect.domain}
+                    </a>
+                  )}
+                </div>
+                {/* Badge row */}
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  {prospect.industry && (
+                    <span className="inline-flex text-[9px] font-mono px-2 py-0 h-5 rounded-full bg-white/[0.06] text-white/50 border border-white/[0.08] items-center">
+                      {prospect.industry}
+                    </span>
+                  )}
+                  <span className={`inline-flex text-[9px] font-mono px-2 py-0 h-5 rounded-full border items-center ${sizeColor}`}>
+                    {sizeLabel}
+                  </span>
+                  {(prospect as any).employeeCount && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0 h-5 rounded-full bg-white/[0.04] text-white/35 border border-white/[0.06]">
+                      <Users className="w-2.5 h-2.5" />{(prospect as any).employeeCount}
+                    </span>
+                  )}
+                  {(prospect as any).revenue && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0 h-5 rounded-full bg-white/[0.04] text-white/35 border border-white/[0.06]">
+                      <DollarSign className="w-2.5 h-2.5" />{(prospect as any).revenue}
+                    </span>
+                  )}
+                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-mono px-2 py-0 h-5 rounded-full border ${urgencyColor}`}>
                     {prospect.urgency === "hot" && <Flame className="w-2.5 h-2.5 mr-0.5" />}
                     {prospect.urgency}
-                  </Badge>
-                  {matchedProducts.map((p) => (
-                    <Badge key={p} className="text-[10px] px-1.5 py-0 bg-purple-500/10 text-purple-300 border-purple-500/20 font-mono">{p}</Badge>
-                  ))}
-                </div>
-                <div className="flex items-center gap-3 mt-1 flex-wrap">
-                  <span className="text-[11px] text-white/40 flex items-center gap-1"><Globe className="w-3 h-3" />{prospect.domain}</span>
-                  {prospect.industry && <span className="text-[11px] text-white/40 flex items-center gap-1"><Briefcase className="w-3 h-3" />{prospect.industry}</span>}
-                  {(prospect as any).location && <span className="text-[11px] text-white/40 flex items-center gap-1"><MapPin className="w-3 h-3" />{(prospect as any).location}</span>}
-                  {(prospect as any).employeeCount && <span className="text-[11px] text-white/40 flex items-center gap-1"><Users className="w-3 h-3" />{(prospect as any).employeeCount}</span>}
-                  {(prospect as any).revenue && <span className="text-[11px] text-white/40 flex items-center gap-1"><DollarSign className="w-3 h-3" />{(prospect as any).revenue}</span>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="w-28">
-                  <p className="text-[9px] text-white/30 mb-1 font-mono uppercase tracking-wider">Intel Score</p>
-                  <ScoreBar score={prospect.score} />
+                  </span>
+                  {contacts.length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-mono px-2 py-0 h-5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                      <Users className="w-2.5 h-2.5" />{contacts.length} contacts
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="w-7 h-7 rounded-lg border border-white/[0.08] flex items-center justify-center text-white/30 hover:text-white hover:border-white/20 transition-all shrink-0"
+            >
+              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </div>
 
-            {prospect.reason && (
-              <p className="text-xs text-white/50 mt-2 leading-relaxed line-clamp-2">{prospect.reason}</p>
-            )}
-
-            {contacts.length > 0 && !expanded && (
-              <div className="mt-3 space-y-1">
-                {contacts.slice(0, 2).map((c, i) => (
-                  <ContactRow key={i} contact={c} prospect={prospect} compact />
-                ))}
-                {contacts.length > 2 && (
-                  <button onClick={() => setExpanded(true)} className="text-[11px] text-teal-400/70 hover:text-teal-400 transition-colors">
-                    +{contacts.length - 2} more contacts
-                  </button>
-                )}
-              </div>
-            )}
-
-            {expanded && (
-              <div className="mt-3 space-y-2">
-                {contacts.map((c, i) => (
-                  <ContactRow key={i} contact={c} prospect={prospect} />
-                ))}
-                <button onClick={() => setExpanded(false)} className="text-[11px] text-white/30 hover:text-white/50 transition-colors">
-                  Show less
-                </button>
-              </div>
-            )}
-
-            {!expanded && contacts.length <= 2 && contacts.length > 0 && (
-              <button onClick={() => setExpanded(true)} className="text-[11px] text-teal-400/70 hover:text-teal-400 transition-colors mt-2">
-                View full details
-              </button>
-            )}
+          {/* ── SCORE BAR ── */}
+          <div className="mt-3">
+            <ScoreBar score={prospect.score} />
           </div>
         </div>
+
+        {/* ── EXPANDED DETAIL ── */}
+        {expanded && (
+          <div className="border-t border-white/[0.06] px-4 pb-4 pt-3 space-y-4">
+
+            {/* WHY THEY NEED THIS */}
+            {prospect.reason && (
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-wider text-[#4a4a55] mb-1.5">Why They Need This</p>
+                <p className="text-xs text-[#8a8a96] leading-relaxed">{prospect.reason}</p>
+              </div>
+            )}
+
+            {/* BUYING SIGNALS */}
+            {signals.length > 0 && (
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-wider text-[#4a4a55] mb-1.5">Buying Signals</p>
+                <div className="space-y-1">
+                  {signals.map((sig: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <TrendingUp className="w-3 h-3 text-teal-400/60 shrink-0 mt-0.5" />
+                      <span className="text-xs text-[#8a8a96]">{typeof sig === "string" ? sig : sig.signal || sig.text || JSON.stringify(sig)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fallback: reason as signal if no parsed signals */}
+            {signals.length === 0 && prospect.reason && (
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-wider text-[#4a4a55] mb-1.5">Buying Signals</p>
+                <div className="flex items-start gap-2">
+                  <TrendingUp className="w-3 h-3 text-teal-400/60 shrink-0 mt-0.5" />
+                  <span className="text-xs text-[#8a8a96]">{prospect.reason}</span>
+                </div>
+              </div>
+            )}
+
+            {/* MATCHED PRODUCTS */}
+            {matchedProducts.length > 0 && (
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-wider text-[#4a4a55] mb-1.5">Matched Products</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {matchedProducts.map((p) => (
+                    <span key={p} className="inline-flex text-[9px] font-mono px-2 py-1 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* RECENT NEWS */}
+            {webIntel?.recentNews && webIntel.recentNews.length > 0 && (
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-wider text-[#4a4a55] mb-1.5">Recent News</p>
+                <div className="space-y-1">
+                  {webIntel.recentNews.map((item: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <Newspaper className="w-3 h-3 text-amber-400/60 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-xs text-[#8a8a96]">{typeof item === "string" ? item : item.headline || item.title || JSON.stringify(item)}</span>
+                        {typeof item === "object" && item.date && (
+                          <span className="text-[10px] text-white/20 font-mono ml-2">{item.date}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* PAIN POINTS */}
+            {webIntel?.painPoints && webIntel.painPoints.length > 0 && (
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-wider text-[#4a4a55] mb-1.5">Pain Points</p>
+                <div className="space-y-1">
+                  {webIntel.painPoints.map((item: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <AlertCircle className="w-3 h-3 text-rose-400/60 shrink-0 mt-0.5" />
+                      <span className="text-xs text-[#8a8a96]">{typeof item === "string" ? item : item.pain || item.text || JSON.stringify(item)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* DECISION MAKERS */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="font-mono text-[9px] uppercase tracking-wider text-[#4a4a55]">Decision Makers</p>
+                <button className="flex items-center gap-1 text-[9px] font-mono text-white/25 hover:text-teal-400 transition-colors">
+                  <RefreshCw className="w-2.5 h-2.5" />Refresh
+                </button>
+              </div>
+              {contacts.length === 0 ? (
+                <p className="text-xs text-white/20 italic">No contacts found</p>
+              ) : (
+                <div className="space-y-2">
+                  {contacts.map((c, i) => (
+                    <ContactRow key={i} contact={c} prospect={prospect} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Collapsed preview — show reason + contacts summary */}
+        {!expanded && (
+          <div className="px-4 pb-3">
+            {prospect.reason && (
+              <p className="text-xs text-[#8a8a96] leading-relaxed line-clamp-2 mb-2">{prospect.reason}</p>
+            )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {matchedProducts.slice(0, 2).map((p) => (
+                  <span key={p} className="inline-flex text-[9px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                    {p}
+                  </span>
+                ))}
+                {contacts.length > 0 && (
+                  <span className="text-[10px] text-white/30 font-mono">{contacts.length} contact{contacts.length !== 1 ? "s" : ""}</span>
+                )}
+              </div>
+              <button
+                onClick={() => setExpanded(true)}
+                className="text-[10px] text-teal-400/60 hover:text-teal-400 transition-colors font-mono"
+              >
+                View full details →
+              </button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -731,7 +901,7 @@ function FilterPanel({ filters, onChange, onScan, isScanning }: FilterPanelProps
         style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}
       >
         {isScanning ? (
-          <><Loader2 className="w-4 h-4 animate-spin" />Scanning Apollo...</>
+          <><Loader2 className="w-4 h-4 animate-spin" />Scanning ATOM Intelligence...</>
         ) : (
           <><Radar className="w-4 h-4" />Scan for Prospects</>
         )}
@@ -801,9 +971,13 @@ export default function ProspectEngine() {
       const history = loadHistory();
       saveHistory([entry, ...history]);
 
+      const totalContacts = prospects.reduce((acc, p) => {
+        try { return acc + JSON.parse(p.contacts || "[]").length; } catch { return acc; }
+      }, 0);
+
       toast({
-        title: `${prospects.length} prospects found`,
-        description: filterSummary(filters),
+        title: `${prospects.length} companies found`,
+        description: `${totalContacts} total contacts · ${filterSummary(filters)}`,
       });
     },
     onError: (err: any) => {
@@ -838,6 +1012,10 @@ export default function ProspectEngine() {
   const totalPages = Math.ceil(displayedProspects.length / PAGE_SIZE);
   const paginated = displayedProspects.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const totalContacts = displayedProspects.reduce((acc, p) => {
+    try { return acc + JSON.parse(p.contacts || "[]").length; } catch { return acc; }
+  }, 0);
+
   return (
     <div className="space-y-6 min-h-screen" style={{ fontFamily: "'Satoshi', Arial, sans-serif" }}>
       {/* Header */}
@@ -855,7 +1033,7 @@ export default function ProspectEngine() {
             </h1>
           </div>
           <p className="text-sm text-[#8a8a96] ml-12">
-            Apollo-powered prospect scanner · find decision makers with verified contact data
+            ATOM-powered prospect scanner · find decision makers with verified contact data
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -890,7 +1068,7 @@ export default function ProspectEngine() {
                 Scan Filters
               </span>
               <Badge className="bg-teal-500/10 text-teal-400/70 border-teal-500/15 text-[10px] font-mono ml-auto">
-                Apollo · 275M+ contacts
+                ATOM Intelligence · 275M+ verified contacts
               </Badge>
             </div>
             <FilterPanel
@@ -908,7 +1086,7 @@ export default function ProspectEngine() {
         <div className="space-y-3">
           <div className="flex items-center gap-2 px-1">
             <Loader2 className="w-4 h-4 text-teal-400 animate-spin" />
-            <span className="text-sm text-teal-400/70">Scanning Apollo database...</span>
+            <span className="text-sm text-teal-400/70">ATOM Intelligence scanning...</span>
           </div>
           {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
@@ -928,7 +1106,7 @@ export default function ProspectEngine() {
               <div className="flex items-center gap-2">
                 <Signal className="w-4 h-4 text-teal-400" />
                 <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
-                  {displayedProspects.length} Prospects Found
+                  {displayedProspects.length} companies · {totalContacts} contacts
                 </span>
                 {displayedProspects.length > 0 && (
                   <Badge className="bg-teal-500/10 text-teal-400/70 border-teal-500/15 text-[10px] font-mono">
