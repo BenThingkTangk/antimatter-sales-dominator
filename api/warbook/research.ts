@@ -75,11 +75,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const domain = website || null;
 
   try {
-    const [overviewRes, competitiveRes, newsRes, painRes, contacts, pdlData] = await Promise.all([
+    const [overviewRes, competitiveRes, newsRes, painRes, battleCardRes, contacts, pdlData] = await Promise.all([
       sonarResearch(`Comprehensive business overview of ${company}${domain ? ` (${domain})` : ""}. Include: what they do, products/services, revenue, employee count, HQ, founding year, key executives, market position. Be specific.`, "high"),
       sonarResearch(`Who are ${company}'s main competitors? Competitive advantages/disadvantages? Market share? Customer sentiment vs alternatives? Name specific competitors.`, "medium"),
       sonarResearch(`Latest news and developments from ${company} in the last 6 months. Product launches, partnerships, funding, leadership changes, earnings, strategic moves. Include dates.`, "medium"),
       sonarResearch(`Common pain points and challenges that ${company} faces or their customers report. Technology gaps, operational challenges. Job postings suggesting they need new solutions. Areas where AI or automation could help.`, "medium"),
+      // Battle Card: deep competitive comparison for sales reps
+      sonarResearch(`Create a competitive battle card for selling against ${company}. Include: their pricing model and typical contract terms, known weaknesses customers complain about, recent customer churn or negative reviews, features they lack compared to modern alternatives, their sales process weaknesses, and specific talking points a competitor's sales rep should use. Be brutally honest and specific.`, "high"),
       findDecisionMakers(company, domain),
       pdlEnrich(company, domain),
     ]);
@@ -100,10 +102,11 @@ RESEARCH: ${overviewRes.content}
 COMPETITION: ${competitiveRes.content}
 NEWS: ${newsRes.content}
 PAIN POINTS: ${painRes.content}
+BATTLE CARD INTEL: ${battleCardRes.content}
 COMPANY DATA: ${profile ? JSON.stringify(profile) : "N/A"}
 CONTACTS: ${contacts.length > 0 ? contacts.map((c: any) => `${c.name} - ${c.title}`).join("; ") : "None"}
 
-Return JSON: {"overview":{"description":"2-3 sentences","industry":"","founded":"","headquarters":"","employeeCount":"","revenue":"","website":"","stockTicker":null},"executiveSummary":"3-4 sentence brief for a salesperson","techStack":["tech1","tech2"],"competitors":[{"name":"","threat":"high/medium/low","differentiator":""}],"painPoints":[{"pain":"","severity":"critical/high/medium","opportunity":""}],"buyingSignals":[{"signal":"","strength":"strong/moderate/weak","source":""}],"recentNews":[{"headline":"","date":"","relevance":""}],"objectionPredictions":[{"objection":"","probability":"high/medium/low","counterStrategy":""}],"pitchAngles":[{"angle":"","targetPersona":"","openingLine":""}],"callStrategy":{"bestTimeToCall":"","gatekeeperTips":"","toneRecommendation":"","keyQuestions":["q1","q2","q3"]},"sentimentScore":75,"buyerIntentScore":60,"priorityLevel":"high/medium/low"}`;
+Return JSON: {"overview":{"description":"2-3 sentences","industry":"","founded":"","headquarters":"","employeeCount":"","revenue":"","website":"","stockTicker":null},"executiveSummary":"3-4 sentence brief for a salesperson","techStack":["tech1","tech2"],"competitors":[{"name":"","threat":"high/medium/low","differentiator":""}],"painPoints":[{"pain":"","severity":"critical/high/medium","opportunity":""}],"buyingSignals":[{"signal":"","strength":"strong/moderate/weak","source":""}],"recentNews":[{"headline":"","date":"","relevance":""}],"objectionPredictions":[{"objection":"","probability":"high/medium/low","counterStrategy":""}],"pitchAngles":[{"angle":"","targetPersona":"","openingLine":""}],"callStrategy":{"bestTimeToCall":"","gatekeeperTips":"","toneRecommendation":"","keyQuestions":["q1","q2","q3"]},"battleCard":{"pricingModel":"their pricing structure","contractTerms":"typical contract details","knownWeaknesses":["weakness 1","weakness 2"],"customerComplaints":["complaint 1","complaint 2"],"featureGaps":["missing feature 1","missing feature 2"],"salesProcessWeaknesses":["weakness 1"],"talkingPoints":["point 1","point 2","point 3"],"winRate":"estimated win rate against them","switchingCost":"what it takes to switch away from them"},"sentimentScore":75,"buyerIntentScore":60,"priorityLevel":"high/medium/low"}`;
 
     const gptRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -117,7 +120,7 @@ Return JSON: {"overview":{"description":"2-3 sentences","industry":"","founded":
 
     return res.json({
       company, warbook, contacts, companyProfile: profile,
-      citations: [...overviewRes.citations, ...competitiveRes.citations, ...newsRes.citations, ...painRes.citations],
+      citations: [...overviewRes.citations, ...competitiveRes.citations, ...newsRes.citations, ...painRes.citations, ...battleCardRes.citations],
       sources: { perplexity: !!overviewRes.content, apollo: contacts.length > 0, pdl: !!profile },
       generatedAt: new Date().toISOString(),
     });

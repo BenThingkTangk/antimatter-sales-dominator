@@ -42,6 +42,7 @@ import {
   X,
   ArrowLeft,
   PhoneCall,
+  Swords,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -145,7 +146,7 @@ interface HistoryEntry {
 }
 
 const STORAGE_KEY = "atom_warbook_history";
-type Tab = "intel" | "people" | "competitive" | "pain" | "signals" | "news" | "battleplan";
+type Tab = "intel" | "people" | "competitive" | "pain" | "signals" | "news" | "battlecard" | "battleplan";
 
 const LOADING_STEPS = [
   { label: "Searching the web for company intel...", icon: Search },
@@ -347,6 +348,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
     { id: "pain", label: "Pain Points", icon: AlertCircle },
     { id: "signals", label: "Buying Signals", icon: Activity },
     { id: "news", label: "News", icon: Newspaper },
+    { id: "battlecard", label: "Battle Card", icon: Swords },
     { id: "battleplan", label: "Battle Plan", icon: Crosshair },
   ];
 
@@ -712,6 +714,154 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* BATTLE CARD — competitive intel from Perplexity */}
+      {tab === "battlecard" && (
+        <div className="space-y-5">
+          {(() => {
+            const bc = wb.battleCard;
+            if (!bc) return <p className="text-[#8a8a96]">No battle card data available. Run a new WarBook to generate competitive battle card intel.</p>;
+            return (
+              <>
+                {/* Pricing & Contracts */}
+                <Card className="bg-[#111113] border-white/[0.08]">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <DollarSign className="w-4 h-4 text-amber-400" />
+                      <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Pricing & Contract Intel</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-[#161618] rounded-lg p-3 border border-white/[0.05]">
+                        <span className="text-xs text-[#4a4a55] font-mono uppercase tracking-wider">Pricing Model</span>
+                        <p className="text-sm text-[#e8e8ea] mt-1">{bc.pricingModel || "Unknown"}</p>
+                      </div>
+                      <div className="bg-[#161618] rounded-lg p-3 border border-white/[0.05]">
+                        <span className="text-xs text-[#4a4a55] font-mono uppercase tracking-wider">Contract Terms</span>
+                        <p className="text-sm text-[#e8e8ea] mt-1">{bc.contractTerms || "Unknown"}</p>
+                      </div>
+                      {bc.switchingCost && (
+                        <div className="bg-[#161618] rounded-lg p-3 border border-white/[0.05] md:col-span-2">
+                          <span className="text-xs text-[#4a4a55] font-mono uppercase tracking-wider">Switching Cost</span>
+                          <p className="text-sm text-[#e8e8ea] mt-1">{bc.switchingCost}</p>
+                        </div>
+                      )}
+                      {bc.winRate && (
+                        <div className="bg-[#161618] rounded-lg p-3 border border-white/[0.05] md:col-span-2">
+                          <span className="text-xs text-[#4a4a55] font-mono uppercase tracking-wider">Estimated Win Rate</span>
+                          <p className="text-sm text-teal-400 font-semibold mt-1">{bc.winRate}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Known Weaknesses */}
+                {bc.knownWeaknesses?.length > 0 && (
+                  <Card className="bg-[#111113] border-white/[0.08]">
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Target className="w-4 h-4 text-red-400" />
+                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Known Weaknesses</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {bc.knownWeaknesses.map((w: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 bg-red-500/5 border border-red-500/10 rounded-lg p-3">
+                            <AlertCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
+                            <span className="text-sm text-[#e8e8ea]">{w}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Customer Complaints */}
+                {bc.customerComplaints?.length > 0 && (
+                  <Card className="bg-[#111113] border-white/[0.08]">
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MessageSquare className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Customer Complaints</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {bc.customerComplaints.map((c: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/10 rounded-lg p-3">
+                            <Flame className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                            <span className="text-sm text-[#e8e8ea]">{c}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Feature Gaps */}
+                {bc.featureGaps?.length > 0 && (
+                  <Card className="bg-[#111113] border-white/[0.08]">
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Zap className="w-4 h-4 text-purple-400" />
+                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Feature Gaps (What They're Missing)</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {bc.featureGaps.map((g: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 bg-purple-500/5 border border-purple-500/10 rounded-lg p-3">
+                            <ChevronRight className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" />
+                            <span className="text-sm text-[#e8e8ea]">{g}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Talking Points */}
+                {bc.talkingPoints?.length > 0 && (
+                  <Card className="bg-[#111113] border-teal-500/20">
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Swords className="w-4 h-4 text-teal-400" />
+                        <h4 className="text-sm font-bold text-teal-400" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Competitive Talking Points</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {bc.talkingPoints.map((tp: string, i: number) => (
+                          <div key={i} className="flex items-start gap-3 bg-teal-500/5 border border-teal-500/10 rounded-lg p-3">
+                            <span className="text-xs font-mono text-teal-400 bg-teal-500/20 px-2 py-0.5 rounded-full shrink-0 mt-0.5">{i + 1}</span>
+                            <span className="text-sm text-[#e8e8ea]">{tp}</span>
+                            <button onClick={() => copyText(tp)} className="ml-auto shrink-0 text-[#4a4a55] hover:text-teal-400 transition-colors">
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Sales Process Weaknesses */}
+                {bc.salesProcessWeaknesses?.length > 0 && (
+                  <Card className="bg-[#111113] border-white/[0.08]">
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Shield className="w-4 h-4 text-blue-400" />
+                        <h4 className="text-sm font-bold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>Their Sales Process Weaknesses</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {bc.salesProcessWeaknesses.map((w: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 bg-blue-500/5 border border-blue-500/10 rounded-lg p-3">
+                            <ChevronRight className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
+                            <span className="text-sm text-[#e8e8ea]">{w}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 

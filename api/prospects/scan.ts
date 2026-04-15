@@ -4,6 +4,7 @@ const APOLLO_API_KEY = process.env.APOLLO_API_KEY;
 const PDL_API_KEY = process.env.PDL_API_KEY;
 const THEIRSTACK_API_KEY = process.env.THEIRSTACK_API_KEY;
 const BUILTWITH_API_KEY = process.env.BUILTWITH_API_KEY;
+const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -316,6 +317,62 @@ async function enrichOrgWithApollo(domain: string): Promise<{
   }
 }
 
+// ─── Perplexity Sonar: real-time web intel per company ──────────────────
+
+async function getCompanyWebIntel(
+  companyName: string,
+  domain?: string,
+  productFocus?: string
+): Promise<{ buyingSignals: string[]; recentNews: string[]; painPoints: string[]; competitorIntel: string; score: number }> {
+  if (!PERPLEXITY_API_KEY) return { buyingSignals: [], recentNews: [], painPoints: [], competitorIntel: "", score: 0 };
+  try {
+    const query = `For the company ${companyName}${domain ? ` (${domain})` : ""}, in 3-4 concise bullet points each, tell me:\n1. Recent buying signals (new hires, funding, tech migrations, growth indicators)\n2. Latest company news (last 3 months)\n3. Key pain points or challenges they face${productFocus ? ` especially around ${productFocus}` : ""}\n4. One sentence on their competitive position\nBe specific and factual. No fluff.`;
+
+    const res = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${PERPLEXITY_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "sonar",
+        messages: [{ role: "user", content: query }],
+        stream: false,
+        web_search_options: { search_context_size: "low" },
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return { buyingSignals: [], recentNews: [], painPoints: [], competitorIntel: "", score: 0 };
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    // Parse the structured response into arrays
+    const sections = content.split(/\n\d+\./)
+    const buyingSignals = extractBullets(sections[1] || "");
+    const recentNews = extractBullets(sections[2] || "");
+    const painPoints = extractBullets(sections[3] || "");
+    const competitorIntel = (sections[4] || "").trim();
+
+    // Score based on signal strength
+    let score = 0;
+    const lower = content.toLowerCase();
+    if (lower.includes("funding") || lower.includes("raised")) score += 15;
+    if (lower.includes("hiring") || lower.includes("new hire") || lower.includes("job posting")) score += 10;
+    if (lower.includes("migration") || lower.includes("switching") || lower.includes("replacing")) score += 20;
+    if (lower.includes("growth") || lower.includes("expanding") || lower.includes("scaling")) score += 10;
+    if (lower.includes("pain") || lower.includes("challenge") || lower.includes("struggle")) score += 10;
+    if (lower.includes("ai") || lower.includes("automation") || lower.includes("digital transformation")) score += 15;
+
+    return { buyingSignals, recentNews, painPoints, competitorIntel, score: Math.min(50, score) };
+  } catch {
+    return { buyingSignals: [], recentNews: [], painPoints: [], competitorIntel: "", score: 0 };
+  }
+}
+
+function extractBullets(text: string): string[] {
+  return text.split(/\n[-•*]\s*/)
+    .map(s => s.replace(/^[-•*]\s*/, "").trim())
+    .filter(s => s.length > 10 && s.length < 300)
+    .slice(0, 4);
+}
+
 // ─── TheirStack: find companies by actual technology used ───────────────────
 
 async function enrichTechWithTheirStack(
@@ -591,12 +648,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Reveal Apollo contacts (up to 5 per company to conserve credits)
         const revealPromises = org.people.slice(0, 5).map((person) => revealApolloContact(person));
-        const [apolloContacts, pdlData, apolloOrgData, theirStackTech, builtWithTech] = await Promise.all([
+        const [apolloContacts, pdlData, apolloOrgData, theirStackTech, builtWithTech, webIntel] = await Promise.all([
           Promise.all(revealPromises).then((contacts) => contacts.filter(Boolean) as EnrichedContact[]),
           enrichWithPDL(companyName, domain),
           enrichOrgWithApollo(domain),
           enrichTechWithTheirStack(domain, filters.techStack),
           verifyTechWithBuiltWith(domain),
+          getCompanyWebIntel(companyName, domain, filters.productFocus),
         ]);
 
         const mergedContacts = deduplicateContacts(apolloContacts);
@@ -643,24 +701,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
-        // Build buying signals from person titles and org data
+        // Build buying signals: Perplexity web intel (real-time) + heuristic title signals
         const signals: string[] = [];
+        // Perplexity real-time signals (web-grounded, not AI-guessed)
+        if (webIntel.buyingSignals.length > 0) {
+          signals.push(...webIntel.buyingSignals);
+        }
+        // Supplement with title-based heuristics
         for (const person of org.people.slice(0, 3)) {
           const title = (person.title || "").toLowerCase();
-          if (title.includes("ai") || title.includes("machine learning") || title.includes("ml")) {
-            signals.push("AI/ML initiative in progress");
-          }
-          if (title.includes("cto") || title.includes("chief technology")) {
-            signals.push("CTO-level engagement");
-          }
-          if (title.includes("vp") || title.includes("director")) {
-            signals.push("VP/Director-level decision makers present");
-          }
+          if (title.includes("ai") || title.includes("machine learning")) signals.push("AI/ML initiative detected");
+          if (title.includes("cto") || title.includes("chief technology")) signals.push("CTO-level engagement");
         }
         if (finalEmployeeCount > 200 && finalEmployeeCount < 2000) signals.push("Mid-market growth stage");
-        if (pdlData.founded && parseInt(pdlData.founded) >= 2018) signals.push("Recently founded — likely scaling tech");
-        // Deduplicate
-        const uniqueSignals = Array.from(new Set(signals)).slice(0, 4);
+        const uniqueSignals = Array.from(new Set(signals)).slice(0, 6);
+
+        // Boost score with Perplexity's web-grounded intel score
+        score = Math.min(100, score + webIntel.score);
 
         return {
           id: Date.now() + i,
@@ -680,6 +737,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           employeeCount: finalEmployeeCount,
           revenue: finalRevenue,
           techStack: JSON.stringify(finalTechStack),
+          // Perplexity web-grounded intel
+          recentNews: JSON.stringify(webIntel.recentNews),
+          painPoints: JSON.stringify(webIntel.painPoints),
+          competitorIntel: webIntel.competitorIntel,
+          webIntelScore: webIntel.score,
         };
       })
     );
