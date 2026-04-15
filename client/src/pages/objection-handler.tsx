@@ -94,7 +94,7 @@ const TONE_COLORS: Record<string, string> = {
   "Empathetic":   "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
   "Direct":       "bg-rose-500/15 text-rose-400 border-rose-500/25",
   "Educational":  "bg-blue-500/15 text-blue-400 border-blue-500/25",
-  "Reassuring":   "bg-[#696aac]/15 text-[#a2a3e9] border-[#696aac]/25",
+  "Reassuring":   "bg-teal-500/15 text-teal-300 border-teal-500/25",
 };
 
 const URGENCY_COLORS: Record<string, string> = {
@@ -196,7 +196,7 @@ function BuyingSignalGauge({ score }: { score: number }) {
 }
 
 function CircularClosingProb({ score }: { score: number }) {
-  const color = score >= 65 ? "#696aac" : score >= 40 ? "#f59e0b" : "#ef4444";
+  const color = score >= 65 ? "#0d9488" : score >= 40 ? "#f59e0b" : "#ef4444";
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
 
@@ -341,7 +341,7 @@ export default function ObjectionHandler() {
           <MessageSquareWarning className="w-5 h-5 text-amber-400" />
         </div>
         <div className="flex-1">
-          <h1 className="text-xl font-semibold text-white">Objection Handler</h1>
+          <h1 className="text-xl font-semibold text-white">ATOM Objection Handler</h1>
           <p className="text-sm text-white/40">Counter any pushback with AI-precision responses</p>
         </div>
         <div className="flex items-center gap-2">
@@ -568,7 +568,7 @@ export default function ObjectionHandler() {
                   {/* Key Insight */}
                   {activeResult.keyInsight && (
                     <div className="mt-4 pt-3 border-t border-white/[0.05] flex items-start gap-2">
-                      <Brain className="w-3.5 h-3.5 text-[#a2a3e9] shrink-0 mt-0.5" />
+                      <Brain className="w-3.5 h-3.5 text-teal-300 shrink-0 mt-0.5" />
                       <p className="text-xs text-white/50 italic">{activeResult.keyInsight}</p>
                     </div>
                   )}
@@ -620,7 +620,7 @@ export default function ObjectionHandler() {
                           onClick={() => setActiveStrategyTab(i)}
                           className={`text-[10px] px-2.5 py-1 rounded-lg font-medium transition-all ${
                             activeStrategyTab === i
-                              ? "bg-[#696aac]/20 text-[#a2a3e9] border border-[#696aac]/30"
+                              ? "bg-teal-500/20 text-teal-300 border border-teal-500/30"
                               : "text-white/30 hover:text-white/50 border border-transparent"
                           }`}
                           data-testid={`button-strategy-tab-${i}`}>
@@ -657,8 +657,8 @@ export default function ObjectionHandler() {
                     <div className="space-y-2">
                       {activeResult.followUpQuestions.map((q, i) => (
                         <div key={i}
-                          className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-[#696aac]/15 transition-all">
-                          <span className="text-[#696aac]/50 text-xs shrink-0 font-mono">{i + 1}.</span>
+                          className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-teal-500/15 transition-all">
+                          <span className="text-teal-400/50 text-xs shrink-0 font-mono">{i + 1}.</span>
                           <p className="text-sm text-white/60 flex-1">{q}</p>
                           <Button variant="ghost" size="sm"
                             className="h-5 text-[9px] text-white/20 hover:text-white/50 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"

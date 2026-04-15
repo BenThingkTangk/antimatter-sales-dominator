@@ -312,7 +312,7 @@ function ScoreBar({ score }: { score: number }) {
       ? "bg-rose-500"
       : score >= 60
       ? "bg-amber-500"
-      : "bg-[#696aac]";
+      : "bg-teal-600";
   return (
     <div className="flex items-center gap-2 w-full">
       <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
@@ -327,7 +327,7 @@ function ScoreBar({ score }: { score: number }) {
             ? "text-rose-500"
             : score >= 60
             ? "text-amber-500"
-            : "text-[#a2a3e9]"
+            : "text-teal-300"
         }`}
       >
         {Math.round(score)}
@@ -386,8 +386,8 @@ function ContactRow({
     return (
       <div className="flex items-center justify-between gap-2 py-1.5">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-6 h-6 rounded-full bg-[#696aac]/10 border border-[#696aac]/20 flex items-center justify-center shrink-0">
-            <User className="w-3 h-3 text-[#a2a3e9]" />
+          <div className="w-6 h-6 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+            <User className="w-3 h-3 text-teal-300" />
           </div>
           <div className="min-w-0">
             <p className="text-xs font-medium truncate text-white/90">
@@ -398,7 +398,7 @@ function ContactRow({
         </div>
         <Button
           size="sm"
-          className="h-7 text-[10px] gap-1 bg-[#696aac] hover:bg-[#7b7cb8] border-0 shrink-0 transition-colors"
+          className="h-7 text-[10px] gap-1 bg-teal-600 hover:bg-teal-500 border-0 shrink-0 transition-colors"
           onClick={handleCallAtom}
           data-testid={`button-call-atom-${prospect.id}-compact`}
         >
@@ -410,10 +410,10 @@ function ContactRow({
   }
 
   return (
-    <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-3 group hover:border-[#696aac]/30 hover:bg-[#696aac]/5 transition-all">
+    <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-3 group hover:border-teal-500/30 hover:bg-teal-500/5 transition-all">
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-full bg-[#696aac]/10 border border-[#696aac]/20 flex items-center justify-center shrink-0">
-          <User className="w-4 h-4 text-[#a2a3e9]" />
+        <div className="w-9 h-9 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+          <User className="w-4 h-4 text-teal-300" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
@@ -430,7 +430,7 @@ function ContactRow({
             </div>
             <Button
               size="sm"
-              className="h-7 text-[10px] gap-1 bg-[#696aac] hover:bg-[#7b7cb8] border-0 shrink-0 transition-colors shadow-lg shadow-[#696aac]/20"
+              className="h-7 text-[10px] gap-1 bg-teal-600 hover:bg-teal-500 border-0 shrink-0 transition-colors shadow-lg shadow-teal-500/20"
               onClick={handleCallAtom}
               data-testid={`button-call-atom-${prospect.id}`}
             >
@@ -443,7 +443,7 @@ function ContactRow({
             {contact.email && (
               <a
                 href={`mailto:${contact.email}`}
-                className="flex items-center gap-1 text-[11px] text-[#a2a3e9] hover:text-[#c4c5f0] transition-colors"
+                className="flex items-center gap-1 text-[11px] text-teal-300 hover:text-[#c4c5f0] transition-colors"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -511,7 +511,7 @@ function ContactRow({
               <Badge
                 className={`text-[9px] ${
                   (contact as any).source === "apollo"
-                    ? "bg-[#696aac]/15 text-[#a2a3e9] border-[#696aac]/30"
+                    ? "bg-teal-500/15 text-teal-300 border-teal-500/30"
                     : (contact as any).source === "both"
                     ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
                     : "bg-orange-500/15 text-orange-400 border-orange-500/20"
@@ -567,7 +567,7 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
       ? "border-l-rose-500"
       : prospect.score >= 60
       ? "border-l-amber-500"
-      : "border-l-[#696aac]/40";
+      : "border-l-teal-500/40";
 
   return (
     <div
@@ -590,7 +590,7 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
                   href={`https://${prospect.domain}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-0.5 text-[10px] text-white/30 hover:text-[#a2a3e9] transition-colors shrink-0"
+                  className="flex items-center gap-0.5 text-[10px] text-white/30 hover:text-teal-300 transition-colors shrink-0"
                 >
                   <Globe className="w-3 h-3" />
                   {prospect.domain}
@@ -653,7 +653,7 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
             {contacts.length > 2 && (
               <button
                 onClick={() => setExpanded(true)}
-                className="text-[10px] text-white/30 hover:text-[#a2a3e9] transition-colors"
+                className="text-[10px] text-white/30 hover:text-teal-300 transition-colors"
               >
                 +{contacts.length - 2} more — expand to see all
               </button>
@@ -667,7 +667,7 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
             <Button
               variant="outline"
               size="sm"
-              className="w-full h-8 text-xs gap-1.5 border-white/10 text-white/50 hover:text-white/80 hover:border-[#696aac]/40 hover:bg-[#696aac]/5"
+              className="w-full h-8 text-xs gap-1.5 border-white/10 text-white/50 hover:text-white/80 hover:border-teal-500/40 hover:bg-teal-500/5"
               onClick={() => enrichMutation.mutate()}
               disabled={enrichMutation.isPending}
               data-testid={`button-find-contacts-${prospect.id}`}
@@ -705,7 +705,7 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
               <div className="space-y-1">
                 {signals.map((s, i) => (
                   <div key={i} className="flex items-start gap-2">
-                    <Signal className="w-3 h-3 text-[#a2a3e9] mt-0.5 shrink-0" />
+                    <Signal className="w-3 h-3 text-teal-300 mt-0.5 shrink-0" />
                     <p className="text-xs text-white/60">{s}</p>
                   </div>
                 ))}
@@ -723,7 +723,7 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
                 {matchedProducts.map((slug) => (
                   <Badge
                     key={slug}
-                    className="bg-[#696aac]/15 text-[#a2a3e9] border-[#696aac]/30 text-[10px]"
+                    className="bg-teal-500/15 text-teal-300 border-teal-500/30 text-[10px]"
                   >
                     {slug}
                   </Badge>
@@ -741,7 +741,7 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs gap-1 border-white/10 text-white/50 hover:text-white/80 hover:border-[#696aac]/40 hover:bg-[#696aac]/5"
+                className="h-7 text-xs gap-1 border-white/10 text-white/50 hover:text-white/80 hover:border-teal-500/40 hover:bg-teal-500/5"
                 onClick={() => enrichMutation.mutate()}
                 disabled={enrichMutation.isPending}
                 data-testid={`button-refresh-contacts-${prospect.id}`}
@@ -784,7 +784,7 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
                   onClick={() => store.updateProspectStatus(prospect.id, s)}
                   className={`text-[10px] px-2.5 py-1 rounded-md border transition-all ${
                     prospect.status === s
-                      ? "bg-[#696aac]/20 text-[#a2a3e9] border-[#696aac]/40"
+                      ? "bg-teal-500/20 text-teal-300 border-teal-500/40"
                       : "border-white/10 text-white/30 hover:text-white/60 hover:border-white/20"
                   }`}
                   data-testid={`button-status-${s}-${prospect.id}`}
@@ -806,7 +806,7 @@ function LoadingSkeleton() {
       {[...Array(5)].map((_, i) => (
         <div
           key={i}
-          className="rounded-xl border border-l-2 border-l-[#696aac]/30 border-white/[0.08] bg-black/40 backdrop-blur-md p-5"
+          className="rounded-xl border border-l-2 border-l-teal-500/30 border-white/[0.08] bg-black/40 backdrop-blur-md p-5"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 space-y-3">
@@ -832,7 +832,7 @@ function LoadingSkeleton() {
                   <Skeleton className="h-2 w-24 bg-white/5" />
                 </div>
               </div>
-              <Skeleton className="h-7 w-28 rounded-md bg-[#696aac]/10" />
+              <Skeleton className="h-7 w-28 rounded-md bg-teal-500/10" />
             </div>
           </div>
         </div>
@@ -843,7 +843,7 @@ function LoadingSkeleton() {
 
 function TitleBadge({ title, onRemove }: { title: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#696aac]/15 text-[#a2a3e9] border border-[#696aac]/30 text-xs">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-300 border border-teal-500/30 text-xs">
       {title}
       <button onClick={onRemove} className="hover:text-white transition-colors ml-0.5">
         <X className="w-2.5 h-2.5" />
@@ -985,11 +985,11 @@ export default function ProspectEngine() {
     <div className="space-y-6">
       {/* ── Page Header ─────────────────────────────────────────────────── */}
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-[#696aac]/10 border border-[#696aac]/20 flex items-center justify-center shrink-0">
-          <Radar className="w-6 h-6 text-[#a2a3e9]" />
+        <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+          <Radar className="w-6 h-6 text-teal-300" />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-white/95">Prospect Engine</h1>
+          <h1 className="text-xl font-bold text-white/95">ATOM Prospect</h1>
           <p className="text-sm text-white/40 mt-0.5">
             AI-powered prospect discovery · Apollo Pro + Hunter.io + PDL enrichment
           </p>
@@ -999,7 +999,7 @@ export default function ProspectEngine() {
             <Button
               variant="outline"
               size="sm"
-              className="h-8 text-xs gap-1.5 border-white/10 text-white/50 hover:text-white/80 hover:border-[#696aac]/40"
+              className="h-8 text-xs gap-1.5 border-white/10 text-white/50 hover:text-white/80 hover:border-teal-500/40"
               onClick={clearResults}
               data-testid="button-new-search"
             >
@@ -1024,8 +1024,8 @@ export default function ProspectEngine() {
             size="sm"
             className={`h-8 text-xs gap-1.5 border-white/10 transition-all ${
               showHistory
-                ? "bg-[#696aac]/10 border-[#696aac]/40 text-[#a2a3e9]"
-                : "text-white/50 hover:text-white/80 hover:border-[#696aac]/40"
+                ? "bg-teal-500/10 border-teal-500/40 text-teal-300"
+                : "text-white/50 hover:text-white/80 hover:border-teal-500/40"
             }`}
             onClick={() => setShowHistory(!showHistory)}
             data-testid="button-toggle-history"
@@ -1033,7 +1033,7 @@ export default function ProspectEngine() {
             <History className="w-3.5 h-3.5" />
             History
             {localHistory.length > 0 && (
-              <span className="bg-[#696aac] text-white text-[9px] rounded-full px-1.5 py-0 leading-4 font-medium">
+              <span className="bg-teal-600 text-white text-[9px] rounded-full px-1.5 py-0 leading-4 font-medium">
                 {localHistory.length}
               </span>
             )}
@@ -1056,7 +1056,7 @@ export default function ProspectEngine() {
               {localHistory.map((entry) => (
                 <div
                   key={entry.id}
-                  className="rounded-xl border border-l-2 border-l-[#696aac] border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden"
+                  className="rounded-xl border border-l-2 border-l-teal-500 border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden"
                 >
                   <button
                     className="w-full text-left p-4 hover:bg-white/[0.02] transition-colors"
@@ -1130,7 +1130,7 @@ export default function ProspectEngine() {
                               {[
                                 { label: "Hot", count: h, color: "text-rose-400 border-l-rose-500" },
                                 { label: "Warm", count: w, color: "text-amber-400 border-l-amber-500" },
-                                { label: "Cold", count: c, color: "text-[#a2a3e9] border-l-[#696aac]" },
+                                { label: "Cold", count: c, color: "text-teal-300 border-l-teal-500" },
                                 { label: "Contacts", count: tc, color: "text-emerald-400 border-l-emerald-500" },
                               ].map((stat) => (
                                 <div
@@ -1153,7 +1153,7 @@ export default function ProspectEngine() {
                       {/* Re-load button */}
                       <Button
                         size="sm"
-                        className="w-full h-8 text-xs gap-1.5 bg-[#696aac] hover:bg-[#7b7cb8] border-0"
+                        className="w-full h-8 text-xs gap-1.5 bg-teal-600 hover:bg-teal-500 border-0"
                         onClick={() => {
                           store.addProspects(entry.prospects);
                           setHasSearched(true);
@@ -1197,7 +1197,7 @@ export default function ProspectEngine() {
           <div className="rounded-xl border border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden">
             {/* Filter header */}
             <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.06]">
-              <SlidersHorizontal className="w-4 h-4 text-[#a2a3e9]" />
+              <SlidersHorizontal className="w-4 h-4 text-teal-300" />
               <span className="text-sm font-medium text-white/80">Search Filters</span>
               {(filters.industry !== "All Industries" ||
                 filters.geo !== "All US" ||
@@ -1346,8 +1346,8 @@ export default function ProspectEngine() {
                   type="text"
                   value={filters.productFocus}
                   onChange={(e) => setFilter("productFocus", e.target.value)}
-                  placeholder="e.g. Akamai, Five9, TierPoint, Antimatter AI, ATOM Enterprise..."
-                  className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-[#696aac]/50 focus:border-[#696aac]/50 transition-all"
+                  placeholder="e.g. Akamai, Five9, TierPoint, ATOM, ATOM Enterprise..."
+                  className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
                   data-testid="input-product-focus"
                 />
               </div>
@@ -1371,7 +1371,7 @@ export default function ProspectEngine() {
                         }
                       }}
                       placeholder="Type a title and press Enter, or pick below..."
-                      className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-[#696aac]/50 focus:border-[#696aac]/50 transition-all"
+                      className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
                       data-testid="input-job-title"
                     />
                   </div>
@@ -1384,7 +1384,7 @@ export default function ProspectEngine() {
                       <button
                         key={title}
                         onClick={() => addTitle(title)}
-                        className="text-[10px] px-2 py-0.5 rounded border border-white/10 text-white/30 hover:text-[#a2a3e9] hover:border-[#696aac]/40 hover:bg-[#696aac]/5 transition-all"
+                        className="text-[10px] px-2 py-0.5 rounded border border-white/10 text-white/30 hover:text-teal-300 hover:border-teal-500/40 hover:bg-teal-500/5 transition-all"
                         data-testid={`button-add-title-${title}`}
                       >
                         + {title}
@@ -1415,7 +1415,7 @@ export default function ProspectEngine() {
                     value={filters.techStack}
                     onChange={(e) => setFilter("techStack", e.target.value)}
                     placeholder="e.g. companies using Salesforce, AWS, SAP..."
-                    className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-[#696aac]/50 focus:border-[#696aac]/50 transition-all"
+                    className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
                     data-testid="input-tech-stack"
                   />
                 </div>
@@ -1430,7 +1430,7 @@ export default function ProspectEngine() {
                     value={filters.keywords}
                     onChange={(e) => setFilter("keywords", e.target.value)}
                     placeholder="e.g. digital transformation, AI adoption, IPO..."
-                    className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-[#696aac]/50 focus:border-[#696aac]/50 transition-all"
+                    className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
                     data-testid="input-keywords"
                   />
                 </div>
@@ -1441,7 +1441,7 @@ export default function ProspectEngine() {
                 <Button
                   onClick={() => scanMutation.mutate()}
                   disabled={scanMutation.isPending}
-                  className="flex-1 sm:flex-none sm:w-44 h-10 bg-[#696aac] hover:bg-[#7b7cb8] border-0 font-medium transition-colors shadow-lg shadow-[#696aac]/20"
+                  className="flex-1 sm:flex-none sm:w-44 h-10 bg-teal-600 hover:bg-teal-500 border-0 font-medium transition-colors shadow-lg shadow-teal-500/20"
                   data-testid="button-scan-prospects"
                 >
                   {scanMutation.isPending ? (
@@ -1472,13 +1472,13 @@ export default function ProspectEngine() {
 
               {/* Scanning progress indicator */}
               {scanMutation.isPending && (
-                <div className="mt-1 p-3 rounded-lg border border-[#696aac]/20 bg-[#696aac]/5">
-                  <div className="flex items-center gap-2 text-sm text-[#a2a3e9]">
+                <div className="mt-1 p-3 rounded-lg border border-teal-500/20 bg-teal-500/5">
+                  <div className="flex items-center gap-2 text-sm text-teal-300">
                     <div className="flex gap-0.5">
                       {[0, 1, 2].map((i) => (
                         <div
                           key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-[#696aac] animate-bounce"
+                          className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce"
                           style={{ animationDelay: `${i * 0.15}s` }}
                         />
                       ))}
@@ -1498,7 +1498,7 @@ export default function ProspectEngine() {
               {[
                 { label: "Hot (75+)", count: hot.length, color: "text-rose-400", border: "border-l-rose-500" },
                 { label: "Warm (50-74)", count: warm.length, color: "text-amber-400", border: "border-l-amber-500" },
-                { label: "Cold (<50)", count: cold.length, color: "text-[#a2a3e9]", border: "border-l-[#696aac]" },
+                { label: "Cold (<50)", count: cold.length, color: "text-teal-300", border: "border-l-teal-500" },
                 { label: "Contacts", count: totalContacts, color: "text-emerald-400", border: "border-l-emerald-500" },
               ].map((stat) => (
                 <div
@@ -1552,7 +1552,7 @@ export default function ProspectEngine() {
                         onClick={() => setCurrentPage(i + 1)}
                         className={`w-8 h-8 text-xs rounded-md border transition-all ${
                           currentPage === i + 1
-                            ? "bg-[#696aac]/20 border-[#696aac]/40 text-[#a2a3e9]"
+                            ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
                             : "border-white/10 text-white/30 hover:text-white/60 hover:border-white/20"
                         }`}
                         data-testid={`button-page-${i + 1}`}
@@ -1579,7 +1579,7 @@ export default function ProspectEngine() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 text-sm gap-2 border-[#696aac]/30 text-[#a2a3e9] hover:bg-[#696aac]/10 hover:border-[#696aac]/50"
+                  className="h-9 text-sm gap-2 border-teal-500/30 text-teal-300 hover:bg-teal-500/10 hover:border-teal-500/50"
                   onClick={() => scanMutation.mutate()}
                   disabled={scanMutation.isPending}
                   data-testid="button-load-more"
@@ -1599,8 +1599,8 @@ export default function ProspectEngine() {
           {!scanMutation.isPending && (!hasSearched || prospects.length === 0) && (
             <div className="rounded-xl border border-white/[0.08] bg-black/40 backdrop-blur-md">
               <div className="flex flex-col items-center justify-center py-24 text-white/20">
-                <div className="w-16 h-16 rounded-2xl bg-[#696aac]/10 border border-[#696aac]/20 flex items-center justify-center mb-4">
-                  <Radar className="w-8 h-8 text-[#696aac]/60" />
+                <div className="w-16 h-16 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mb-4">
+                  <Radar className="w-8 h-8 text-teal-400/60" />
                 </div>
                 <p className="text-sm text-white/30 mb-1">No prospects yet</p>
                 <p className="text-xs text-white/20">

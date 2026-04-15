@@ -146,7 +146,7 @@ const EFFORT_COLORS: Record<string, string> = {
 };
 
 const OWNER_COLORS: Record<string, string> = {
-  "AE":         "bg-[#696aac]/15 text-[#a2a3e9] border-[#696aac]/25",
+  "AE":         "bg-teal-500/15 text-teal-300 border-teal-500/25",
   "SDR":        "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
   "CSM":        "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   "Leadership": "bg-amber-500/10 text-amber-400 border-amber-500/20",
@@ -246,7 +246,7 @@ function SentimentGauge({ sentiment }: { sentiment: MarketSentiment }) {
 
 function OpportunityBar({ opportunity }: { opportunity: Opportunity }) {
   const score = opportunity.score;
-  const color = score >= 80 ? "#696aac" : score >= 60 ? "#22c55e" : "#f59e0b";
+  const color = score >= 80 ? "#0d9488" : score >= 60 ? "#22c55e" : "#f59e0b";
   return (
     <div className="group flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/[0.02] transition-colors">
       <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold text-white/40 border border-white/10">
@@ -411,7 +411,7 @@ export default function MarketIntent() {
           <Shield className="w-5 h-5 text-emerald-400" />
         </div>
         <div className="flex-1">
-          <h1 className="text-xl font-semibold text-white">Market Intent</h1>
+          <h1 className="text-xl font-semibold text-white">ATOM Market Intent</h1>
           <p className="text-sm text-white/40">AI-powered market intelligence and buying signal detection</p>
         </div>
         <div className="flex items-center gap-2">
@@ -790,8 +790,8 @@ export default function MarketIntent() {
                 {activeTab === "actions" && (
                   <div className="space-y-2">
                     {activeResult.actionItems?.length > 0 ? activeResult.actionItems.map((item, i) => (
-                      <div key={i} className="rounded-xl bg-black/40 backdrop-blur-md border border-white/[0.07] p-4 flex items-start gap-3 hover:border-[#696aac]/15 transition-all group">
-                        <div className="w-6 h-6 rounded-full bg-[#696aac]/15 border border-[#696aac]/20 flex items-center justify-center shrink-0 text-[10px] font-bold text-[#a2a3e9]">
+                      <div key={i} className="rounded-xl bg-black/40 backdrop-blur-md border border-white/[0.07] p-4 flex items-start gap-3 hover:border-teal-500/15 transition-all group">
+                        <div className="w-6 h-6 rounded-full bg-teal-500/15 border border-teal-500/20 flex items-center justify-center shrink-0 text-[10px] font-bold text-teal-300">
                           {item.priority}
                         </div>
                         <div className="flex-1 min-w-0">

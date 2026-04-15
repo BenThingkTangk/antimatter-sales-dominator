@@ -146,8 +146,8 @@ const S = {
   } as React.CSSProperties,
 
   primaryBtn: {
-    background: "linear-gradient(93.92deg, #8587e3 -13.51%, #4c4dac 40.91%, #696aac 113.69%)",
-    boxShadow: "0px 0px 10px #696aac, inset 0px 0px 2px rgba(255,255,255,0.61)",
+    background: "linear-gradient(93.92deg, #14b8a6 -13.51%, #0f766e 40.91%, #0d9488 113.69%)",
+    boxShadow: "0px 0px 10px #0d9488, inset 0px 0px 2px rgba(255,255,255,0.61)",
     border: "none",
     borderRadius: 40,
     color: "#fff",
@@ -159,9 +159,9 @@ const S = {
 
   secondaryBtn: {
     background: "transparent",
-    border: "2px solid #8587e3",
+    border: "2px solid #14b8a6",
     borderRadius: 40,
-    color: "#a2a3e9",
+    color: "#5eead4",
     fontWeight: 600,
     cursor: "pointer",
     fontFamily: "inherit",
@@ -192,13 +192,13 @@ const S = {
     marginBottom: 6,
   } as React.CSSProperties,
 
-  accentText: { color: "#a2a3e9" } as React.CSSProperties,
-  highlightText: { color: "#c7c8f2" } as React.CSSProperties,
+  accentText: { color: "#5eead4" } as React.CSSProperties,
+  highlightText: { color: "#ccfbf1" } as React.CSSProperties,
   mutedText: { color: "rgba(246,246,253,0.5)" } as React.CSSProperties,
 };
 
 function getGaugeColor(score: number): string {
-  if (score >= 60) return "#696aac";
+  if (score >= 60) return "#0d9488";
   if (score >= 30) return "#f59e0b";
   return "#ef4444";
 }
@@ -218,7 +218,7 @@ function getStatusColor(status: TargetStatus): string {
 function getDispositionColor(d: Disposition): string {
   switch (d) {
     case "qualified": return "#22c55e";
-    case "hot_lead": return "#696aac";
+    case "hot_lead": return "#0d9488";
     case "not_interested": return "#ef4444";
     case "no_answer": return "#6b7280";
     case "callback": return "#f59e0b";
@@ -268,7 +268,7 @@ function getPhaseBadgeStyle(phase: Phase): React.CSSProperties {
   switch (phase) {
     case "setup": return { ...base, background: "rgba(107,114,128,0.15)", color: "#9ca3af", border: "1px solid rgba(107,114,128,0.3)" };
     case "researching": return { ...base, background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" };
-    case "review": return { ...base, background: "rgba(105,106,172,0.18)", color: "#a2a3e9", border: "1px solid rgba(105,106,172,0.4)" };
+    case "review": return { ...base, background: "rgba(13,148,136,0.18)", color: "#5eead4", border: "1px solid rgba(13,148,136,0.4)" };
     case "active": return { ...base, background: "rgba(34,197,94,0.12)", color: "#4ade80", border: "1px solid rgba(34,197,94,0.3)" };
     case "paused": return { ...base, background: "rgba(245,158,11,0.12)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" };
     case "complete": return { ...base, background: "rgba(59,130,246,0.12)", color: "#93c5fd", border: "1px solid rgba(59,130,246,0.3)" };
@@ -287,9 +287,9 @@ function ToastContainer({ toasts, onRemove }: { toasts: ToastMsg[]; onRemove: (i
           style={{
             display: "flex", alignItems: "center", gap: 10,
             padding: "12px 16px", borderRadius: 10,
-            backgroundColor: t.type === "error" ? "rgba(239,68,68,0.12)" : t.type === "success" ? "rgba(34,197,94,0.12)" : "rgba(105,106,172,0.15)",
-            border: `1px solid ${t.type === "error" ? "rgba(239,68,68,0.35)" : t.type === "success" ? "rgba(34,197,94,0.35)" : "rgba(105,106,172,0.4)"}`,
-            color: t.type === "error" ? "#fca5a5" : t.type === "success" ? "#86efac" : "#c7c8f2",
+            backgroundColor: t.type === "error" ? "rgba(239,68,68,0.12)" : t.type === "success" ? "rgba(34,197,94,0.12)" : "rgba(13,148,136,0.15)",
+            border: `1px solid ${t.type === "error" ? "rgba(239,68,68,0.35)" : t.type === "success" ? "rgba(34,197,94,0.35)" : "rgba(13,148,136,0.4)"}`,
+            color: t.type === "error" ? "#fca5a5" : t.type === "success" ? "#86efac" : "#ccfbf1",
             fontSize: 13, maxWidth: 360,
             boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
             backdropFilter: "blur(12px)",
@@ -321,7 +321,7 @@ function getIntentLabel(score: number): string {
 }
 
 function getSentimentArcColor(score: number): string {
-  if (score >= 80) return "url(#sentGradPurple)";
+  if (score >= 80) return "url(#sentGradTeal2)";
   if (score >= 60) return "url(#sentGradGreen)";
   if (score >= 30) return "url(#sentGradAmber)";
   return "url(#sentGradRed)";
@@ -379,7 +379,7 @@ function RadialGauge({
     red: "sentGradRed",
     amber: "sentGradAmber",
     green: "sentGradGreen",
-    purple: "sentGradPurple",
+    purple: "sentGradTeal2",
   };
   const intIds = {
     red: "intGradRed",
@@ -389,7 +389,7 @@ function RadialGauge({
   };
 
   const scoreColor =
-    score >= 80 ? (variant === "sentiment" ? "#a2a3e9" : "#4ade80")
+    score >= 80 ? (variant === "sentiment" ? "#5eead4" : "#4ade80")
     : score >= 60 ? (variant === "sentiment" ? "#22c55e" : "#14b8a6")
     : score >= 30 ? "#f59e0b"
     : "#ef4444";
@@ -401,7 +401,7 @@ function RadialGauge({
         height={size * 0.65}
         viewBox={`0 0 ${size} ${size * 0.65}`}
         style={{
-          filter: hot ? "drop-shadow(0 0 10px rgba(105,106,172,0.7))" : "drop-shadow(0 0 6px rgba(105,106,172,0.3))",
+          filter: hot ? "drop-shadow(0 0 10px rgba(13,148,136,0.7))" : "drop-shadow(0 0 6px rgba(13,148,136,0.3))",
           overflow: "visible",
           display: "block",
           transition: "filter 0.8s cubic-bezier(0.4,0,0.2,1)",
@@ -423,8 +423,8 @@ function RadialGauge({
                 <stop offset="100%" stopColor="#4ade80" />
               </linearGradient>
               <linearGradient id={sentIds.purple} x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#696aac" />
-                <stop offset="100%" stopColor="#a2a3e9" />
+                <stop offset="0%" stopColor="#0d9488" />
+                <stop offset="100%" stopColor="#5eead4" />
               </linearGradient>
             </>
           ) : (
@@ -439,7 +439,7 @@ function RadialGauge({
               </linearGradient>
               <linearGradient id={intIds.teal} x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#14b8a6" />
-                <stop offset="100%" stopColor="#696aac" />
+                <stop offset="100%" stopColor="#0d9488" />
               </linearGradient>
               <linearGradient id={intIds.green} x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#22c55e" />
@@ -515,8 +515,8 @@ function RadialGauge({
 // ─── Emotion Dimension Bars ───────────────────────────────────────────────────
 
 const EMOTION_COLORS: Record<string, string> = {
-  Confidence: "#696aac",
-  Interest: "#a2a3e9",
+  Confidence: "#0d9488",
+  Interest: "#5eead4",
   Skepticism: "#f59e0b",
   Excitement: "#22c55e",
   Frustration: "#ef4444",
@@ -581,7 +581,7 @@ function CallStageTimeline({ currentStage }: { currentStage: string }) {
       {CALL_STAGES.map((stage, i) => {
         const isActive = i === currentIdx;
         const isComplete = i < currentIdx;
-        const color = isComplete ? "#696aac" : isActive ? "#a2a3e9" : "rgba(246,246,253,0.2)";
+        const color = isComplete ? "#0d9488" : isActive ? "#5eead4" : "rgba(246,246,253,0.2)";
         const isLast = i === CALL_STAGES.length - 1;
 
         return (
@@ -599,7 +599,7 @@ function CallStageTimeline({ currentStage }: { currentStage: string }) {
                 height: 22,
                 borderRadius: "50%",
                 border: `2px solid ${color}`,
-                backgroundColor: isActive ? "rgba(162,163,233,0.18)" : isComplete ? "rgba(105,106,172,0.3)" : "transparent",
+                backgroundColor: isActive ? "rgba(162,163,233,0.18)" : isComplete ? "rgba(13,148,136,0.3)" : "transparent",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -609,10 +609,10 @@ function CallStageTimeline({ currentStage }: { currentStage: string }) {
               }}>
                 {isComplete ? (
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M2 5l2.5 2.5L8 3" stroke="#696aac" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M2 5l2.5 2.5L8 3" stroke="#0d9488" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ) : (
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: isActive ? "#a2a3e9" : "rgba(246,246,253,0.15)", transition: "background 0.4s ease" }} />
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: isActive ? "#5eead4" : "rgba(246,246,253,0.15)", transition: "background 0.4s ease" }} />
                 )}
               </div>
               <span style={{
@@ -632,7 +632,7 @@ function CallStageTimeline({ currentStage }: { currentStage: string }) {
                 <div style={{
                   height: "100%",
                   width: isComplete ? "100%" : isActive ? "50%" : "0%",
-                  background: "linear-gradient(90deg, #696aac, #a2a3e9)",
+                  background: "linear-gradient(90deg, #0d9488, #5eead4)",
                   borderRadius: 1,
                   transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)",
                 }} />
@@ -700,8 +700,8 @@ function SentimentSparkline({ points }: { points: SentimentPoint[] }) {
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       <defs>
         <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#696aac" stopOpacity="0.45" />
-          <stop offset="100%" stopColor="#696aac" stopOpacity="0.02" />
+          <stop offset="0%" stopColor="#0d9488" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#0d9488" stopOpacity="0.02" />
         </linearGradient>
       </defs>
       {/* Horizontal guide lines */}
@@ -717,7 +717,7 @@ function SentimentSparkline({ points }: { points: SentimentPoint[] }) {
         <path d={pathD} fill="url(#sparkFill)" />
       )}
       {linePath && (
-        <path d={linePath} fill="none" stroke="#a2a3e9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={linePath} fill="none" stroke="#5eead4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       )}
       {points.length >= 2 && (() => {
         const maxTime = Math.max(...points.map((p) => p.time));
@@ -732,8 +732,8 @@ function SentimentSparkline({ points }: { points: SentimentPoint[] }) {
             cx={xScale(last.time)}
             cy={yScale(last.score)}
             r={3}
-            fill="#a2a3e9"
-            style={{ filter: "drop-shadow(0 0 4px #696aac)" }}
+            fill="#5eead4"
+            style={{ filter: "drop-shadow(0 0 4px #0d9488)" }}
           />
         );
       })()}
@@ -758,10 +758,10 @@ function BuyingSignalsBadges({ signals }: { signals: string[] }) {
             borderRadius: 999,
             fontSize: 11,
             fontWeight: 500,
-            backgroundColor: "rgba(105,106,172,0.15)",
-            border: "1px solid rgba(105,106,172,0.45)",
-            color: "#c7c8f2",
-            boxShadow: "0 0 8px rgba(105,106,172,0.2)",
+            backgroundColor: "rgba(13,148,136,0.15)",
+            border: "1px solid rgba(13,148,136,0.45)",
+            color: "#ccfbf1",
+            boxShadow: "0 0 8px rgba(13,148,136,0.2)",
             animation: "slideIn 0.4s ease forwards",
             whiteSpace: "nowrap",
           }}
@@ -824,7 +824,7 @@ function PhaseSetup({
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
       <div style={S.card}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#c7c8f2", marginBottom: 4, marginTop: 0 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#ccfbf1", marginBottom: 4, marginTop: 0 }}>
           New Campaign
         </h2>
         <p style={{ ...S.mutedText, fontSize: 14, marginTop: 0, marginBottom: 28 }}>
@@ -920,8 +920,8 @@ function PhaseSetup({
               opacity: loading || !form.brief.trim() ? 0.6 : 1,
               cursor: loading || !form.brief.trim() ? "not-allowed" : "pointer",
             }}
-            onMouseEnter={(e) => { if (!loading && form.brief.trim()) e.currentTarget.style.boxShadow = "0px 0px 25px #696aac, inset 0px 0px 6.7px rgba(255,255,255,0.9)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0px 0px 10px #696aac, inset 0px 0px 2px rgba(255,255,255,0.61)"; }}
+            onMouseEnter={(e) => { if (!loading && form.brief.trim()) e.currentTarget.style.boxShadow = "0px 0px 25px #0d9488, inset 0px 0px 6.7px rgba(255,255,255,0.9)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0px 0px 10px #0d9488, inset 0px 0px 2px rgba(255,255,255,0.61)"; }}
           >
             {loading ? "Researching…" : "Research Targets"}
           </button>
@@ -947,28 +947,28 @@ function PhaseResearching() {
         <div style={{ width: 72, height: 72, margin: "0 auto 28px", position: "relative" }}>
           <div style={{
             width: 72, height: 72, borderRadius: "50%",
-            border: "2px solid rgba(105,106,172,0.4)",
+            border: "2px solid rgba(13,148,136,0.4)",
             position: "absolute", inset: 0,
             animation: "spin 3s linear infinite",
           }} />
           <div style={{
             width: 72, height: 72, borderRadius: "50%",
             border: "2px solid transparent",
-            borderTopColor: "#8587e3",
+            borderTopColor: "#14b8a6",
             position: "absolute", inset: 0,
             animation: "spin 1.5s linear infinite",
           }} />
           <div style={{
             position: "absolute", inset: "22px",
             borderRadius: "50%",
-            backgroundColor: "rgba(105,106,172,0.25)",
+            backgroundColor: "rgba(13,148,136,0.25)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            <span style={{ color: "#8587e3", fontSize: 14, fontWeight: 700 }}>AI</span>
+            <span style={{ color: "#14b8a6", fontSize: 14, fontWeight: 700 }}>AI</span>
           </div>
         </div>
 
-        <h3 style={{ fontSize: 20, fontWeight: 700, color: "#c7c8f2", margin: "0 0 10px" }}>
+        <h3 style={{ fontSize: 20, fontWeight: 700, color: "#ccfbf1", margin: "0 0 10px" }}>
           ATOM is analyzing sources and building your target list{dots}
         </h3>
         <p style={{ color: "rgba(246,246,253,0.5)", fontSize: 14, margin: 0, lineHeight: 1.6 }}>
@@ -993,7 +993,7 @@ function PhaseResearching() {
               <span style={{
                 width: 18, height: 18, borderRadius: "50%",
                 border: "1.5px solid rgba(105,106,172,0.5)",
-                borderTopColor: "#8587e3",
+                borderTopColor: "#14b8a6",
                 display: "inline-block",
                 animation: `spin ${1 + i * 0.2}s linear infinite`,
                 flexShrink: 0,
@@ -1021,7 +1021,7 @@ function TargetCard({ target }: { target: Target }) {
       {/* Rank badge */}
       <div style={{
         width: 32, height: 32, borderRadius: "50%",
-        background: "linear-gradient(135deg, #8587e3, #4c4dac)",
+        background: "linear-gradient(135deg, #14b8a6, #0f766e)",
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 12, fontWeight: 800, color: "#fff", flexShrink: 0,
       }}>
@@ -1040,14 +1040,14 @@ function TargetCard({ target }: { target: Target }) {
 
         {/* Decision maker */}
         <div style={{ fontSize: 13, color: "rgba(246,246,253,0.75)", marginBottom: 6 }}>
-          <span style={{ color: "#c7c8f2", fontWeight: 600 }}>{target.decisionMaker.name}</span>
+          <span style={{ color: "#ccfbf1", fontWeight: 600 }}>{target.decisionMaker.name}</span>
           {" · "}{target.decisionMaker.title}
           {target.decisionMaker.linkedin && (
             <a
               href={target.decisionMaker.linkedin}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ marginLeft: 8, color: "#a2a3e9", fontSize: 11, textDecoration: "none" }}
+              style={{ marginLeft: 8, color: "#5eead4", fontSize: 11, textDecoration: "none" }}
             >
               LinkedIn ↗
             </a>
@@ -1066,9 +1066,9 @@ function TargetCard({ target }: { target: Target }) {
             <span key={tag} style={{
               padding: "2px 9px", borderRadius: 999,
               fontSize: 11, fontWeight: 500,
-              backgroundColor: "rgba(105,106,172,0.15)",
-              border: "1px solid rgba(105,106,172,0.3)",
-              color: "#a2a3e9",
+              backgroundColor: "rgba(13,148,136,0.15)",
+              border: "1px solid rgba(13,148,136,0.3)",
+              color: "#5eead4",
             }}>
               {tag}
             </span>
@@ -1096,7 +1096,7 @@ function PhaseReview({
     <div className="campaign-review-grid" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, padding: "32px 24px", alignItems: "start" }}>
       {/* Left: target list */}
       <div>
-        <h3 style={{ fontSize: 16, fontWeight: 700, color: "#c7c8f2", margin: "0 0 16px" }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: "#ccfbf1", margin: "0 0 16px" }}>
           {targets.length} Targets Identified
         </h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1107,7 +1107,7 @@ function PhaseReview({
       {/* Right: summary + launch */}
       <div style={{ position: "sticky", top: 24 }}>
         <div style={S.card}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: "#c7c8f2", marginTop: 0, marginBottom: 14 }}>Campaign Summary</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: "#ccfbf1", marginTop: 0, marginBottom: 14 }}>Campaign Summary</h3>
 
           <div style={{ fontSize: 13, color: "rgba(246,246,253,0.65)", marginBottom: 16, lineHeight: 1.6 }}>
             {form.brief.slice(0, 140)}{form.brief.length > 140 ? "…" : ""}
@@ -1123,7 +1123,7 @@ function PhaseReview({
             ].map(({ label, value }) => (
               <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 12, color: "rgba(246,246,253,0.45)" }}>{label}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#c7c8f2" }}>{value}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#ccfbf1" }}>{value}</span>
               </div>
             ))}
           </div>
@@ -1133,8 +1133,8 @@ function PhaseReview({
           <button
             onClick={onLaunch}
             style={{ ...S.primaryBtn, width: "100%", padding: "13px", fontSize: 15, marginBottom: 10 }}
-            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0px 0px 25px #696aac, inset 0px 0px 6.7px rgba(255,255,255,0.9)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0px 0px 10px #696aac, inset 0px 0px 2px rgba(255,255,255,0.61)"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0px 0px 25px #0d9488, inset 0px 0px 6.7px rgba(255,255,255,0.9)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0px 0px 10px #0d9488, inset 0px 0px 2px rgba(255,255,255,0.61)"; }}
           >
             Launch Campaign
           </button>
@@ -1203,21 +1203,21 @@ function LiveCallPanel({
       <div style={{
         ...S.cardSmall,
         padding: "14px 18px",
-        borderColor: live.targetId ? "rgba(105,106,172,0.25)" : "rgba(246,246,253,0.08)",
+        borderColor: live.targetId ? "rgba(13,148,136,0.25)" : "rgba(246,246,253,0.08)",
       }}>
         {live.targetId ? (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(246,246,253,0.4)", marginBottom: 5 }}>Live Call</div>
               <div style={{ fontSize: 17, fontWeight: 700, color: "#f6f6fd", marginBottom: 2 }}>{live.companyName}</div>
-              <div style={{ fontSize: 13, color: "#a2a3e9" }}>
+              <div style={{ fontSize: 13, color: "#5eead4" }}>
                 {live.contactName}
                 {live.contactTitle && <span style={{ color: "rgba(246,246,253,0.45)" }}> · {live.contactTitle}</span>}
               </div>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
               <div style={{ fontSize: 11, color: "rgba(246,246,253,0.35)", marginBottom: 3, letterSpacing: "0.06em" }}>DURATION</div>
-              <div style={{ fontSize: 20, fontWeight: 300, color: "#c7c8f2", letterSpacing: "0.05em", fontVariantNumeric: "tabular-nums" }}>
+              <div style={{ fontSize: 20, fontWeight: 300, color: "#ccfbf1", letterSpacing: "0.05em", fontVariantNumeric: "tabular-nums" }}>
                 {formatDuration(callDuration)}
               </div>
             </div>
@@ -1262,9 +1262,9 @@ function LiveCallPanel({
               fontSize: 9,
               fontWeight: 700,
               letterSpacing: "0.08em",
-              background: "linear-gradient(93.92deg, #8587e3, #4c4dac)",
+              background: "linear-gradient(93.92deg, #14b8a6, #0f766e)",
               color: "#fff",
-              boxShadow: "0 0 10px rgba(105,106,172,0.6)",
+              boxShadow: "0 0 10px rgba(13,148,136,0.6)",
               animation: "hotPulse 1.5s ease infinite",
               zIndex: 1,
             }}>HOT</div>
@@ -1342,13 +1342,13 @@ function LiveCallPanel({
                 <div key={i} style={{
                   padding: "10px 14px",
                   borderRadius: 8,
-                  backgroundColor: isAtom ? "rgba(105,106,172,0.12)" : "rgba(246,246,253,0.03)",
-                  border: `1px solid ${isAtom ? "rgba(105,106,172,0.3)" : "rgba(246,246,253,0.08)"}`,
+                  backgroundColor: isAtom ? "rgba(13,148,136,0.12)" : "rgba(246,246,253,0.03)",
+                  border: `1px solid ${isAtom ? "rgba(13,148,136,0.3)" : "rgba(246,246,253,0.08)"}`,
                 }}>
                   <div style={{
                     fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
                     textTransform: "uppercase",
-                    color: isAtom ? "#a2a3e9" : "rgba(246,246,253,0.4)",
+                    color: isAtom ? "#5eead4" : "rgba(246,246,253,0.4)",
                     marginBottom: 5,
                   }}>{line.speaker}</div>
                   <div style={{ fontSize: 13, color: "#f6f6fd", lineHeight: 1.6 }}>{line.text}</div>
@@ -1407,12 +1407,12 @@ function CampSparkline({ points, idSuffix = "" }: { points: SentimentPoint[]; id
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#696aac" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#696aac" stopOpacity="0.02" />
+          <stop offset="0%" stopColor="#0d9488" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#0d9488" stopOpacity="0.02" />
         </linearGradient>
       </defs>
       <path d={areaPath} fill={`url(#${gradId})`} />
-      <path d={linePath} fill="none" stroke="#a2a3e9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={linePath} fill="none" stroke="#5eead4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -1438,11 +1438,11 @@ function CampaignHistoryCard({
     <div
       style={{
         backgroundColor: "rgba(246,246,253,0.03)",
-        border: `1px solid ${isExpanded ? "#696aac" : "rgba(246,246,253,0.08)"}`,
+        border: `1px solid ${isExpanded ? "#0d9488" : "rgba(246,246,253,0.08)"}`,
         borderLeft: `3px solid ${leftBorder}`,
         borderRadius: 10,
         overflow: "hidden",
-        boxShadow: isExpanded ? "0 0 16px rgba(105,106,172,0.12)" : "none",
+        boxShadow: isExpanded ? "0 0 16px rgba(13,148,136,0.12)" : "none",
         transition: "box-shadow 0.2s ease, border-color 0.2s ease",
       }}
     >
@@ -1480,7 +1480,7 @@ function CampaignHistoryCard({
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(246,246,253,0.35)", marginBottom: 2 }}>Intent</div>
-            <div style={{ fontSize: 18, fontWeight: 300, color: "#a2a3e9" }}>{entry.intent}</div>
+            <div style={{ fontSize: 18, fontWeight: 300, color: "#5eead4" }}>{entry.intent}</div>
           </div>
           <div style={{ color: "rgba(246,246,253,0.35)", fontSize: 14, lineHeight: 1 }}>{isExpanded ? "▲" : "▼"}</div>
         </div>
@@ -1563,9 +1563,9 @@ function CampaignHistoryCard({
                       key={i}
                       style={{
                         padding: "4px 11px", borderRadius: 999, fontSize: 11, fontWeight: 500,
-                        backgroundColor: "rgba(105,106,172,0.15)",
-                        border: "1px solid rgba(105,106,172,0.45)",
-                        color: "#c7c8f2",
+                        backgroundColor: "rgba(13,148,136,0.15)",
+                        border: "1px solid rgba(13,148,136,0.45)",
+                        color: "#ccfbf1",
                       }}
                     >
                       {sig}
@@ -1589,11 +1589,11 @@ function CampaignHistoryCard({
                     return (
                       <div key={i} style={{
                         padding: "8px 12px", borderRadius: 7,
-                        backgroundColor: isAtom ? "rgba(105,106,172,0.12)" : "rgba(246,246,253,0.03)",
-                        border: `1px solid ${isAtom ? "rgba(105,106,172,0.3)" : "rgba(246,246,253,0.06)"}`,
+                        backgroundColor: isAtom ? "rgba(13,148,136,0.12)" : "rgba(246,246,253,0.03)",
+                        border: `1px solid ${isAtom ? "rgba(13,148,136,0.3)" : "rgba(246,246,253,0.06)"}`,
                         fontSize: 12,
                       }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: isAtom ? "#a2a3e9" : "rgba(246,246,253,0.4)", marginBottom: 3 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: isAtom ? "#5eead4" : "rgba(246,246,253,0.4)", marginBottom: 3 }}>
                           {isAtom ? "ATOM" : "Prospect"}
                         </div>
                         <div style={{ color: "#f6f6fd", lineHeight: 1.55 }}>{line.text}</div>
@@ -1644,17 +1644,17 @@ function HotLeadsPanel({ hotLeads }: { hotLeads: HotLead[] }) {
   return (
     <div style={{
       ...S.card,
-      borderColor: "rgba(105,106,172,0.4)",
-      boxShadow: "0 0 24px rgba(105,106,172,0.12)",
+      borderColor: "rgba(13,148,136,0.4)",
+      boxShadow: "0 0 24px rgba(13,148,136,0.12)",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <span style={{ fontSize: 18 }}>🔥</span>
-        <h3 style={{ fontSize: 16, fontWeight: 700, color: "#c7c8f2", margin: 0 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: "#ccfbf1", margin: 0 }}>
           Hot Leads — Score 75+
         </h3>
         <span style={{
           padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700,
-          background: "linear-gradient(93.92deg, #8587e3, #4c4dac)",
+          background: "linear-gradient(93.92deg, #14b8a6, #0f766e)",
           color: "#fff",
         }}>{hotLeads.length}</span>
       </div>
@@ -1663,12 +1663,12 @@ function HotLeadsPanel({ hotLeads }: { hotLeads: HotLead[] }) {
         {hotLeads.map((lead) => (
           <div key={lead.targetId} style={{
             padding: "14px 16px", borderRadius: 10,
-            backgroundColor: "rgba(105,106,172,0.08)",
-            border: "1px solid rgba(105,106,172,0.35)",
-            boxShadow: "0 0 12px rgba(105,106,172,0.08)",
+            backgroundColor: "rgba(13,148,136,0.08)",
+            border: "1px solid rgba(13,148,136,0.35)",
+            boxShadow: "0 0 12px rgba(13,148,136,0.08)",
           }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: "#f6f6fd", marginBottom: 2 }}>{lead.companyName}</div>
-            <div style={{ fontSize: 13, color: "#a2a3e9", marginBottom: 10 }}>{lead.contactName}</div>
+            <div style={{ fontSize: 13, color: "#5eead4", marginBottom: 10 }}>{lead.contactName}</div>
 
             <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
               <div style={{ textAlign: "center" }}>
@@ -1687,7 +1687,7 @@ function HotLeadsPanel({ hotLeads }: { hotLeads: HotLead[] }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                   {lead.buyingSignals.map((s, i) => (
                     <div key={i} style={{ fontSize: 12, color: "rgba(246,246,253,0.7)", display: "flex", gap: 6, alignItems: "flex-start" }}>
-                      <span style={{ color: "#696aac", flexShrink: 0 }}>›</span>
+                      <span style={{ color: "#0d9488", flexShrink: 0 }}>›</span>
                       {s}
                     </div>
                   ))}
@@ -1737,7 +1737,7 @@ function PhaseLiveDashboard({
       {/* Progress bar row */}
       <div style={S.card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "#c7c8f2" }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#ccfbf1" }}>
             Calling {stats.total - stats.remaining} of {stats.total}…
           </div>
           <button
@@ -1760,7 +1760,7 @@ function PhaseLiveDashboard({
         <div style={{ height: 6, borderRadius: 3, backgroundColor: "rgba(246,246,253,0.08)", overflow: "hidden", marginBottom: 16 }}>
           <div style={{
             height: "100%", width: `${pct}%`,
-            background: "linear-gradient(90deg, #8587e3, #696aac)",
+            background: "linear-gradient(90deg, #14b8a6, #0d9488)",
             borderRadius: 3,
             transition: "width 0.8s ease",
           }} />
@@ -1769,10 +1769,10 @@ function PhaseLiveDashboard({
         {/* Stats row */}
         <div className="campaign-stats-bar" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
           {[
-            { label: "Dialed", value: stats.dialed, color: "#c7c8f2" },
-            { label: "Connected", value: stats.connected, color: "#a2a3e9" },
+            { label: "Dialed", value: stats.dialed, color: "#ccfbf1" },
+            { label: "Connected", value: stats.connected, color: "#5eead4" },
             { label: "Qualified", value: stats.qualified, color: "#22c55e" },
-            { label: "Hot Leads", value: stats.hotLeads, color: "#8587e3" },
+            { label: "Hot Leads", value: stats.hotLeads, color: "#14b8a6" },
             { label: "Remaining", value: stats.remaining, color: "rgba(246,246,253,0.4)" },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ textAlign: "center" }}>
@@ -1847,7 +1847,7 @@ function PhaseComplete({
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 40 }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: "#c7c8f2", margin: "0 0 8px" }}>Campaign Complete</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 800, color: "#ccfbf1", margin: "0 0 8px" }}>Campaign Complete</h2>
         <p style={{ color: "rgba(246,246,253,0.5)", margin: 0, fontSize: 15 }}>
           {form.productSlug} · {form.targetGeo}
         </p>
@@ -1864,7 +1864,7 @@ function PhaseComplete({
           { label: "Avg Intent", value: stats.avgIntent },
         ].map(({ label, value }) => (
           <div key={label} style={{ ...S.card, textAlign: "center" }}>
-            <div style={{ fontSize: 36, fontWeight: 800, color: "#c7c8f2", marginBottom: 4 }}>{value}</div>
+            <div style={{ fontSize: 36, fontWeight: 800, color: "#ccfbf1", marginBottom: 4 }}>{value}</div>
             <div style={{ fontSize: 12, color: "rgba(246,246,253,0.45)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
           </div>
         ))}
@@ -1882,8 +1882,8 @@ function PhaseComplete({
         <button
           onClick={handleExport}
           style={{ ...S.primaryBtn, padding: "13px 32px", fontSize: 15 }}
-          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0px 0px 25px #696aac, inset 0px 0px 6.7px rgba(255,255,255,0.9)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0px 0px 10px #696aac, inset 0px 0px 2px rgba(255,255,255,0.61)"; }}
+          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0px 0px 25px #0d9488, inset 0px 0px 6.7px rgba(255,255,255,0.9)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0px 0px 10px #0d9488, inset 0px 0px 2px rgba(255,255,255,0.61)"; }}
         >
           Export Results CSV
         </button>
@@ -2377,6 +2377,8 @@ export default function AtomCampaign() {
         firstName: target.decisionMaker.name.split(" ")[0] || undefined,
         companyName: target.companyName || undefined,
         product: form.productSlug || undefined,
+        campaignId: campaignId || undefined,
+        brief: form.brief ? form.brief.slice(0, 300) : undefined,
       };
 
       const res = await fetch(`${BRIDGE_URL}/call`, {
@@ -2630,7 +2632,7 @@ export default function AtomCampaign() {
       <div style={{
         width: "100%", maxWidth: 860,
         backgroundColor: "#0d0d12",
-        border: "1px solid rgba(105,106,172,0.25)",
+        border: "1px solid rgba(13,148,136,0.25)",
         borderRadius: 16,
         overflow: "hidden",
         boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
@@ -2643,7 +2645,7 @@ export default function AtomCampaign() {
           backgroundColor: "rgba(246,246,253,0.02)",
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#c7c8f2" }}>Call History</h2>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#ccfbf1" }}>Call History</h2>
             <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(246,246,253,0.4)" }}>
               {history.length} {history.length === 1 ? "call" : "calls"} — current session
             </p>
@@ -2697,11 +2699,11 @@ export default function AtomCampaign() {
           50% { transform: scale(2); opacity: 0; }
         }
         @keyframes hotPulse {
-          0%, 100% { box-shadow: 0 0 10px rgba(105,106,172,0.6); }
-          50% { box-shadow: 0 0 20px rgba(105,106,172,1), 0 0 40px rgba(105,106,172,0.4); }
+          0%, 100% { box-shadow: 0 0 10px rgba(13,148,136,0.6); }
+          50% { box-shadow: 0 0 20px rgba(13,148,136,1), 0 0 40px rgba(13,148,136,0.4); }
         }
         @keyframes gaugeGlow {
-          0%, 100% { filter: drop-shadow(0 0 6px rgba(105,106,172,0.3)); }
+          0%, 100% { filter: drop-shadow(0 0 6px rgba(13,148,136,0.3)); }
           50% { filter: drop-shadow(0 0 16px rgba(105,106,172,0.8)); }
         }
         @keyframes slideIn {
@@ -2711,10 +2713,10 @@ export default function AtomCampaign() {
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(105,106,172,0.35); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: rgba(13,148,136,0.35); border-radius: 3px; }
         input, select, textarea { color-scheme: dark; }
         input:focus, select:focus, textarea:focus {
-          border-color: rgba(105,106,172,0.6) !important;
+          border-color: rgba(13,148,136,0.6) !important;
           outline: none;
         }
       `}</style>
@@ -2725,7 +2727,7 @@ export default function AtomCampaign() {
         minHeight: "100vh",
         backgroundColor: "#020202",
         color: "#f6f6fd",
-        fontFamily: "'Plus Jakarta Sans', 'Arial', 'Helvetica', sans-serif",
+        fontFamily: "inherit",
       }}>
         <ToastContainer toasts={toasts} onRemove={removeToast} />
 
@@ -2765,11 +2767,11 @@ export default function AtomCampaign() {
                 fontWeight: 600,
                 cursor: "pointer",
                 fontFamily: "inherit",
-                background: showHistoryOverlay ? "rgba(105,106,172,0.22)" : "transparent",
-                border: showHistoryOverlay ? "1px solid #696aac" : "1px solid rgba(246,246,253,0.15)",
-                color: showHistoryOverlay ? "#a2a3e9" : "rgba(246,246,253,0.6)",
+                background: showHistoryOverlay ? "rgba(13,148,136,0.22)" : "transparent",
+                border: showHistoryOverlay ? "1px solid #0d9488" : "1px solid rgba(246,246,253,0.15)",
+                color: showHistoryOverlay ? "#5eead4" : "rgba(246,246,253,0.6)",
                 transition: "all 0.15s ease",
-                boxShadow: showHistoryOverlay ? "0 0 12px rgba(105,106,172,0.2)" : "none",
+                boxShadow: showHistoryOverlay ? "0 0 12px rgba(13,148,136,0.2)" : "none",
               }}
               onMouseEnter={(e) => { if (!showHistoryOverlay) { e.currentTarget.style.background = "rgba(246,246,253,0.05)"; e.currentTarget.style.color = "rgba(246,246,253,0.8)"; } }}
               onMouseLeave={(e) => { if (!showHistoryOverlay) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(246,246,253,0.6)"; } }}
@@ -2782,8 +2784,8 @@ export default function AtomCampaign() {
               Call History
               {history.length > 0 && (
                 <span style={{
-                  background: "rgba(105,106,172,0.35)",
-                  color: "#a2a3e9",
+                  background: "rgba(13,148,136,0.35)",
+                  color: "#5eead4",
                   fontSize: 10,
                   fontWeight: 700,
                   padding: "1px 6px",

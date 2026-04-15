@@ -30,7 +30,7 @@ function ProductCard({ product }: { product: Product }) {
     "real-estate": "bg-chart-4/15 text-amber-500",
     healthcare: "bg-chart-3/15 text-emerald-500",
     cybersecurity: "bg-chart-5/15 text-rose-500",
-    "enterprise-ai": "bg-purple-500/15 text-purple-500",
+    "enterprise-ai": "bg-purple-500/15 text-purple-400",
   };
 
   return (
@@ -72,12 +72,12 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Zap className="w-5 h-5 text-primary" />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(0,200,200,0.10)" }}>
+            <Zap className="w-5 h-5" style={{ color: "#00c8c8" }} />
           </div>
           <div>
             <h1 className="text-xl font-bold">Command Center</h1>
-            <p className="text-sm text-muted-foreground">Antimatter AI Sales Dominator</p>
+            <p className="text-sm text-muted-foreground">ATOM Sales Dominator</p>
           </div>
         </div>
       </div>
@@ -93,11 +93,11 @@ export default function Dashboard() {
         <Link href="/pitch">
           <Card className="border-border/50 hover:border-primary/50 transition-all cursor-pointer group" data-testid="link-pitch-generator">
             <div className="p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <TrendingUp className="w-4 h-4 text-primary" />
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors" style={{ background: "rgba(0,200,200,0.08)" }}>
+                <TrendingUp className="w-4 h-4" style={{ color: "#00c8c8" }} />
               </div>
               <div>
-                <p className="text-sm font-medium">Pitch Generator</p>
+                <p className="text-sm font-medium">ATOM Pitch</p>
                 <p className="text-xs text-muted-foreground">Create killer pitches</p>
               </div>
             </div>
@@ -110,7 +110,7 @@ export default function Dashboard() {
                 <MessageSquareWarning className="w-4 h-4 text-amber-500" />
               </div>
               <div>
-                <p className="text-sm font-medium">Objection Handler</p>
+                <p className="text-sm font-medium">ATOM Objection Handler</p>
                 <p className="text-xs text-muted-foreground">Destroy pushback</p>
               </div>
             </div>
@@ -123,7 +123,7 @@ export default function Dashboard() {
                 <Shield className="w-4 h-4 text-emerald-500" />
               </div>
               <div>
-                <p className="text-sm font-medium">Market Intent</p>
+                <p className="text-sm font-medium">ATOM Market Intent</p>
                 <p className="text-xs text-muted-foreground">Intelligence & trends</p>
               </div>
             </div>
@@ -136,7 +136,7 @@ export default function Dashboard() {
                 <Radar className="w-4 h-4 text-rose-500" />
               </div>
               <div>
-                <p className="text-sm font-medium">Prospect Engine</p>
+                <p className="text-sm font-medium">ATOM Prospect</p>
                 <p className="text-xs text-muted-foreground">AI-powered pipeline</p>
               </div>
             </div>

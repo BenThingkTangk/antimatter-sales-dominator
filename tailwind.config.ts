@@ -7,7 +7,7 @@ export default {
     extend: {
       borderRadius: {
         lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
+        md: ".375rem",  /* 6px */
         sm: ".1875rem", /* 3px */
       },
       colors: {
@@ -75,6 +75,18 @@ export default {
           foreground: "hsl(var(--sidebar-accent-foreground) / <alpha-value>)",
           border: "var(--sidebar-accent-border)"
         },
+        // ATOM brand teal — direct access
+        teal: {
+          DEFAULT: "#00c8c8",
+          dim: "#00a0a0",
+          glow: "rgba(0,200,200,0.15)",
+          faint: "rgba(0,200,200,0.06)",
+        },
+        // AI agent palette
+        "atom-claude": "#c084fc",
+        "atom-hume": "#ff7b6b",
+        "atom-samba": "#f5c842",
+        "atom-gpt": "#74c0fc",
         status: {
           online: "rgb(34 197 94)",
           away: "rgb(245 158 11)",
@@ -83,9 +95,11 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
-        serif: ["var(--font-serif)"],
-        mono: ["var(--font-mono)"],
+        // ATOM design system fonts
+        display: ["Cabinet Grotesk", "Arial", "Helvetica", "sans-serif"],
+        sans: ["Satoshi", "Arial", "Helvetica", "sans-serif"],
+        serif: ["Georgia", "serif"],
+        mono: ["JetBrains Mono", "Courier New", "monospace"],
       },
       keyframes: {
         "accordion-down": {
@@ -96,10 +110,20 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "atom-orbit": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "atom-orbit": "atom-orbit 8s linear infinite",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
       },
     },
   },
