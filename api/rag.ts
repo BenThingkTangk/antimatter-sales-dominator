@@ -30,8 +30,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(204).end();
   }
 
-  const action = req.query.action as string;
-  const company = (req.query.company as string) || req.body?.company_name;
+  // Read action from query params OR body (WarBook sends in body, status checks use query)
+  const action = (req.query.action as string) || req.body?.action;
+  const company = (req.query.company as string) || req.body?.company_name || req.body?.company;
 
   try {
     switch (action) {
@@ -44,6 +45,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       case "context":
         return res.json(await forwardToRag("/company/context", req.body));
+
+      case "query":
+        // WarBook query — forward to RAG context endpoint
+        return res.json(await forwardToRag("/company/context", {
+          company_name: req.body?.company_name,
+          module: req.body?.module || "warbook",
+          question: req.body?.question,
+        }));
 
       case "companies":
         return res.json(await forwardToRag("/companies", undefined, "GET"));

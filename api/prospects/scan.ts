@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const HUNTER_API_KEY = process.env.HUNTER_API_KEY;
 const APOLLO_API_KEY = process.env.APOLLO_API_KEY;
 const PDL_API_KEY = process.env.PDL_API_KEY;
+const THEIRSTACK_API_KEY = process.env.THEIRSTACK_API_KEY;
+const BUILTWITH_API_KEY = process.env.BUILTWITH_API_KEY;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ interface EnrichedContact {
   state: string | null;
   confidence: number;
   verification: string;
-  source: string; // "apollo" | "hunter" | "pdl" | "both"
+  source: string; // "apollo" | "pdl" | "theirstack" | "both"
 }
 
 interface ScanFilters {
@@ -315,45 +316,44 @@ async function enrichOrgWithApollo(domain: string): Promise<{
   }
 }
 
-// ─── Hunter.io enrichment (supplement) ──────────────────────────────────────
+// ─── TheirStack: find companies by actual technology used ───────────────────
 
-async function enrichWithHunter(
-  companyName: string,
-  domain?: string
-): Promise<EnrichedContact[]> {
-  if (!HUNTER_API_KEY) return [];
-
+async function enrichTechWithTheirStack(
+  domain?: string,
+  techKeywords?: string
+): Promise<string[]> {
+  if (!THEIRSTACK_API_KEY || !domain) return [];
   try {
-    const searchParam = domain
-      ? `domain=${encodeURIComponent(domain.replace(/^https?:\/\//, "").replace(/\/.*$/, ""))}`
-      : `company=${encodeURIComponent(companyName)}`;
-    const url = `https://api.hunter.io/v2/domain-search?${searchParam}&limit=10&seniority=executive,senior&type=personal&required_field=full_name&api_key=${HUNTER_API_KEY}`;
+    const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    const res = await fetch(`https://api.theirstack.com/v1/companies/lookup?domain=${encodeURIComponent(cleanDomain)}`, {
+      headers: { Authorization: `Bearer ${THEIRSTACK_API_KEY}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.technologies || []).map((t: any) => t.name || t).slice(0, 15);
+  } catch { return []; }
+}
 
-    const response = await fetch(url);
-    if (!response.ok) return [];
+// ─── BuiltWith: tech stack verification per company ─────────────────────────
 
-    const data = await response.json();
-    const hunterData = data.data;
-
-    return (hunterData?.emails || []).map((e: any) => ({
-      email: e.value || "",
-      firstName: e.first_name || "",
-      lastName: e.last_name || "",
-      position: e.position || "",
-      seniority: e.seniority || "",
-      department: e.department || "",
-      linkedin: e.linkedin || null,
-      phone: e.phone_number || null,
-      mobilePhone: null,
-      city: null,
-      state: null,
-      confidence: e.confidence || 0,
-      verification: e.verification?.status || "unknown",
-      source: "hunter",
-    }));
-  } catch {
+async function verifyTechWithBuiltWith(
+  domain?: string
+): Promise<string[]> {
+  if (!BUILTWITH_API_KEY || !domain) return [];
+  try {
+    const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    const res = await fetch(`https://api.builtwith.com/free1/api.json?KEY=${BUILTWITH_API_KEY}&LOOKUP=${encodeURIComponent(cleanDomain)}`, {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const groups = data.groups || data.Results?.[0]?.Result?.Paths?.[0]?.Technologies || [];
+    if (Array.isArray(groups)) {
+      return groups.map((g: any) => g.Name || g.name || g).filter(Boolean).slice(0, 10);
+    }
     return [];
-  }
+  } catch { return []; }
 }
 
 // ─── PDL company enrichment (additional company data) ───────────────────────
@@ -390,37 +390,31 @@ async function enrichWithPDL(
   }
 }
 
-// ─── Merge contacts from Apollo + Hunter ────────────────────────────────────
+// ─── Deduplicate contacts ───────────────────────────────────────────────────
 
-function mergeContacts(apollo: EnrichedContact[], hunter: EnrichedContact[]): EnrichedContact[] {
+function deduplicateContacts(contacts: EnrichedContact[]): EnrichedContact[] {
   const byEmail = new Map<string, EnrichedContact>();
   const byName = new Map<string, EnrichedContact>();
 
-  for (const c of apollo) {
-    if (c.email) byEmail.set(c.email.toLowerCase(), c);
-    const key = `${c.firstName}_${c.lastName}`.toLowerCase();
-    if (key !== "_") byName.set(key, c);
-  }
-
-  for (const h of hunter) {
-    const emailKey = h.email?.toLowerCase();
-    const nameKey = `${h.firstName}_${h.lastName}`.toLowerCase();
+  for (const c of contacts) {
+    const emailKey = c.email?.toLowerCase();
+    const nameKey = `${c.firstName}_${c.lastName}`.toLowerCase();
 
     if (emailKey && byEmail.has(emailKey)) {
       const existing = byEmail.get(emailKey)!;
-      if (!existing.phone && h.phone) existing.phone = h.phone;
-      if (!existing.linkedin && h.linkedin) existing.linkedin = h.linkedin;
-      if (!existing.position && h.position) existing.position = h.position;
+      if (!existing.phone && c.phone) existing.phone = c.phone;
+      if (!existing.linkedin && c.linkedin) existing.linkedin = c.linkedin;
+      if (!existing.position && c.position) existing.position = c.position;
       existing.source = "both";
     } else if (nameKey !== "_" && byName.has(nameKey)) {
       const existing = byName.get(nameKey)!;
-      if (!existing.email && h.email) existing.email = h.email;
-      if (!existing.phone && h.phone) existing.phone = h.phone;
-      if (!existing.linkedin && h.linkedin) existing.linkedin = h.linkedin;
+      if (!existing.email && c.email) existing.email = c.email;
+      if (!existing.phone && c.phone) existing.phone = c.phone;
+      if (!existing.linkedin && c.linkedin) existing.linkedin = c.linkedin;
       existing.source = "both";
     } else {
-      if (h.email) byEmail.set(h.email.toLowerCase(), h);
-      else if (nameKey !== "_") byName.set(nameKey, h);
+      if (emailKey) byEmail.set(emailKey, c);
+      else if (nameKey !== "_") byName.set(nameKey, c);
     }
   }
 
@@ -597,19 +591,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Reveal Apollo contacts (up to 5 per company to conserve credits)
         const revealPromises = org.people.slice(0, 5).map((person) => revealApolloContact(person));
-        const [apolloContacts, hunterContacts, pdlData, apolloOrgData] = await Promise.all([
+        const [apolloContacts, pdlData, apolloOrgData, theirStackTech, builtWithTech] = await Promise.all([
           Promise.all(revealPromises).then((contacts) => contacts.filter(Boolean) as EnrichedContact[]),
-          enrichWithHunter(companyName, domain),
           enrichWithPDL(companyName, domain),
           enrichOrgWithApollo(domain),
+          enrichTechWithTheirStack(domain, filters.techStack),
+          verifyTechWithBuiltWith(domain),
         ]);
 
-        const mergedContacts = mergeContacts(apolloContacts, hunterContacts);
+        const mergedContacts = deduplicateContacts(apolloContacts);
 
         // Merge company data — Apollo primary, PDL supplement
         const finalEmployeeCount = apolloOrgData.employeeCount || pdlData.employeeCount || org.apolloOrgData?.estimated_num_employees || 0;
         const finalRevenue = apolloOrgData.revenue || pdlData.revenue || "";
-        const finalTechStack = Array.from(new Set(apolloOrgData.techStack.concat(pdlData.techStack))).slice(0, 10);
+        // Merge tech stacks from all sources: Apollo + PDL + TheirStack + BuiltWith
+        const finalTechStack = Array.from(new Set([
+          ...apolloOrgData.techStack,
+          ...pdlData.techStack,
+          ...theirStackTech,
+          ...builtWithTech,
+        ])).slice(0, 15);
         const finalIndustry = org.industry || pdlData.industry || "Technology";
 
         // Determine company size label
