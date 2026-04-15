@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import { store, useProspects, type Prospect, type Contact } from "@/lib/store";
+import { type Prospect, type Contact } from "@/lib/store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +48,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  Clock,
+  ArrowLeft,
 } from "lucide-react";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -129,27 +131,12 @@ const REVENUE_RANGES = [
 ];
 
 const JOB_TITLES = [
-  "CEO",
-  "CTO",
-  "CIO",
-  "CISO",
-  "CFO",
-  "COO",
-  "VP Engineering",
-  "VP Sales",
-  "VP Operations",
-  "VP IT",
-  "Director of IT",
-  "Director of Engineering",
-  "Head of AI",
-  "Head of Technology",
-  "Chief Digital Officer",
-  "Chief Innovation Officer",
-  "SVP Technology",
-  "Managing Director",
-  "President",
-  "Owner",
-  "Founder",
+  "CEO", "CTO", "CIO", "CISO", "CFO", "COO",
+  "VP Engineering", "VP Sales", "VP Operations", "VP IT",
+  "Director of IT", "Director of Engineering",
+  "Head of AI", "Head of Technology",
+  "Chief Digital Officer", "Chief Innovation Officer",
+  "SVP Technology", "Managing Director", "President", "Owner", "Founder",
 ];
 
 const STORAGE_KEY = "atom_prospect_history";
@@ -168,7 +155,7 @@ interface ScanFilters {
   keywords: string;
 }
 
-interface LocalProspectEntry {
+interface HistoryEntry {
   id: string;
   filters: ScanFilters;
   prospects: Prospect[];
@@ -188,15 +175,12 @@ function formatTimestamp(ts: number): string {
   if (hours < 24) return `${Math.floor(hours)}h ago`;
   const d = new Date(ts);
   return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+    month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit",
   });
 }
 
-function loadHistory(): LocalProspectEntry[] {
+function loadHistory(): HistoryEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
@@ -205,22 +189,20 @@ function loadHistory(): LocalProspectEntry[] {
   }
 }
 
-function saveHistory(entries: LocalProspectEntry[]) {
+function saveHistory(entries: HistoryEntry[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, 50)));
   } catch {}
 }
 
 function filterSummary(filters: ScanFilters): string {
   const parts: string[] = [];
-  if (filters.industry && filters.industry !== "All Industries")
-    parts.push(filters.industry);
+  if (filters.industry && filters.industry !== "All Industries") parts.push(filters.industry);
   if (filters.geo && filters.geo !== "All US") parts.push(filters.geo);
   if (filters.employeeSize) parts.push(filters.employeeSize + " emp");
   if (filters.revenueRange) parts.push(filters.revenueRange);
   if (filters.productFocus) parts.push(`"${filters.productFocus}"`);
-  if (filters.jobTitles.length > 0)
-    parts.push(filters.jobTitles.slice(0, 2).join(", "));
+  if (filters.jobTitles.length > 0) parts.push(filters.jobTitles.slice(0, 2).join(", "));
   if (filters.techStack) parts.push(filters.techStack);
   if (filters.keywords) parts.push(filters.keywords);
   return parts.length > 0 ? parts.join(" · ") : "All prospects";
@@ -228,78 +210,22 @@ function filterSummary(filters: ScanFilters): string {
 
 function exportToCSV(prospects: Prospect[]) {
   const rows: string[] = [];
-  rows.push(
-    [
-      "Company",
-      "Domain",
-      "Industry",
-      "Score",
-      "Company Size",
-      "Employee Count",
-      "Revenue",
-      "Urgency",
-      "Status",
-      "Contact Name",
-      "Contact Title",
-      "Email",
-      "Phone",
-      "LinkedIn",
-      "Reason",
-    ].join(",")
-  );
-
+  rows.push(["Company","Domain","Industry","Score","Company Size","Employee Count","Revenue","Urgency","Status","Contact Name","Contact Title","Email","Phone","LinkedIn","Reason"].join(","));
   for (const p of prospects) {
     const contacts: Contact[] = JSON.parse(p.contacts || "[]");
     if (contacts.length === 0) {
-      rows.push(
-        [
-          `"${p.companyName}"`,
-          p.domain,
-          `"${p.industry}"`,
-          p.score,
-          p.companySize,
-          (p as any).employeeCount || "",
-          `"${(p as any).revenue || ""}"`,
-          p.urgency,
-          p.status,
-          "",
-          "",
-          "",
-          "",
-          "",
-          `"${p.reason.replace(/"/g, "'")}"`,
-        ].join(",")
-      );
+      rows.push([`"${p.companyName}"`,p.domain,`"${p.industry}"`,p.score,p.companySize,(p as any).employeeCount||"",`"${(p as any).revenue||""}"`,p.urgency,p.status,"","","","","",`"${p.reason.replace(/"/g,"'")}"`].join(","));
     } else {
       for (const c of contacts) {
-        rows.push(
-          [
-            `"${p.companyName}"`,
-            p.domain,
-            `"${p.industry}"`,
-            p.score,
-            p.companySize,
-            (p as any).employeeCount || "",
-            `"${(p as any).revenue || ""}"`,
-            p.urgency,
-            p.status,
-            `"${c.firstName} ${c.lastName}"`,
-            `"${c.position}"`,
-            c.email,
-            c.phone || "",
-            c.linkedin || "",
-            `"${p.reason.replace(/"/g, "'")}"`,
-          ].join(",")
-        );
+        rows.push([`"${p.companyName}"`,p.domain,`"${p.industry}"`,p.score,p.companySize,(p as any).employeeCount||"",`"${(p as any).revenue||""}"`,p.urgency,p.status,`"${c.firstName} ${c.lastName}"`,`"${c.position}"`,c.email,c.phone||"",c.linkedin||"",`"${p.reason.replace(/"/g,"'")}"`].join(","));
       }
     }
   }
-
   const blob = new Blob([rows.join("\n")], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `prospects-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `prospects-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -307,29 +233,13 @@ function exportToCSV(prospects: Prospect[]) {
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function ScoreBar({ score }: { score: number }) {
-  const color =
-    score >= 80
-      ? "bg-rose-500"
-      : score >= 60
-      ? "bg-amber-500"
-      : "bg-teal-600";
+  const color = score >= 80 ? "bg-rose-500" : score >= 60 ? "bg-amber-500" : "bg-teal-600";
   return (
     <div className="flex items-center gap-2 w-full">
       <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-        <div
-          className={`h-full rounded-full ${color} transition-all duration-700`}
-          style={{ width: `${score}%` }}
-        />
+        <div className={`h-full rounded-full ${color} transition-all duration-700`} style={{ width: `${score}%` }} />
       </div>
-      <span
-        className={`text-xs font-bold tabular-nums ${
-          score >= 80
-            ? "text-rose-500"
-            : score >= 60
-            ? "text-amber-500"
-            : "text-teal-300"
-        }`}
-      >
+      <span className={`text-xs font-bold tabular-nums ${score >= 80 ? "text-rose-500" : score >= 60 ? "text-amber-500" : "text-teal-300"}`}>
         {Math.round(score)}
       </span>
     </div>
@@ -340,34 +250,23 @@ function VerificationBadge({ status }: { status: string }) {
   if (status === "valid" || status === "verified")
     return (
       <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 text-[9px] gap-0.5 px-1.5">
-        <CheckCircle2 className="w-2.5 h-2.5" />
-        verified
+        <CheckCircle2 className="w-2.5 h-2.5" />verified
       </Badge>
     );
   if (status === "accept_all")
     return (
       <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/20 text-[9px] gap-0.5 px-1.5">
-        <ShieldCheck className="w-2.5 h-2.5" />
-        accept-all
+        <ShieldCheck className="w-2.5 h-2.5" />accept-all
       </Badge>
     );
   return (
     <Badge className="bg-white/5 text-white/40 border-white/10 text-[9px] gap-0.5 px-1.5">
-      <AlertCircle className="w-2.5 h-2.5" />
-      unverified
+      <AlertCircle className="w-2.5 h-2.5" />unverified
     </Badge>
   );
 }
 
-function ContactRow({
-  contact,
-  prospect,
-  compact = false,
-}: {
-  contact: Contact;
-  prospect: Prospect;
-  compact?: boolean;
-}) {
+function ContactRow({ contact, prospect, compact = false }: { contact: Contact; prospect: Prospect; compact?: boolean }) {
   const [, navigate] = useLocation();
   const matchedProducts = JSON.parse(prospect.matchedProducts || "[]") as string[];
 
@@ -390,1227 +289,688 @@ function ContactRow({
             <User className="w-3 h-3 text-teal-300" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-medium truncate text-white/90">
-              {contact.firstName} {contact.lastName}
-            </p>
+            <p className="text-xs font-medium truncate text-white/90">{contact.firstName} {contact.lastName}</p>
             <p className="text-[10px] text-white/40 truncate">{contact.position}</p>
           </div>
         </div>
-        <Button
-          size="sm"
-          className="h-7 text-[10px] gap-1 bg-teal-600 hover:bg-teal-500 border-0 shrink-0 transition-colors"
-          onClick={handleCallAtom}
-          data-testid={`button-call-atom-${prospect.id}-compact`}
-        >
-          <PhoneCall className="w-3 h-3" />
-          Call with ATOM
+        <Button size="sm" onClick={handleCallAtom} disabled={!contact.phone}
+          className="h-6 text-[10px] px-2 gap-1 bg-teal-600/15 hover:bg-teal-600/25 text-teal-300 border border-teal-500/20 shrink-0">
+          <PhoneCall className="w-2.5 h-2.5" />Call
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-3 group hover:border-teal-500/30 hover:bg-teal-500/5 transition-all">
-      <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
-          <User className="w-4 h-4 text-teal-300" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-sm font-semibold text-white/90">
-                  {contact.firstName} {contact.lastName}
-                </p>
-                <VerificationBadge status={contact.verification} />
-              </div>
-              {contact.position && (
-                <p className="text-xs text-white/50 mt-0.5">{contact.position}</p>
-              )}
-            </div>
-            <Button
-              size="sm"
-              className="h-7 text-[10px] gap-1 bg-teal-600 hover:bg-teal-500 border-0 shrink-0 transition-colors shadow-lg shadow-teal-500/20"
-              onClick={handleCallAtom}
-              data-testid={`button-call-atom-${prospect.id}`}
-            >
-              <PhoneCall className="w-3 h-3" />
-              Call with ATOM
-            </Button>
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+            <User className="w-4 h-4 text-teal-300" />
           </div>
-
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-            {contact.email && (
-              <a
-                href={`mailto:${contact.email}`}
-                className="flex items-center gap-1 text-[11px] text-teal-300 hover:text-[#c4c5f0] transition-colors"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Mail className="w-3 h-3" />
-                {contact.email}
-              </a>
-            )}
-            {contact.phone && (
-              <a
-                href={`tel:${contact.phone}`}
-                className="flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors"
-              >
-                <Phone className="w-3 h-3" />
-                {contact.phone}
-              </a>
-            )}
-            {(contact as any).mobilePhone &&
-              (contact as any).mobilePhone !== contact.phone && (
-                <a
-                  href={`tel:${(contact as any).mobilePhone}`}
-                  className="flex items-center gap-1 text-[11px] text-green-400 hover:text-green-300 transition-colors"
-                >
-                  <Phone className="w-3 h-3" />
-                  {(contact as any).mobilePhone} (mobile)
-                </a>
-              )}
-            {contact.linkedin && (
-              <a
-                href={contact.linkedin}
-                className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Linkedin className="w-3 h-3" />
-                LinkedIn
-              </a>
-            )}
-          </div>
-
-          {(contact as any).city && (
-            <p className="text-[10px] text-white/30 mt-1.5">
-              <MapPin className="w-2.5 h-2.5 inline mr-0.5" />
-              {(contact as any).city}
-              {(contact as any).state ? `, ${(contact as any).state}` : ""}
-            </p>
-          )}
-
-          <div className="flex gap-1.5 mt-1.5 flex-wrap">
-            {contact.seniority && (
-              <Badge className="bg-white/5 text-white/50 border-white/10 text-[9px]">
-                {contact.seniority}
-              </Badge>
-            )}
-            {contact.department && (
-              <Badge className="bg-white/5 text-white/50 border-white/10 text-[9px]">
-                {contact.department}
-              </Badge>
-            )}
-            {contact.confidence > 0 && (
-              <Badge className="bg-white/5 text-white/50 border-white/10 text-[9px]">
-                {contact.confidence}% confidence
-              </Badge>
-            )}
-            {(contact as any).source && (
-              <Badge
-                className={`text-[9px] ${
-                  (contact as any).source === "apollo"
-                    ? "bg-teal-500/15 text-teal-300 border-teal-500/30"
-                    : (contact as any).source === "both"
-                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
-                    : "bg-orange-500/15 text-orange-400 border-orange-500/20"
-                }`}
-              >
-                ATOM Verified
-              </Badge>
-            )}
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white/90">{contact.firstName} {contact.lastName}</p>
+            <p className="text-xs text-white/50">{contact.position}</p>
           </div>
         </div>
+        <Button size="sm" onClick={handleCallAtom} disabled={!contact.phone}
+          className="h-7 text-xs px-2.5 gap-1.5 bg-teal-600/15 hover:bg-teal-600/25 text-teal-300 border border-teal-500/20 shrink-0">
+          <PhoneCall className="w-3 h-3" />Call with ATOM
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {contact.email && (
+          <a href={`mailto:${contact.email}`} className="flex items-center gap-1 text-[10px] text-white/50 hover:text-teal-300 transition-colors">
+            <Mail className="w-3 h-3" />{contact.email}
+            {contact.emailStatus && <VerificationBadge status={contact.emailStatus} />}
+          </a>
+        )}
+        {contact.phone && (
+          <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-[10px] text-white/50 hover:text-teal-300 transition-colors">
+            <Phone className="w-3 h-3" />{contact.phone}
+          </a>
+        )}
+        {contact.linkedin && (
+          <a href={contact.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] text-white/50 hover:text-teal-300 transition-colors">
+            <Linkedin className="w-3 h-3" />LinkedIn
+          </a>
+        )}
       </div>
     </div>
   );
 }
 
-function ProspectCard({ prospect }: { prospect: Prospect }) {
+function ProspectCard({ prospect, isViewingHistory }: { prospect: Prospect; isViewingHistory: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const { toast } = useToast();
-  const signals = JSON.parse(prospect.signals || "[]") as string[];
-  const contacts = JSON.parse(prospect.contacts || "[]") as Contact[];
-  const matchedProducts = JSON.parse(prospect.matchedProducts || "[]") as string[];
+  const contacts: Contact[] = JSON.parse(prospect.contacts || "[]");
+  const matchedProducts: string[] = JSON.parse(prospect.matchedProducts || "[]");
+  const [, navigate] = useLocation();
 
-  const enrichMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/prospects/enrich", {
-        companyName: prospect.companyName,
-        domain: prospect.domain || undefined,
-      });
-      return res.json();
-    },
-    onSuccess: (data: any) => {
-      store.updateProspectContacts(prospect.id, JSON.stringify(data.contacts || []));
-      toast({
-        title: "Enriched",
-        description: `Found ${data.contacts?.length || 0} decision makers at ${prospect.companyName}`,
-      });
-    },
-    onError: (err: Error) =>
-      toast({ title: "Error", description: err.message, variant: "destructive" }),
-  });
-
-  const urgencyColor =
-    prospect.urgency === "critical"
-      ? "bg-rose-500/15 text-rose-400 border-rose-500/20"
-      : prospect.urgency === "high"
-      ? "bg-amber-500/15 text-amber-400 border-amber-500/20"
-      : prospect.urgency === "medium"
-      ? "bg-blue-500/15 text-blue-400 border-blue-500/20"
-      : "bg-white/5 text-white/40 border-white/10";
-
-  const borderColor =
-    prospect.score >= 80
-      ? "border-l-rose-500"
-      : prospect.score >= 60
-      ? "border-l-amber-500"
-      : "border-l-teal-500/40";
+  const urgencyColor = prospect.urgency === "hot" ? "text-rose-400 border-rose-500/30 bg-rose-500/10"
+    : prospect.urgency === "warm" ? "text-amber-400 border-amber-500/30 bg-amber-500/10"
+    : "text-teal-400 border-teal-500/30 bg-teal-500/10";
 
   return (
-    <div
-      className={`rounded-xl border border-l-2 ${borderColor} border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden transition-all hover:border-white/[0.14] hover:bg-black/50`}
-      data-testid={`card-prospect-${prospect.id}`}
-    >
-      {/* Card Header */}
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3">
+    <Card className="bg-[#111113] border-white/[0.08] hover:border-teal-500/20 transition-all duration-200">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+            <Building2 className="w-5 h-5 text-teal-400" />
+          </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              {prospect.score >= 80 && (
-                <Flame className="w-4 h-4 text-rose-500 shrink-0" />
-              )}
-              <h3 className="font-semibold text-sm text-white/95 truncate">
-                {prospect.companyName}
-              </h3>
-              {prospect.domain && (
-                <a
-                  href={`https://${prospect.domain}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-0.5 text-[10px] text-white/30 hover:text-teal-300 transition-colors shrink-0"
-                >
-                  <Globe className="w-3 h-3" />
-                  {prospect.domain}
-                </a>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              <Badge className="bg-white/5 text-white/60 border-white/10 text-[10px] gap-1">
-                <Building2 className="w-2.5 h-2.5" />
-                {prospect.industry}
-              </Badge>
-              <Badge className="bg-white/5 text-white/60 border-white/10 text-[10px] gap-1">
-                <Users className="w-2.5 h-2.5" />
-                {prospect.companySize}
-              </Badge>
-              {(prospect as any).employeeCount > 0 && (
-                <Badge className="bg-white/5 text-white/50 border-white/10 text-[10px]">
-                  {(prospect as any).employeeCount.toLocaleString()} emp
-                </Badge>
-              )}
-              {(prospect as any).revenue && (
-                <Badge className="bg-white/5 text-white/50 border-white/10 text-[10px] gap-1">
-                  <DollarSign className="w-2.5 h-2.5" />
-                  {(prospect as any).revenue}
-                </Badge>
-              )}
-              <Badge className={`text-[10px] ${urgencyColor}`}>
-                {prospect.urgency}
-              </Badge>
-              {contacts.length > 0 && (
-                <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 text-[10px] gap-0.5">
-                  <User className="w-3 h-3" />
-                  {contacts.length} contacts
-                </Badge>
-              )}
-            </div>
-
-            <ScoreBar score={prospect.score} />
-          </div>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="shrink-0 w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-white/40 hover:text-white/80 hover:border-white/20 transition-all"
-            data-testid={`button-expand-${prospect.id}`}
-          >
-            {expanded ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
-          </button>
-        </div>
-
-        {/* Quick contacts preview (collapsed) */}
-        {contacts.length > 0 && !expanded && (
-          <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-1">
-            {contacts.slice(0, 2).map((c, i) => (
-              <ContactRow key={i} contact={c} prospect={prospect} compact />
-            ))}
-            {contacts.length > 2 && (
-              <button
-                onClick={() => setExpanded(true)}
-                className="text-[10px] text-white/30 hover:text-teal-300 transition-colors"
-              >
-                +{contacts.length - 2} more — expand to see all
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* No contacts CTA */}
-        {contacts.length === 0 && !expanded && (
-          <div className="mt-3 pt-3 border-t border-white/[0.06]">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full h-8 text-xs gap-1.5 border-white/10 text-white/50 hover:text-white/80 hover:border-teal-500/40 hover:bg-teal-500/5"
-              onClick={() => enrichMutation.mutate()}
-              disabled={enrichMutation.isPending}
-              data-testid={`button-find-contacts-${prospect.id}`}
-            >
-              {enrichMutation.isPending ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <RefreshCw className="w-3 h-3" />
-              )}
-              {enrichMutation.isPending
-                ? "Finding decision makers..."
-                : "Find Decision Makers"}
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Expanded content */}
-      {expanded && (
-        <div className="px-5 pb-5 space-y-4 border-t border-white/[0.06] pt-4">
-          {/* Why they need us */}
-          <div>
-            <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-1.5">
-              Why They Need This
-            </p>
-            <p className="text-sm text-white/70 leading-relaxed">{prospect.reason}</p>
-          </div>
-
-          {/* Signals */}
-          {signals.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-1.5">
-                Buying Signals
-              </p>
-              <div className="space-y-1">
-                {signals.map((s, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <Signal className="w-3 h-3 text-teal-300 mt-0.5 shrink-0" />
-                    <p className="text-xs text-white/60">{s}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Matched products */}
-          {matchedProducts.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-1.5">
-                Matched Products
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {matchedProducts.map((slug) => (
-                  <Badge
-                    key={slug}
-                    className="bg-teal-500/15 text-teal-300 border-teal-500/30 text-[10px]"
-                  >
-                    {slug}
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                    {prospect.companyName}
+                  </h3>
+                  <Badge className={`text-[10px] px-1.5 py-0 border font-mono ${urgencyColor}`}>
+                    {prospect.urgency === "hot" && <Flame className="w-2.5 h-2.5 mr-0.5" />}
+                    {prospect.urgency}
                   </Badge>
-                ))}
+                  {matchedProducts.map((p) => (
+                    <Badge key={p} className="text-[10px] px-1.5 py-0 bg-purple-500/10 text-purple-300 border-purple-500/20 font-mono">{p}</Badge>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  <span className="text-[11px] text-white/40 flex items-center gap-1"><Globe className="w-3 h-3" />{prospect.domain}</span>
+                  {prospect.industry && <span className="text-[11px] text-white/40 flex items-center gap-1"><Briefcase className="w-3 h-3" />{prospect.industry}</span>}
+                  {(prospect as any).location && <span className="text-[11px] text-white/40 flex items-center gap-1"><MapPin className="w-3 h-3" />{(prospect as any).location}</span>}
+                  {(prospect as any).employeeCount && <span className="text-[11px] text-white/40 flex items-center gap-1"><Users className="w-3 h-3" />{(prospect as any).employeeCount}</span>}
+                  {(prospect as any).revenue && <span className="text-[11px] text-white/40 flex items-center gap-1"><DollarSign className="w-3 h-3" />{(prospect as any).revenue}</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="w-28">
+                  <p className="text-[9px] text-white/30 mb-1 font-mono uppercase tracking-wider">Intel Score</p>
+                  <ScoreBar score={prospect.score} />
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Decision Makers */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest">
-                Decision Makers
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1 border-white/10 text-white/50 hover:text-white/80 hover:border-teal-500/40 hover:bg-teal-500/5"
-                onClick={() => enrichMutation.mutate()}
-                disabled={enrichMutation.isPending}
-                data-testid={`button-refresh-contacts-${prospect.id}`}
-              >
-                {enrichMutation.isPending ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3 h-3" />
+            {prospect.reason && (
+              <p className="text-xs text-white/50 mt-2 leading-relaxed line-clamp-2">{prospect.reason}</p>
+            )}
+
+            {contacts.length > 0 && !expanded && (
+              <div className="mt-3 space-y-1">
+                {contacts.slice(0, 2).map((c, i) => (
+                  <ContactRow key={i} contact={c} prospect={prospect} compact />
+                ))}
+                {contacts.length > 2 && (
+                  <button onClick={() => setExpanded(true)} className="text-[11px] text-teal-400/70 hover:text-teal-400 transition-colors">
+                    +{contacts.length - 2} more contacts
+                  </button>
                 )}
-                {contacts.length > 0 ? "Refresh" : "Find Contacts"}
-              </Button>
-            </div>
+              </div>
+            )}
 
-            {contacts.length > 0 ? (
-              <div className="space-y-2">
+            {expanded && (
+              <div className="mt-3 space-y-2">
                 {contacts.map((c, i) => (
                   <ContactRow key={i} contact={c} prospect={prospect} />
                 ))}
-              </div>
-            ) : (
-              <div className="p-4 rounded-lg border border-dashed border-white/10 text-center">
-                <p className="text-xs text-white/30">
-                  {enrichMutation.isPending
-                    ? "ATOM enriching decision makers..."
-                    : 'Click "Find Contacts" to discover key decision makers'}
-                </p>
+                <button onClick={() => setExpanded(false)} className="text-[11px] text-white/30 hover:text-white/50 transition-colors">
+                  Show less
+                </button>
               </div>
             )}
-          </div>
 
-          {/* Status controls */}
-          <div className="flex items-center gap-2 pt-1">
-            <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest shrink-0">
-              Status:
-            </p>
-            <div className="flex gap-1 flex-wrap">
-              {["new", "contacted", "engaged", "qualified", "closed"].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => store.updateProspectStatus(prospect.id, s)}
-                  className={`text-[10px] px-2.5 py-1 rounded-md border transition-all ${
-                    prospect.status === s
-                      ? "bg-teal-500/20 text-teal-300 border-teal-500/40"
-                      : "border-white/10 text-white/30 hover:text-white/60 hover:border-white/20"
-                  }`}
-                  data-testid={`button-status-${s}-${prospect.id}`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+            {!expanded && contacts.length <= 2 && contacts.length > 0 && (
+              <button onClick={() => setExpanded(true)} className="text-[11px] text-teal-400/70 hover:text-teal-400 transition-colors mt-2">
+                View full details
+              </button>
+            )}
           </div>
         </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function LoadingSkeleton() {
+function SkeletonCard() {
   return (
-    <div className="space-y-3">
-      {[...Array(5)].map((_, i) => (
+    <Card className="bg-[#111113] border-white/[0.08]">
+      <CardContent className="p-4">
+        <div className="flex gap-3">
+          <Skeleton className="w-10 h-10 rounded-lg bg-white/5" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-48 bg-white/5" />
+            <Skeleton className="h-3 w-32 bg-white/5" />
+            <Skeleton className="h-3 w-full bg-white/5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── History Drawer ──────────────────────────────────────────────────────────
+
+function HistoryDrawer({
+  open,
+  onClose,
+  onRestore,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onRestore: (entry: HistoryEntry) => void;
+}) {
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+
+  useEffect(() => {
+    if (open) setHistory(loadHistory());
+  }, [open]);
+
+  const deleteEntry = (id: string) => {
+    const updated = history.filter((e) => e.id !== id);
+    setHistory(updated);
+    saveHistory(updated);
+  };
+
+  const clearAll = () => {
+    setHistory([]);
+    saveHistory([]);
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      {open && (
         <div
-          key={i}
-          className="rounded-xl border border-l-2 border-l-teal-500/30 border-white/[0.08] bg-black/40 backdrop-blur-md p-5"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 space-y-3">
-              <div className="flex gap-2 items-center">
-                <Skeleton className="h-4 w-48 bg-white/5" />
-                <Skeleton className="h-3 w-24 bg-white/5" />
-              </div>
-              <div className="flex gap-1.5">
-                <Skeleton className="h-5 w-24 rounded-full bg-white/5" />
-                <Skeleton className="h-5 w-20 rounded-full bg-white/5" />
-                <Skeleton className="h-5 w-16 rounded-full bg-white/5" />
-              </div>
-              <Skeleton className="h-1.5 w-full rounded-full bg-white/5" />
-            </div>
-            <Skeleton className="h-8 w-8 rounded-lg bg-white/5" />
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          onClick={onClose}
+        />
+      )}
+      {/* Drawer */}
+      <div
+        className={`fixed top-0 right-0 bottom-0 w-96 z-50 flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        style={{ background: "#111113", borderLeft: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] shrink-0">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-teal-400" />
+            <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+              Search History
+            </span>
+            {history.length > 0 && (
+              <Badge className="bg-teal-500/15 text-teal-400 border-teal-500/20 text-[10px] font-mono">{history.length}</Badge>
+            )}
           </div>
-          <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-6 w-6 rounded-full bg-white/5" />
-                <div className="space-y-1">
-                  <Skeleton className="h-3 w-32 bg-white/5" />
-                  <Skeleton className="h-2 w-24 bg-white/5" />
-                </div>
-              </div>
-              <Skeleton className="h-7 w-28 rounded-md bg-teal-500/10" />
-            </div>
+          <div className="flex items-center gap-2">
+            {history.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearAll}
+                className="h-7 text-xs text-white/30 hover:text-rose-400 hover:bg-rose-500/10 px-2">
+                Clear all
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={onClose}
+              className="h-7 w-7 p-0 text-white/40 hover:text-white hover:bg-white/5">
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-      ))}
-    </div>
+
+        {/* Entries */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {history.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-center">
+              <History className="w-10 h-10 text-white/10 mb-3" />
+              <p className="text-sm text-white/30">No search history yet</p>
+              <p className="text-xs text-white/20 mt-1">Past searches will appear here</p>
+            </div>
+          ) : (
+            history.map((entry) => (
+              <div key={entry.id}
+                className="rounded-xl border border-white/[0.08] bg-[#161618] p-3 hover:border-teal-500/20 transition-all group">
+                <div className="flex items-start justify-between gap-2">
+                  <button className="flex-1 text-left" onClick={() => { onRestore(entry); onClose(); }}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Clock className="w-3 h-3 text-white/30" />
+                      <span className="text-[10px] text-white/30 font-mono">{formatTimestamp(entry.timestamp)}</span>
+                      <Badge className="bg-teal-500/10 text-teal-400/70 border-teal-500/15 text-[10px] font-mono ml-auto">
+                        {entry.prospects.length} results
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-white/60 leading-relaxed">{filterSummary(entry.filters)}</p>
+                  </button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteEntry(entry.id)}
+                    className="h-6 w-6 p-0 text-white/20 hover:text-rose-400 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+                <button
+                  className="mt-2 w-full text-[10px] text-teal-400/60 hover:text-teal-400 transition-colors text-left flex items-center gap-1"
+                  onClick={() => { onRestore(entry); onClose(); }}
+                >
+                  <ArrowLeft className="w-3 h-3 rotate-180" />
+                  Re-view these results
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
-function TitleBadge({ title, onRemove }: { title: string; onRemove: () => void }) {
+// ─── Filter Panel ────────────────────────────────────────────────────────────
+
+interface FilterPanelProps {
+  filters: ScanFilters;
+  onChange: (f: ScanFilters) => void;
+  onScan: () => void;
+  isScanning: boolean;
+}
+
+function FilterPanel({ filters, onChange, onScan, isScanning }: FilterPanelProps) {
+  const set = (key: keyof ScanFilters, val: any) => onChange({ ...filters, [key]: val });
+
+  const toggleTitle = (t: string) => {
+    const cur = filters.jobTitles;
+    set("jobTitles", cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]);
+  };
+
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-300 border border-teal-500/30 text-xs">
-      {title}
-      <button onClick={onRemove} className="hover:text-white transition-colors ml-0.5">
-        <X className="w-2.5 h-2.5" />
-      </button>
-    </span>
+    <div className="space-y-5">
+      {/* Row 1 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
+            <Briefcase className="w-3 h-3" />Industry
+          </label>
+          <Select value={filters.industry} onValueChange={(v) => set("industry", v)}>
+            <SelectTrigger className="h-9 text-xs bg-[#161618] border-white/[0.08] text-white/70 hover:border-teal-500/30">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80 max-h-64">
+              {INDUSTRIES.map((i) => <SelectItem key={i} value={i} className="text-xs hover:bg-teal-500/10">{i}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
+            <MapPin className="w-3 h-3" />Geography
+          </label>
+          <Select value={filters.geo} onValueChange={(v) => set("geo", v)}>
+            <SelectTrigger className="h-9 text-xs bg-[#161618] border-white/[0.08] text-white/70 hover:border-teal-500/30">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80 max-h-64">
+              {GEOGRAPHIES.map((g) => <SelectItem key={g.value} value={g.value} className="text-xs hover:bg-teal-500/10">{g.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
+            <Users className="w-3 h-3" />Company Size
+          </label>
+          <Select value={filters.employeeSize} onValueChange={(v) => set("employeeSize", v)}>
+            <SelectTrigger className="h-9 text-xs bg-[#161618] border-white/[0.08] text-white/70 hover:border-teal-500/30">
+              <SelectValue placeholder="Any Size" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80">
+              {EMPLOYEE_SIZES.map((s) => <SelectItem key={s.value} value={s.value || "_any"} className="text-xs hover:bg-teal-500/10">{s.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
+            <DollarSign className="w-3 h-3" />Revenue
+          </label>
+          <Select value={filters.revenueRange} onValueChange={(v) => set("revenueRange", v)}>
+            <SelectTrigger className="h-9 text-xs bg-[#161618] border-white/[0.08] text-white/70 hover:border-teal-500/30">
+              <SelectValue placeholder="Any Revenue" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1c1c1f] border-white/[0.08] text-white/80">
+              {REVENUE_RANGES.map((r) => <SelectItem key={r.value} value={r.value || "_any"} className="text-xs hover:bg-teal-500/10">{r.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Row 2 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
+            <Tag className="w-3 h-3" />Product / Service Focus
+          </label>
+          <input
+            type="text"
+            value={filters.productFocus}
+            onChange={(e) => set("productFocus", e.target.value)}
+            placeholder='e.g. "Cloudflare CDN" or "Akamai"'
+            className="w-full h-9 px-3 text-xs rounded-md border border-white/[0.08] bg-[#161618] text-white/70 placeholder:text-white/25 focus:outline-none focus:border-teal-500/40 transition-colors"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
+            <Cpu className="w-3 h-3" />Tech Stack
+          </label>
+          <input
+            type="text"
+            value={filters.techStack}
+            onChange={(e) => set("techStack", e.target.value)}
+            placeholder="e.g. Salesforce, AWS, HubSpot"
+            className="w-full h-9 px-3 text-xs rounded-md border border-white/[0.08] bg-[#161618] text-white/70 placeholder:text-white/25 focus:outline-none focus:border-teal-500/40 transition-colors"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
+            <Search className="w-3 h-3" />Keywords
+          </label>
+          <input
+            type="text"
+            value={filters.keywords}
+            onChange={(e) => set("keywords", e.target.value)}
+            placeholder="e.g. digital transformation, cloud"
+            className="w-full h-9 px-3 text-xs rounded-md border border-white/[0.08] bg-[#161618] text-white/70 placeholder:text-white/25 focus:outline-none focus:border-teal-500/40 transition-colors"
+          />
+        </div>
+      </div>
+
+      {/* Job Titles */}
+      <div className="space-y-2">
+        <label className="text-[10px] font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
+          <User className="w-3 h-3" />Target Job Titles
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {JOB_TITLES.map((t) => {
+            const active = filters.jobTitles.includes(t);
+            return (
+              <button
+                key={t}
+                onClick={() => toggleTitle(t)}
+                className={`text-[10px] font-mono px-2 py-1 rounded border transition-all ${
+                  active
+                    ? "bg-teal-500/20 text-teal-300 border-teal-500/40"
+                    : "bg-white/[0.03] text-white/40 border-white/[0.08] hover:border-white/20 hover:text-white/60"
+                }`}
+              >
+                {t}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Scan Button */}
+      <Button
+        onClick={onScan}
+        disabled={isScanning}
+        className="w-full h-11 text-sm font-semibold bg-teal-600 hover:bg-teal-500 text-white gap-2 transition-all"
+        style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}
+      >
+        {isScanning ? (
+          <><Loader2 className="w-4 h-4 animate-spin" />Scanning Apollo...</>
+        ) : (
+          <><Radar className="w-4 h-4" />Scan for Prospects</>
+        )}
+      </Button>
+    </div>
   );
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
+const DEFAULT_FILTERS: ScanFilters = {
+  industry: "All Industries",
+  geo: "All US",
+  employeeSize: "",
+  revenueRange: "",
+  productFocus: "",
+  jobTitles: [],
+  techStack: "",
+  keywords: "",
+};
+
 export default function ProspectEngine() {
   const { toast } = useToast();
-  const prospects = useProspects();
 
-  // Filters
-  const [filters, setFilters] = useState<ScanFilters>({
-    industry: "All Industries",
-    geo: "All US",
-    employeeSize: "",
-    revenueRange: "",
-    productFocus: "",
-    jobTitles: [],
-    techStack: "",
-    keywords: "",
-  });
-  const [titleInput, setTitleInput] = useState("");
+  // View state: "form" = show filter form, "results" = show current results, "history-view" = viewing past results
+  const [view, setView] = useState<"form" | "results" | "history-view">("form");
+  const [filters, setFilters] = useState<ScanFilters>(DEFAULT_FILTERS);
+  const [currentResults, setCurrentResults] = useState<Prospect[]>([]);
+  const [currentFilters, setCurrentFilters] = useState<ScanFilters>(DEFAULT_FILTERS);
 
-  // View state
-  const [showHistory, setShowHistory] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [excludedCompanies, setExcludedCompanies] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // History
-  const [localHistory, setLocalHistory] = useState<LocalProspectEntry[]>([]);
-  const [expandedHistoryEntry, setExpandedHistoryEntry] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLocalHistory(loadHistory());
-  }, []);
-
-  const setFilter = <K extends keyof ScanFilters>(key: K, value: ScanFilters[K]) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const addTitle = (title: string) => {
-    const t = title.trim();
-    if (t && !filters.jobTitles.includes(t)) {
-      setFilter("jobTitles", [...filters.jobTitles, t]);
-    }
-    setTitleInput("");
-  };
-
-  const removeTitle = (title: string) => {
-    setFilter(
-      "jobTitles",
-      filters.jobTitles.filter((t) => t !== title)
-    );
-  };
-
-  // Scan mutation
-  const scanMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/prospects/scan", {
-        industry: filters.industry === "All Industries" ? undefined : filters.industry,
-        geo: filters.geo !== "All US" ? filters.geo : undefined,
-        employeeSize: filters.employeeSize || undefined,
-        revenueRange: filters.revenueRange || undefined,
-        productFocus: filters.productFocus || undefined,
-        jobTitles: filters.jobTitles.length > 0 ? filters.jobTitles : undefined,
-        techStack: filters.techStack || undefined,
-        keywords: filters.keywords || undefined,
-        excludeCompanies: excludedCompanies.slice(-60),
-      });
-      return res.json();
-    },
-    onSuccess: (data: Prospect[]) => {
-      store.addProspects(data);
-      setHasSearched(true);
-      setCurrentPage(1);
-
-      const newNames = data.map((p: any) => p.companyName).filter(Boolean);
-      setExcludedCompanies((prev) => Array.from(new Set([...prev, ...newNames])));
-
-      const totalContacts = data.reduce(
-        (sum, p) => sum + JSON.parse(p.contacts || "[]").length,
-        0
-      );
-
-      const entry: LocalProspectEntry = {
-        id: `${Date.now()}-${Math.random()}`,
-        filters: { ...filters },
-        prospects: data,
-        timestamp: Date.now(),
-      };
-      const updated = [entry, ...loadHistory()].slice(0, 20);
-      saveHistory(updated);
-      setLocalHistory(updated);
-
-      toast({
-        title: "Scan complete",
-        description: `Found ${data.length} prospects with ${totalContacts} decision makers`,
-      });
-    },
-    onError: (err: Error) =>
-      toast({ title: "Scan failed", description: err.message, variant: "destructive" }),
-  });
-
-  const clearResults = () => {
-    setExcludedCompanies([]);
-    store.clearAll?.();
-    setHasSearched(false);
-    setCurrentPage(1);
-  };
-
-  const clearHistory = () => {
-    saveHistory([]);
-    setLocalHistory([]);
-    toast({ title: "History cleared" });
-  };
-
-  // Stats
-  const hot = prospects.filter((p) => p.score >= 75);
-  const warm = prospects.filter((p) => p.score >= 50 && p.score < 75);
-  const cold = prospects.filter((p) => p.score < 50);
-  const totalContacts = prospects.reduce(
-    (sum, p) => sum + JSON.parse(p.contacts || "[]").length,
-    0
-  );
+  // History viewer state
+  const [historyEntry, setHistoryEntry] = useState<HistoryEntry | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Pagination
-  const totalPages = Math.ceil(prospects.length / PAGE_SIZE);
-  const paginated = prospects.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
+  const [page, setPage] = useState(1);
+
+  const scanMutation = useMutation({
+    mutationFn: async (f: ScanFilters) => {
+      const payload: any = {};
+      if (f.industry && f.industry !== "All Industries") payload.industry = f.industry;
+      if (f.geo && f.geo !== "All US") payload.geo = f.geo;
+      if (f.employeeSize && f.employeeSize !== "_any") payload.employeeSize = f.employeeSize;
+      if (f.revenueRange && f.revenueRange !== "_any") payload.revenueRange = f.revenueRange;
+      if (f.productFocus) payload.productFocus = f.productFocus;
+      if (f.jobTitles.length > 0) payload.jobTitles = f.jobTitles;
+      if (f.techStack) payload.techStack = f.techStack;
+      if (f.keywords) payload.keywords = f.keywords;
+      const res = await apiRequest("POST", "/api/prospects/scan", payload);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const prospects: Prospect[] = data.prospects || data || [];
+      // CRITICAL: Set ONLY the new results, clearing any previous ones
+      setCurrentResults(prospects);
+      setCurrentFilters(filters);
+      setPage(1);
+      setView("results");
+
+      // Save to history
+      const entry: HistoryEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
+        filters: { ...filters },
+        prospects,
+        timestamp: Date.now(),
+      };
+      const history = loadHistory();
+      saveHistory([entry, ...history]);
+
+      toast({
+        title: `${prospects.length} prospects found`,
+        description: filterSummary(filters),
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Scan failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleScan = () => {
+    // Clear current results BEFORE starting new scan
+    setCurrentResults([]);
+    setView("form"); // Stay on form while scanning
+    scanMutation.mutate(filters);
+  };
+
+  const handleNewSearch = () => {
+    setCurrentResults([]);
+    setHistoryEntry(null);
+    setView("form");
+    setPage(1);
+  };
+
+  const handleRestoreHistory = (entry: HistoryEntry) => {
+    setHistoryEntry(entry);
+    setView("history-view");
+    setPage(1);
+  };
+
+  const displayedProspects = view === "history-view" && historyEntry
+    ? historyEntry.prospects
+    : currentResults;
+
+  const totalPages = Math.ceil(displayedProspects.length / PAGE_SIZE);
+  const paginated = displayedProspects.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div className="space-y-6">
-      {/* ── Page Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
-          <Radar className="w-6 h-6 text-teal-300" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-white/95">ATOM Prospect</h1>
-          <p className="text-sm text-white/40 mt-0.5">
-            AI-powered prospect discovery · Apollo Pro + Hunter.io + PDL enrichment
+    <div className="space-y-6 min-h-screen" style={{ fontFamily: "'Satoshi', Arial, sans-serif" }}>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+              <Radar className="w-5 h-5 text-teal-400" />
+            </div>
+            <h1
+              className="text-2xl font-bold text-[#e8e8ea] tracking-tight"
+              style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif", letterSpacing: "-0.03em" }}
+            >
+              ATOM Prospect
+            </h1>
+          </div>
+          <p className="text-sm text-[#8a8a96] ml-12">
+            Apollo-powered prospect scanner · find decision makers with verified contact data
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {hasSearched && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5 border-white/10 text-white/50 hover:text-white/80 hover:border-teal-500/40"
-              onClick={clearResults}
-              data-testid="button-new-search"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New Search
-            </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {(view === "results" || view === "history-view") && (
+            <>
+              {view === "results" && currentResults.length > 0 && (
+                <Button variant="outline" size="sm" onClick={() => exportToCSV(currentResults)}
+                  className="h-8 text-xs gap-1.5 border-white/[0.08] text-white/50 hover:text-white hover:border-white/20 bg-transparent">
+                  <Download className="w-3.5 h-3.5" />CSV
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={handleNewSearch}
+                className="h-8 text-xs gap-1.5 border-teal-500/30 text-teal-400 hover:bg-teal-500/10 bg-transparent">
+                <Plus className="w-3.5 h-3.5" />New Search
+              </Button>
+            </>
           )}
-          {hasSearched && prospects.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5 border-white/10 text-white/50 hover:text-white/80 hover:border-emerald-500/40"
-              onClick={() => exportToCSV(prospects)}
-              data-testid="button-export-csv"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export CSV
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className={`h-8 text-xs gap-1.5 border-white/10 transition-all ${
-              showHistory
-                ? "bg-teal-500/10 border-teal-500/40 text-teal-300"
-                : "text-white/50 hover:text-white/80 hover:border-teal-500/40"
-            }`}
-            onClick={() => setShowHistory(!showHistory)}
-            data-testid="button-toggle-history"
-          >
-            <History className="w-3.5 h-3.5" />
-            History
-            {localHistory.length > 0 && (
-              <span className="bg-teal-600 text-white text-[9px] rounded-full px-1.5 py-0 leading-4 font-medium">
-                {localHistory.length}
-              </span>
-            )}
+          <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)}
+            className="h-8 text-xs gap-1.5 border-white/[0.08] text-white/50 hover:text-white hover:border-white/20 bg-transparent">
+            <History className="w-3.5 h-3.5" />History
           </Button>
         </div>
       </div>
 
-      {showHistory ? (
-        /* ── History View ─────────────────────────────────────────────── */
+      {/* FORM VIEW */}
+      {view === "form" && (
+        <Card className="bg-[#111113] border-white/[0.08]">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-5">
+              <SlidersHorizontal className="w-4 h-4 text-teal-400" />
+              <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                Scan Filters
+              </span>
+              <Badge className="bg-teal-500/10 text-teal-400/70 border-teal-500/15 text-[10px] font-mono ml-auto">
+                Apollo · 275M+ contacts
+              </Badge>
+            </div>
+            <FilterPanel
+              filters={filters}
+              onChange={setFilters}
+              onScan={handleScan}
+              isScanning={scanMutation.isPending}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* SCANNING SKELETON */}
+      {scanMutation.isPending && (
         <div className="space-y-3">
-          {localHistory.length === 0 ? (
-            <div className="rounded-xl border border-white/[0.08] bg-black/40 backdrop-blur-md">
-              <div className="flex flex-col items-center justify-center py-20 text-white/20">
-                <History className="w-10 h-10 mb-3 opacity-40" />
-                <p className="text-sm">No prospect scans yet</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {localHistory.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="rounded-xl border border-l-2 border-l-teal-500 border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden"
-                >
-                  <button
-                    className="w-full text-left p-4 hover:bg-white/[0.02] transition-colors"
-                    onClick={() =>
-                      setExpandedHistoryEntry(
-                        expandedHistoryEntry === entry.id ? null : entry.id
-                      )
-                    }
-                    data-testid={`button-history-${entry.id}`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white/80 truncate">
-                          {filterSummary(entry.filters)} — {entry.prospects.length}{" "}
-                          prospects
-                        </p>
-                        <p className="text-xs text-white/30 mt-0.5">
-                          {formatTimestamp(entry.timestamp)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 text-[10px]">
-                          {entry.prospects.reduce(
-                            (sum, p) => sum + JSON.parse(p.contacts || "[]").length,
-                            0
-                          )}{" "}
-                          contacts
-                        </Badge>
-                        {expandedHistoryEntry === entry.id ? (
-                          <ChevronUp className="w-4 h-4 text-white/30" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-white/30" />
-                        )}
-                      </div>
-                    </div>
-                    {expandedHistoryEntry !== entry.id && (
-                      <div className="flex gap-1.5 mt-2 flex-wrap">
-                        {entry.prospects.slice(0, 5).map((p, i) => (
-                          <span
-                            key={i}
-                            className="text-[10px] text-white/30 border border-white/10 px-1.5 py-0.5 rounded"
-                          >
-                            {p.companyName}
-                          </span>
-                        ))}
-                        {entry.prospects.length > 5 && (
-                          <span className="text-[10px] text-white/20">
-                            +{entry.prospects.length - 5} more
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </button>
-
-                  {expandedHistoryEntry === entry.id && (
-                    <div className="px-4 pb-4 space-y-3 border-t border-white/[0.06] pt-3">
-                      {/* Stats */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {(() => {
-                          const h = entry.prospects.filter((p) => p.score >= 75).length;
-                          const w = entry.prospects.filter(
-                            (p) => p.score >= 50 && p.score < 75
-                          ).length;
-                          const c = entry.prospects.filter((p) => p.score < 50).length;
-                          const tc = entry.prospects.reduce(
-                            (sum, p) => sum + JSON.parse(p.contacts || "[]").length,
-                            0
-                          );
-                          return (
-                            <>
-                              {[
-                                { label: "Hot", count: h, color: "text-rose-400 border-l-rose-500" },
-                                { label: "Warm", count: w, color: "text-amber-400 border-l-amber-500" },
-                                { label: "Cold", count: c, color: "text-teal-300 border-l-teal-500" },
-                                { label: "Contacts", count: tc, color: "text-emerald-400 border-l-emerald-500" },
-                              ].map((stat) => (
-                                <div
-                                  key={stat.label}
-                                  className={`rounded-lg border border-l-2 ${stat.color} border-white/[0.08] bg-white/[0.02] p-2 text-center`}
-                                >
-                                  <p className={`text-lg font-bold ${stat.color.split(" ")[0]}`}>
-                                    {stat.count}
-                                  </p>
-                                  <p className="text-[9px] text-white/30 uppercase tracking-wider">
-                                    {stat.label}
-                                  </p>
-                                </div>
-                              ))}
-                            </>
-                          );
-                        })()}
-                      </div>
-
-                      {/* Re-load button */}
-                      <Button
-                        size="sm"
-                        className="w-full h-8 text-xs gap-1.5 bg-teal-600 hover:bg-teal-500 border-0"
-                        onClick={() => {
-                          store.addProspects(entry.prospects);
-                          setHasSearched(true);
-                          setCurrentPage(1);
-                          setShowHistory(false);
-                          toast({ title: "Search loaded", description: `Loaded ${entry.prospects.length} prospects from history` });
-                        }}
-                        data-testid={`button-reload-history-${entry.id}`}
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        Load These Results
-                      </Button>
-
-                      {/* Prospect list */}
-                      <div className="space-y-2">
-                        {entry.prospects.map((p, i) => (
-                          <ProspectCard key={i} prospect={p} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div className="flex justify-end pt-1">
-                <button
-                  onClick={clearHistory}
-                  className="flex items-center gap-1 text-xs text-red-400/60 hover:text-red-400 transition-colors"
-                  data-testid="button-clear-history"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Clear History
-                </button>
-              </div>
-            </>
-          )}
+          <div className="flex items-center gap-2 px-1">
+            <Loader2 className="w-4 h-4 text-teal-400 animate-spin" />
+            <span className="text-sm text-teal-400/70">Scanning Apollo database...</span>
+          </div>
+          {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
-      ) : (
-        <>
-          {/* ── Filter Panel ──────────────────────────────────────────────── */}
-          <div className="rounded-xl border border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden">
-            {/* Filter header */}
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.06]">
-              <SlidersHorizontal className="w-4 h-4 text-teal-300" />
-              <span className="text-sm font-medium text-white/80">Search Filters</span>
-              {(filters.industry !== "All Industries" ||
-                filters.geo !== "All US" ||
-                filters.employeeSize ||
-                filters.revenueRange ||
-                filters.productFocus ||
-                filters.jobTitles.length > 0 ||
-                filters.techStack ||
-                filters.keywords) && (
-                <button
-                  onClick={() =>
-                    setFilters({
-                      industry: "All Industries",
-                      geo: "All US",
-                      employeeSize: "",
-                      revenueRange: "",
-                      productFocus: "",
-                      jobTitles: [],
-                      techStack: "",
-                      keywords: "",
-                    })
-                  }
-                  className="ml-auto text-[10px] text-white/30 hover:text-white/60 flex items-center gap-1 transition-colors"
-                  data-testid="button-reset-filters"
-                >
-                  <X className="w-3 h-3" />
-                  Reset
-                </button>
+      )}
+
+      {/* RESULTS VIEW */}
+      {(view === "results" || view === "history-view") && !scanMutation.isPending && (
+        <div className="space-y-4">
+          {/* Results Header */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              {view === "history-view" && historyEntry && (
+                <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs font-mono gap-1">
+                  <History className="w-3 h-3" />Viewing history · {formatTimestamp(historyEntry.timestamp)}
+                </Badge>
               )}
-            </div>
-
-            <div className="p-5 space-y-4">
-              {/* Row 1: Industry + Geography */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-widest">
-                    <Building2 className="w-3 h-3" />
-                    Industry
-                  </label>
-                  <Select
-                    value={filters.industry}
-                    onValueChange={(v) => setFilter("industry", v)}
-                  >
-                    <SelectTrigger
-                      className="h-9 bg-white/[0.03] border-white/10 text-white/80 text-sm"
-                      data-testid="select-industry"
-                    >
-                      <SelectValue placeholder="Select industry" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#0a0a14] border-white/10">
-                      {INDUSTRIES.map((i) => (
-                        <SelectItem key={i} value={i}>
-                          {i}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-widest">
-                    <MapPin className="w-3 h-3" />
-                    Geography
-                  </label>
-                  <Select
-                    value={filters.geo}
-                    onValueChange={(v) => setFilter("geo", v)}
-                  >
-                    <SelectTrigger
-                      className="h-9 bg-white/[0.03] border-white/10 text-white/80 text-sm"
-                      data-testid="select-geography"
-                    >
-                      <SelectValue placeholder="Geography" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#0a0a14] border-white/10">
-                      {GEOGRAPHIES.map((g) => (
-                        <SelectItem key={g.value} value={g.value}>
-                          {g.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Row 2: Employee Size + Revenue Range */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-widest">
-                    <Users className="w-3 h-3" />
-                    Company Size (Employees)
-                  </label>
-                  <Select
-                    value={filters.employeeSize}
-                    onValueChange={(v) => setFilter("employeeSize", v)}
-                  >
-                    <SelectTrigger
-                      className="h-9 bg-white/[0.03] border-white/10 text-white/80 text-sm"
-                      data-testid="select-employee-size"
-                    >
-                      <SelectValue placeholder="Any size" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#0a0a14] border-white/10">
-                      {EMPLOYEE_SIZES.map((s) => (
-                        <SelectItem key={s.value} value={s.value || "any"}>
-                          {s.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-widest">
-                    <DollarSign className="w-3 h-3" />
-                    Revenue Range
-                  </label>
-                  <Select
-                    value={filters.revenueRange}
-                    onValueChange={(v) => setFilter("revenueRange", v)}
-                  >
-                    <SelectTrigger
-                      className="h-9 bg-white/[0.03] border-white/10 text-white/80 text-sm"
-                      data-testid="select-revenue-range"
-                    >
-                      <SelectValue placeholder="Any revenue" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#0a0a14] border-white/10">
-                      {REVENUE_RANGES.map((r) => (
-                        <SelectItem key={r.value} value={r.value || "any"}>
-                          {r.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Row 3: Product to Pitch */}
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-widest">
-                  <Briefcase className="w-3 h-3" />
-                  Product to Pitch
-                </label>
-                <input
-                  type="text"
-                  value={filters.productFocus}
-                  onChange={(e) => setFilter("productFocus", e.target.value)}
-                  placeholder="e.g. Akamai, Five9, TierPoint, ATOM, ATOM Enterprise..."
-                  className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
-                  data-testid="input-product-focus"
-                />
-              </div>
-
-              {/* Row 4: Job Titles */}
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-widest">
-                  <User className="w-3 h-3" />
-                  Job Titles to Target
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={titleInput}
-                      onChange={(e) => setTitleInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === ",") {
-                          e.preventDefault();
-                          addTitle(titleInput);
-                        }
-                      }}
-                      placeholder="Type a title and press Enter, or pick below..."
-                      className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
-                      data-testid="input-job-title"
-                    />
-                  </div>
-                </div>
-
-                {/* Quick-add title chips */}
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {JOB_TITLES.filter((t) => !filters.jobTitles.includes(t)).map(
-                    (title) => (
-                      <button
-                        key={title}
-                        onClick={() => addTitle(title)}
-                        className="text-[10px] px-2 py-0.5 rounded border border-white/10 text-white/30 hover:text-teal-300 hover:border-teal-500/40 hover:bg-teal-500/5 transition-all"
-                        data-testid={`button-add-title-${title}`}
-                      >
-                        + {title}
-                      </button>
-                    )
-                  )}
-                </div>
-
-                {/* Selected titles */}
-                {filters.jobTitles.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {filters.jobTitles.map((t) => (
-                      <TitleBadge key={t} title={t} onRemove={() => removeTitle(t)} />
-                    ))}
-                  </div>
+              <div className="flex items-center gap-2">
+                <Signal className="w-4 h-4 text-teal-400" />
+                <span className="text-sm font-semibold text-[#e8e8ea]" style={{ fontFamily: "'Cabinet Grotesk', Arial, sans-serif" }}>
+                  {displayedProspects.length} Prospects Found
+                </span>
+                {displayedProspects.length > 0 && (
+                  <Badge className="bg-teal-500/10 text-teal-400/70 border-teal-500/15 text-[10px] font-mono">
+                    {filterSummary(view === "history-view" && historyEntry ? historyEntry.filters : currentFilters)}
+                  </Badge>
                 )}
               </div>
-
-              {/* Row 5: Tech Stack + Keywords */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-widest">
-                    <Cpu className="w-3 h-3" />
-                    Tech Stack Filter
-                  </label>
-                  <input
-                    type="text"
-                    value={filters.techStack}
-                    onChange={(e) => setFilter("techStack", e.target.value)}
-                    placeholder="e.g. companies using Salesforce, AWS, SAP..."
-                    className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
-                    data-testid="input-tech-stack"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-widest">
-                    <Tag className="w-3 h-3" />
-                    Keywords
-                  </label>
-                  <input
-                    type="text"
-                    value={filters.keywords}
-                    onChange={(e) => setFilter("keywords", e.target.value)}
-                    placeholder="e.g. digital transformation, AI adoption, IPO..."
-                    className="flex h-9 w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
-                    data-testid="input-keywords"
-                  />
-                </div>
-              </div>
-
-              {/* Action row */}
-              <div className="flex items-center gap-3 pt-1">
-                <Button
-                  onClick={() => scanMutation.mutate()}
-                  disabled={scanMutation.isPending}
-                  className="flex-1 sm:flex-none sm:w-44 h-10 bg-teal-600 hover:bg-teal-500 border-0 font-medium transition-colors shadow-lg shadow-teal-500/20"
-                  data-testid="button-scan-prospects"
-                >
-                  {scanMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Scanning...
-                    </>
-                  ) : (
-                    <>
-                      <Radar className="w-4 h-4 mr-2" />
-                      Scan + Enrich
-                    </>
-                  )}
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                  className="h-7 w-7 p-0 text-white/40 hover:text-white hover:bg-white/5">
+                  <ChevronLeft className="w-4 h-4" />
                 </Button>
-
-                {excludedCompanies.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-10 text-xs border-white/10 text-white/40 hover:text-white/70 hover:border-white/20"
-                    onClick={clearResults}
-                    data-testid="button-reset-exclusions"
-                  >
-                    ↺ Reset ({excludedCompanies.length} excluded)
-                  </Button>
-                )}
+                <span className="text-xs text-white/40 font-mono">{page}/{totalPages}</span>
+                <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+                  className="h-7 w-7 p-0 text-white/40 hover:text-white hover:bg-white/5">
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
               </div>
-
-              {/* Scanning progress indicator */}
-              {scanMutation.isPending && (
-                <div className="mt-1 p-3 rounded-lg border border-teal-500/20 bg-teal-500/5">
-                  <div className="flex items-center gap-2 text-sm text-teal-300">
-                    <div className="flex gap-0.5">
-                      {[0, 1, 2].map((i) => (
-                        <div
-                          key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-bounce"
-                          style={{ animationDelay: `${i * 0.15}s` }}
-                        />
-                      ))}
-                    </div>
-                    <span className="font-medium">
-                      ATOM scanning prospects via Apollo Pro · Hunter.io · PDL enrichment...
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* ── Results Stats ─────────────────────────────────────────────── */}
-          {hasSearched && prospects.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: "Hot (75+)", count: hot.length, color: "text-rose-400", border: "border-l-rose-500" },
-                { label: "Warm (50-74)", count: warm.length, color: "text-amber-400", border: "border-l-amber-500" },
-                { label: "Cold (<50)", count: cold.length, color: "text-teal-300", border: "border-l-teal-500" },
-                { label: "Contacts", count: totalContacts, color: "text-emerald-400", border: "border-l-emerald-500" },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className={`rounded-xl border border-l-2 ${stat.border} border-white/[0.08] bg-black/40 backdrop-blur-md p-4 text-center`}
-                  data-testid={`stat-${stat.label.toLowerCase().replace(/\s/g, "-")}`}
-                >
-                  <p className={`text-2xl font-bold ${stat.color}`}>{stat.count}</p>
-                  <p className="text-[10px] text-white/30 uppercase tracking-wider mt-0.5">
-                    {stat.label}
-                  </p>
-                </div>
+          {/* Prospect Cards */}
+          {paginated.length === 0 ? (
+            <Card className="bg-[#111113] border-white/[0.08]">
+              <CardContent className="py-16 flex flex-col items-center gap-3">
+                <Radar className="w-12 h-12 text-white/10" />
+                <p className="text-sm text-white/30">No prospects found for these filters</p>
+                <Button variant="outline" size="sm" onClick={handleNewSearch}
+                  className="mt-2 border-teal-500/30 text-teal-400 hover:bg-teal-500/10 bg-transparent">
+                  Adjust Filters
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {paginated.map((p) => (
+                <ProspectCard key={p.id} prospect={p} isViewingHistory={view === "history-view"} />
               ))}
             </div>
           )}
 
-          {/* ── Loading Skeletons ─────────────────────────────────────────── */}
-          {scanMutation.isPending && <LoadingSkeleton />}
-
-          {/* ── Results List ─────────────────────────────────────────────── */}
-          {!scanMutation.isPending && hasSearched && prospects.length > 0 && (
-            <>
-              <div className="space-y-3">
-                {paginated.map((p) => (
-                  <ProspectCard key={p.id} prospect={p} />
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-2">
-                  <p className="text-xs text-white/30">
-                    Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-                    {Math.min(currentPage * PAGE_SIZE, prospects.length)} of{" "}
-                    {prospects.length} prospects
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-8 p-0 border-white/10 text-white/40 hover:text-white/80 hover:border-white/20"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      data-testid="button-page-prev"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    {[...Array(totalPages)].map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setCurrentPage(i + 1)}
-                        className={`w-8 h-8 text-xs rounded-md border transition-all ${
-                          currentPage === i + 1
-                            ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
-                            : "border-white/10 text-white/30 hover:text-white/60 hover:border-white/20"
-                        }`}
-                        data-testid={`button-page-${i + 1}`}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-8 p-0 border-white/10 text-white/40 hover:text-white/80 hover:border-white/20"
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      data-testid="button-page-next"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Load more from API */}
-              <div className="flex justify-center pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 text-sm gap-2 border-teal-500/30 text-teal-300 hover:bg-teal-500/10 hover:border-teal-500/50"
-                  onClick={() => scanMutation.mutate()}
-                  disabled={scanMutation.isPending}
-                  data-testid="button-load-more"
-                >
-                  {scanMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Search className="w-4 h-4" />
-                  )}
-                  Load More Prospects
-                </Button>
-              </div>
-            </>
-          )}
-
-          {/* ── Empty state ───────────────────────────────────────────────── */}
-          {!scanMutation.isPending && (!hasSearched || prospects.length === 0) && (
-            <div className="rounded-xl border border-white/[0.08] bg-black/40 backdrop-blur-md">
-              <div className="flex flex-col items-center justify-center py-24 text-white/20">
-                <div className="w-16 h-16 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mb-4">
-                  <Radar className="w-8 h-8 text-teal-400/60" />
-                </div>
-                <p className="text-sm text-white/30 mb-1">No prospects yet</p>
-                <p className="text-xs text-white/20">
-                  Configure your filters above and hit Scan + Enrich
-                </p>
-              </div>
+          {/* Pagination Footer */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                className="h-8 text-xs gap-1 text-white/40 hover:text-white hover:bg-white/5">
+                <ChevronLeft className="w-3.5 h-3.5" />Previous
+              </Button>
+              <span className="text-xs text-white/30 font-mono">Page {page} of {totalPages}</span>
+              <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+                className="h-8 text-xs gap-1 text-white/40 hover:text-white hover:bg-white/5">
+                Next<ChevronRight className="w-3.5 h-3.5" />
+              </Button>
             </div>
           )}
-        </>
+        </div>
       )}
+
+      {/* History Drawer */}
+      <HistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onRestore={handleRestoreHistory}
+      />
     </div>
   );
 }
