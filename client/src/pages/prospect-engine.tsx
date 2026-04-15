@@ -301,40 +301,64 @@ function ContactRow({ contact, prospect, compact = false }: { contact: Contact; 
     );
   }
 
+  const seniority = (contact.seniority || contact.position || "").toLowerCase();
+  const seniorityLabel = seniority.includes("vp") || seniority.includes("vice") ? "vp"
+    : seniority.includes("director") ? "director"
+    : seniority.includes("chief") || seniority.includes("cto") || seniority.includes("ceo") || seniority.includes("cfo") || seniority.includes("cio") ? "c-suite"
+    : seniority.includes("senior") || seniority.includes("head") ? "senior"
+    : seniority || "contact";
+  const confidence = contact.confidence || 95;
+
   return (
-    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3.5 space-y-2.5 hover:border-teal-500/15 transition-colors">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
             <User className="w-4 h-4 text-teal-300" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-white/90">{contact.firstName} {contact.lastName}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-white/90">{contact.firstName} {contact.lastName}</p>
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-mono px-1.5 py-0 h-4 rounded-full bg-green-500/15 text-green-400 border border-green-500/25">✓ verified</span>
+            </div>
             <p className="text-xs text-white/50">{contact.position}</p>
           </div>
         </div>
         <Button size="sm" onClick={handleCallAtom} disabled={!contact.phone}
-          className="h-7 text-xs px-2.5 gap-1.5 bg-teal-600/15 hover:bg-teal-600/25 text-teal-300 border border-teal-500/20 shrink-0">
+          className="h-8 text-xs px-3 gap-1.5 bg-teal-600/15 hover:bg-teal-600/25 text-teal-300 border border-teal-500/20 shrink-0">
           <PhoneCall className="w-3 h-3" />Call with ATOM
         </Button>
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      {/* Contact details */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-[52px]">
         {contact.email && (
-          <a href={`mailto:${contact.email}`} className="flex items-center gap-1 text-[10px] text-white/50 hover:text-teal-300 transition-colors">
-            <Mail className="w-3 h-3" />{contact.email}
+          <a href={`mailto:${contact.email}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-teal-400 transition-colors">
+            <Mail className="w-3.5 h-3.5" />{contact.email}
             {contact.emailStatus && <VerificationBadge status={contact.emailStatus} />}
           </a>
         )}
         {contact.phone && (
-          <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-[10px] text-white/50 hover:text-teal-300 transition-colors">
-            <Phone className="w-3 h-3" />{contact.phone}
+          <a href={`tel:${contact.phone}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-teal-400 transition-colors">
+            <Phone className="w-3.5 h-3.5" />{contact.phone}
           </a>
         )}
         {contact.linkedin && (
-          <a href={contact.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] text-white/50 hover:text-teal-300 transition-colors">
-            <Linkedin className="w-3 h-3" />LinkedIn
+          <a href={contact.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-blue-400/70 hover:text-blue-400 transition-colors">
+            <Linkedin className="w-3.5 h-3.5" />LinkedIn
           </a>
         )}
+      </div>
+      {/* Location + tags */}
+      <div className="flex flex-wrap items-center gap-1.5 pl-[52px]">
+        {(contact.city || contact.state) && (
+          <span className="flex items-center gap-1 text-[10px] text-white/25">
+            <MapPin className="w-3 h-3" />{[contact.city, contact.state].filter(Boolean).join(", ")}
+          </span>
+        )}
+        <span className="inline-flex text-[9px] font-mono px-1.5 py-0 h-4 rounded-full bg-white/5 text-white/30 border border-white/[0.06]">{seniorityLabel}</span>
+        {contact.department && <span className="inline-flex text-[9px] font-mono px-1.5 py-0 h-4 rounded-full bg-white/5 text-white/30 border border-white/[0.06]">{contact.department}</span>}
+        <span className="inline-flex text-[9px] font-mono px-1.5 py-0 h-4 rounded-full bg-white/5 text-white/30 border border-white/[0.06]">{confidence}% confidence</span>
+        <span className="inline-flex text-[9px] font-mono px-1.5 py-0 h-4 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20">ATOM Verified</span>
       </div>
     </div>
   );

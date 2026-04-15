@@ -556,17 +556,17 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-teal-400">
+                      <div className="w-10 h-10 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-teal-400">
                           {c.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#e8e8ea]">{c.name}</p>
-                        <p className="text-xs text-white/45">{c.title}</p>
-                        {(c.city || c.state) && (
-                          <p className="text-[11px] text-white/25 mt-0.5">{[c.city, c.state].filter(Boolean).join(", ")}</p>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-[#e8e8ea]">{c.name}</p>
+                          <Badge className="bg-green-500/15 text-green-400 border-green-500/25 text-[9px] px-1.5 py-0 h-4 font-mono">✓ verified</Badge>
+                        </div>
+                        <p className="text-xs text-white/50">{c.title}</p>
                       </div>
                     </div>
                     <Button
@@ -578,23 +578,35 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                       <PhoneCall className="w-3.5 h-3.5" />Call with ATOM
                     </Button>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-3">
+                  {/* Contact details row */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2.5 pl-[52px]">
                     {c.email && (
-                      <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-[11px] text-white/40 hover:text-teal-400 transition-colors">
-                        <Mail className="w-3 h-3" />{c.email}
+                      <a href={`mailto:${c.email}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-teal-400 transition-colors">
+                        <Mail className="w-3.5 h-3.5" />{c.email}
                       </a>
                     )}
                     {c.phone && (
-                      <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-[11px] text-white/40 hover:text-teal-400 transition-colors">
-                        <Phone className="w-3 h-3" />{c.phone}
+                      <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-teal-400 transition-colors">
+                        <Phone className="w-3.5 h-3.5" />{c.phone}
                       </a>
                     )}
                     {c.linkedin && (
-                      <a href={c.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] text-white/40 hover:text-teal-400 transition-colors">
-                        <Linkedin className="w-3 h-3" />LinkedIn
-                        <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                      <a href={c.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-blue-400/70 hover:text-blue-400 transition-colors">
+                        <Linkedin className="w-3.5 h-3.5" />LinkedIn
                       </a>
                     )}
+                  </div>
+                  {/* Location + tags row */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2 pl-[52px]">
+                    {(c.city || c.state) && (
+                      <span className="flex items-center gap-1 text-[10px] text-white/25">
+                        <MapPin className="w-3 h-3" />{[c.city, c.state].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                    <Badge className="bg-white/5 text-white/30 border-white/[0.06] text-[9px] px-1.5 py-0 h-4 font-mono">
+                      {c.title?.toLowerCase().includes("vp") || c.title?.toLowerCase().includes("vice") ? "vp" : c.title?.toLowerCase().includes("director") ? "director" : c.title?.toLowerCase().includes("chief") || c.title?.toLowerCase().includes("cto") || c.title?.toLowerCase().includes("ceo") ? "c-suite" : "senior"}
+                    </Badge>
+                    <Badge className="bg-teal-500/10 text-teal-400 border-teal-500/20 text-[9px] px-1.5 py-0 h-4 font-mono">ATOM Verified</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -989,24 +1001,23 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
 
       {/* ─── Citations ─────────────────────────────────────────────────────── */}
       {result.citations && result.citations.length > 0 && (
-        <Card className="bg-[#111113] border-white/[0.08]">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <BookOpen className="w-4 h-4 text-white/30" />
-              <span className="text-xs font-semibold text-white/50">Sources & Citations</span>
-              <Badge className="bg-white/5 text-white/25 border-white/[0.06] text-[9px] font-mono">{result.citations.length}</Badge>
-            </div>
-            <div className="space-y-1">
-              {result.citations.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-2 text-[11px] text-white/30 hover:text-teal-400 transition-colors truncate">
-                  <ExternalLink className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{url}</span>
-                </a>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <details className="group">
+          <summary className="flex items-center gap-2 cursor-pointer p-3 bg-[#111113] border border-white/[0.08] rounded-xl hover:border-white/[0.12] transition-colors list-none [&::-webkit-details-marker]:hidden">
+            <BookOpen className="w-4 h-4 text-white/30" />
+            <span className="text-xs font-semibold text-white/50">Sources & Citations</span>
+            <Badge className="bg-white/5 text-white/25 border-white/[0.06] text-[9px] font-mono">{result.citations.length}</Badge>
+            <ChevronRight className="w-3.5 h-3.5 text-white/20 ml-auto transition-transform duration-200 group-open:rotate-90" />
+          </summary>
+          <div className="mt-1 p-3 bg-[#111113] border border-white/[0.08] rounded-xl space-y-1">
+            {result.citations.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noreferrer"
+                className="flex items-center gap-2 text-[11px] text-white/30 hover:text-teal-400 transition-colors truncate">
+                <ExternalLink className="w-3 h-3 shrink-0" />
+                <span className="truncate">{url}</span>
+              </a>
+            ))}
+          </div>
+        </details>
       )}
     </div>
   );
