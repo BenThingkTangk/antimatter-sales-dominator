@@ -212,7 +212,8 @@ async function revealApolloContact(person: any): Promise<EnrichedContact | null>
   try {
     const matchPayload: Record<string, any> = {
       reveal_personal_emails: true,
-      reveal_phone_number: true,
+      // NOTE: reveal_phone_number now requires webhook_url in Apollo API
+      // Phone numbers come from the person record itself (phone_numbers array)
     };
 
     if (person.id) {

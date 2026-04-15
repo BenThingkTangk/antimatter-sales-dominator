@@ -1,10 +1,9 @@
-import { Switch, Route, Router } from "wouter";
+import { Switch, Route, Router, Redirect } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AppLayout } from "./components/AppLayout";
-import Dashboard from "./pages/dashboard";
 import PitchGenerator from "./pages/pitch-generator";
 import ObjectionHandler from "./pages/objection-handler";
 import MarketIntent from "./pages/market-intent";
@@ -12,14 +11,13 @@ import ProspectEngine from "./pages/prospect-engine";
 import AtomLeadGen from "./pages/atom-leadgen";
 import AtomCampaign from "./pages/atom-campaign";
 import CompanyIntelligence from "./pages/company-intelligence";
-import CallPerformance from "./pages/call-performance";
 import NotFound from "./pages/not-found";
 
 function AppRouter() {
   return (
     <AppLayout>
       <Switch>
-        <Route path="/" component={Dashboard} />
+        <Route path="/"><Redirect to="/pitch" /></Route>
         <Route path="/pitch" component={PitchGenerator} />
         <Route path="/objections" component={ObjectionHandler} />
         <Route path="/market" component={MarketIntent} />
@@ -27,7 +25,6 @@ function AppRouter() {
         <Route path="/atom-leadgen" component={AtomLeadGen} />
         <Route path="/atom-campaign" component={AtomCampaign} />
         <Route path="/company-intelligence" component={CompanyIntelligence} />
-        <Route path="/call-performance" component={CallPerformance} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

@@ -40,7 +40,7 @@ interface Aggregates {
   totalErrors: number;
 }
 
-interface SambaNovaLatency {
+interface ToolLatency {
   tool: string;
   ms: number;
   engine: string;
@@ -68,7 +68,7 @@ interface CallPerf {
   firstGreetingAudioAt: number | null;
   greetingFlushMs: number | null;
   eviTurnLatencies: number[];
-  sambaNovaLatencies: SambaNovaLatency[];
+  sambaNovaLatencies: ToolLatency[];
   transcriptionAccuracy: TranscriptionAccuracy[];
   errors: CallError[];
 }
@@ -274,7 +274,7 @@ export default function CallPerformance() {
               {bridge.sambanova && (
                 <Badge variant="secondary" className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-xs">
                   <Zap className="w-3 h-3 mr-1" />
-                  SambaNova
+                  ATOM Engine
                 </Badge>
               )}
               {bridge.activeCalls > 0 && (
@@ -349,7 +349,7 @@ export default function CallPerformance() {
             valueClass={latencyColor(agg.eviTurnLatency.avg)}
           />
           <StatCard
-            title="SambaNova"
+            title="ATOM Tools"
             value={agg.sambaNovaLatency.avg !== null ? `${Math.round(agg.sambaNovaLatency.avg)}` : "—"}
             suffix={agg.sambaNovaLatency.avg !== null ? "ms" : ""}
             icon={Zap}
@@ -422,12 +422,12 @@ export default function CallPerformance() {
             </CardContent>
           </Card>
 
-          {/* SambaNova Tool Latency */}
+          {/* ATOM Tool Latency */}
           <Card className="border-border/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Zap className="w-4 h-4 text-amber-400" />
-                SambaNova Tool Latency
+                ATOM Tool Latency
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -609,7 +609,7 @@ export default function CallPerformance() {
                     <th className="text-right text-muted-foreground font-medium px-4 py-3 whitespace-nowrap">Turns</th>
                     <th className="text-center text-muted-foreground font-medium px-4 py-3 whitespace-nowrap">Pre-warm</th>
                     <th className="text-right text-muted-foreground font-medium px-4 py-3 whitespace-nowrap">EVI Latency</th>
-                    <th className="text-right text-muted-foreground font-medium px-4 py-3 whitespace-nowrap">SambaNova</th>
+                    <th className="text-right text-muted-foreground font-medium px-4 py-3 whitespace-nowrap">ATOM Tools</th>
                     <th className="text-right text-muted-foreground font-medium px-4 py-3 whitespace-nowrap">Sentiment</th>
                     <th className="text-center text-muted-foreground font-medium px-4 py-3 whitespace-nowrap">Errors</th>
                   </tr>
@@ -659,7 +659,7 @@ export default function CallPerformance() {
                           {fmtMs(eviAvg)}
                         </td>
 
-                        {/* SambaNova */}
+                        {/* ATOM Engine */}
                         <td className="px-4 py-3 text-right font-mono whitespace-nowrap text-muted-foreground">
                           {snCount > 0 ? (
                             <span className="text-amber-400">{snCount} calls</span>
