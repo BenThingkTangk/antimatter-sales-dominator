@@ -48,6 +48,7 @@ import {
   Tag,
   Briefcase,
   Search,
+  Download,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -644,14 +645,18 @@ export default function AtomCampaign() {
       // Flatten prospects → targets
       const built: Target[] = [];
       let totalContacts = 0;
+      const domainsNeedingHunter: string[] = []; // domains where no contacts have phones
+
       for (const p of prospects) {
         const contacts = JSON.parse(p.contacts || "[]");
         totalContacts += contacts.length;
         const companyPhone = p.companyPhone || "";
+        let hasPhoneContact = false;
+
         if (contacts.length > 0) {
           for (const c of contacts.slice(0, 3)) {
-            // Use contact phone, or fall back to company main phone
             const phone = c.phone || c.mobilePhone || companyPhone;
+            if (phone) hasPhoneContact = true;
             built.push({
               id: `${p.id || p.companyName}_${c.firstName}_${c.lastName}`,
               companyName: p.companyName,
@@ -659,20 +664,67 @@ export default function AtomCampaign() {
               title: c.position || "",
               phone: phone,
               email: c.email || "",
-              selected: !!phone, // auto-select if we have a phone
+              selected: !!phone,
             });
           }
-        } else if (p.domain) {
-          // Company without contacts — add with company phone if available
-          built.push({
-            id: `${p.id || p.companyName}_co`,
-            companyName: p.companyName,
-            contactName: "Decision Maker",
-            title: "Main Line",
-            phone: companyPhone,
-            email: "",
-            selected: !!companyPhone,
-          });
+        }
+
+        // Track domains that need Hunter.io fallback for phone discovery
+        if (!hasPhoneContact && p.domain) {
+          domainsNeedingHunter.push(p.domain);
+          if (contacts.length === 0) {
+            built.push({
+              id: `${p.id || p.companyName}_co`,
+              companyName: p.companyName,
+              contactName: "Decision Maker",
+              title: "Main Line",
+              phone: companyPhone,
+              email: "",
+              selected: !!companyPhone,
+            });
+          }
+        }
+      }
+
+      // Hunter.io fallback: for companies where no contacts had phones,
+      // try Hunter domain search to discover additional contacts with phone numbers
+      if (domainsNeedingHunter.length > 0) {
+        setBuildProgress((p) => [...p, `Enriching ${domainsNeedingHunter.length} companies via secondary contact discovery...`]);
+        const hunterResults = await Promise.allSettled(
+          domainsNeedingHunter.slice(0, 5).map(async (domain) => {
+            try {
+              const res = await fetch(`/api/prospects/enrich`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ domain, mode: "hunter-only" }),
+              });
+              if (!res.ok) return { domain, contacts: [] };
+              const data = await res.json();
+              return { domain, contacts: data.contacts || [] };
+            } catch { return { domain, contacts: [] }; }
+          })
+        );
+
+        for (const result of hunterResults) {
+          if (result.status !== "fulfilled" || !result.value.contacts?.length) continue;
+          const { domain, contacts: hunterContacts } = result.value;
+          const company = prospects.find((p: any) => p.domain === domain);
+          if (!company) continue;
+          for (const hc of hunterContacts.slice(0, 2)) {
+            if (!hc.phone_number && !hc.value) continue;
+            const existingIds = new Set(built.map((t) => t.id));
+            const newId = `${company.companyName}_hunter_${hc.first_name}_${hc.last_name}`;
+            if (existingIds.has(newId)) continue;
+            built.push({
+              id: newId,
+              companyName: company.companyName,
+              contactName: `${hc.first_name || ""} ${hc.last_name || ""}`.trim() || "Contact",
+              title: hc.position || hc.seniority || "",
+              phone: hc.phone_number || "",
+              email: hc.value || "",
+              selected: !!hc.phone_number,
+            });
+          }
         }
       }
 
@@ -694,6 +746,30 @@ export default function AtomCampaign() {
   };
 
   const selectAll = () => setTargets((prev) => prev.map((t) => ({ ...t, selected: !!t.phone })));
+
+  // ─── Export targets to CSV ──────────────────────────────────────────────────
+  const exportTargetsCSV = () => {
+    if (targets.length === 0) return;
+    const headers = ["Company", "Contact Name", "Title", "Phone", "Email", "Status", "Selected"];
+    const rows = targets.map((t) => [
+      `"${t.companyName.replace(/"/g, '""')}"`,
+      `"${t.contactName.replace(/"/g, '""')}"`,
+      `"${(t.title || "").replace(/"/g, '""')}"`,
+      t.phone || "",
+      t.email || "",
+      t.phone ? "callable" : "no phone",
+      t.selected ? "yes" : "no",
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `atom-campaign-targets-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Exported", description: `${targets.length} targets exported to CSV` });
+  };
   const deselectAll = () => setTargets((prev) => prev.map((t) => ({ ...t, selected: false })));
 
   const selectedTargets = targets.filter((t) => t.selected && t.phone);
@@ -1071,6 +1147,11 @@ Target mid-market tech companies on Cloudflare who are scaling fast and frustrat
                     <Button variant="ghost" size="sm" onClick={deselectAll}
                       className="h-7 text-xs text-white/40 hover:text-white hover:bg-white/5">
                       Deselect All
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={exportTargetsCSV}
+                      className="h-7 text-xs gap-1.5 border-violet-500/20 text-violet-400 hover:bg-violet-500/10 bg-transparent"
+                      data-testid="button-export-campaign-csv">
+                      <Download className="w-3 h-3" /> Export CSV
                     </Button>
                   </div>
                 </div>
