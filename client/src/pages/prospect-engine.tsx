@@ -279,12 +279,15 @@ function ContactRow({ contact, prospect, compact = false }: { contact: Contact; 
   const [, navigate] = useLocation();
   const matchedProducts = JSON.parse(prospect.matchedProducts || "[]") as string[];
 
+  // Use contact phone, mobile, or company main line as fallback
+  const callablePhone = contact.phone || contact.mobilePhone || (prospect as any).companyPhone || "";
+
   const handleCallAtom = () => {
     const params = new URLSearchParams({
       company: prospect.companyName,
       contact: `${contact.firstName} ${contact.lastName}`,
       title: contact.position || "",
-      phone: contact.phone || "",
+      phone: callablePhone,
       product: matchedProducts[0] || "",
     });
     navigate(`/atom-leadgen?${params.toString()}`);
@@ -302,7 +305,7 @@ function ContactRow({ contact, prospect, compact = false }: { contact: Contact; 
             <p className="text-[10px] text-white/40 truncate">{contact.position}</p>
           </div>
         </div>
-        <Button size="sm" onClick={handleCallAtom} disabled={!contact.phone}
+        <Button size="sm" onClick={handleCallAtom}
           className="h-6 text-[10px] px-2 gap-1 bg-violet-600/15 hover:bg-violet-600/25 text-violet-300 border border-violet-500/20 shrink-0">
           <PhoneCall className="w-2.5 h-2.5" />Call
         </Button>
@@ -335,7 +338,7 @@ function ContactRow({ contact, prospect, compact = false }: { contact: Contact; 
             <p className="text-xs text-white/50">{contact.position}</p>
           </div>
         </div>
-        <Button size="sm" onClick={handleCallAtom} disabled={!contact.phone}
+        <Button size="sm" onClick={handleCallAtom}
           className="h-8 text-xs px-3 gap-1.5 bg-violet-600/15 hover:bg-violet-600/25 text-violet-300 border border-violet-500/20 shrink-0">
           <PhoneCall className="w-3 h-3" />Call with ATOM
         </Button>
@@ -348,10 +351,17 @@ function ContactRow({ contact, prospect, compact = false }: { contact: Contact; 
             {contact.emailStatus && <VerificationBadge status={contact.emailStatus} />}
           </a>
         )}
-        {contact.phone && (
-          <a href={`tel:${contact.phone}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-violet-400 transition-colors">
-            <Phone className="w-3.5 h-3.5" />{contact.phone}
+        {callablePhone ? (
+          <a href={`tel:${callablePhone}`} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-violet-400 transition-colors">
+            <Phone className="w-3.5 h-3.5" />{callablePhone}
+            {!contact.phone && (prospect as any).companyPhone && (
+              <span className="text-[9px] text-white/25 ml-1">(main line)</span>
+            )}
           </a>
+        ) : (
+          <span className="flex items-center gap-1.5 text-xs text-white/25">
+            <Phone className="w-3.5 h-3.5" />No phone available
+          </span>
         )}
         {contact.linkedin && (
           <a href={contact.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-blue-400/70 hover:text-blue-400 transition-colors">
