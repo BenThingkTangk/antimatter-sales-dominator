@@ -525,30 +525,27 @@ export default function AtomCampaign() {
     setStep("targets");
 
     try {
-      // Step 2a: Extract campaign intel from brief
-      setBuildProgress(["Analyzing campaign brief with ATOM AI..."]);
-      let analysisData: any = {};
-      try {
-        const analysisRes = await apiRequest("POST", "/api/campaign/analyze", { brief });
-        analysisData = await analysisRes.json();
-      } catch {
-        // Fallback: try pitch endpoint
-        try {
-          const pitchRes = await apiRequest("POST", "/api/pitch/generate", { brief });
-          const pitchData = await pitchRes.json();
-          analysisData = {
-            industry: pitchData.industry,
-            geography: pitchData.geo,
-            companySize: pitchData.companySize,
-            jobTitles: pitchData.targetPersonas,
-            techStack: pitchData.techStack,
-            keywords: pitchData.keywords,
-            product: pitchData.product || pitchData.productFocus,
-          };
-        } catch {
-          analysisData = {};
-        }
+      // Step 2a: Parse brief into targeting parameters using the brief text directly
+      setBuildProgress(["Analyzing campaign brief..."]);
+      
+      // Extract key info from the brief for targeting
+      const briefLower = brief.toLowerCase();
+      const analysisData: any = {
+        product: brief.split("\n")[0].slice(0, 100),
+        keywords: brief.slice(0, 200),
+      };
+      
+      // Auto-detect industry from brief
+      if (briefLower.includes("cdn") || briefLower.includes("cloud") || briefLower.includes("saas") || briefLower.includes("tech") || briefLower.includes("software")) {
+        analysisData.industry = "Technology";
+      } else if (briefLower.includes("health") || briefLower.includes("medical") || briefLower.includes("pharma")) {
+        analysisData.industry = "Healthcare";
+      } else if (briefLower.includes("finance") || briefLower.includes("bank") || briefLower.includes("insurance")) {
+        analysisData.industry = "Financial Services";
       }
+      
+      // Default job titles for campaigns
+      analysisData.jobTitles = ["CTO", "CIO", "VP Engineering", "VP IT", "Director of IT", "Head of Technology"];
 
       setBuildProgress((p) => [...p, "Mapping targeting parameters..."]);
 
@@ -612,17 +609,32 @@ export default function AtomCampaign() {
         const payload = buildPayload(false);
         const scanRes = await apiRequest("POST", "/api/prospects/scan", payload);
         const scanData = await scanRes.json();
-        prospects = scanData.prospects || scanData || [];
+        prospects = Array.isArray(scanData) ? scanData : (scanData.prospects || []);
       } catch {}
 
       // ── Fallback: remove geo & size constraints if no results ──
       if (prospects.length === 0) {
-        setBuildProgress((p) => [...p, "No results with tight filters — broadening search..."]);
+        setBuildProgress((p) => [...p, "Broadening search..."]);
         try {
           const broadPayload = buildPayload(true);
           const scanRes = await apiRequest("POST", "/api/prospects/scan", broadPayload);
           const scanData = await scanRes.json();
-          prospects = scanData.prospects || scanData || [];
+          prospects = Array.isArray(scanData) ? scanData : (scanData.prospects || []);
+        } catch {}
+      }
+
+      // ── Ultra-broad fallback: just industry + job titles ──
+      if (prospects.length === 0) {
+        setBuildProgress((p) => [...p, "Trying broader industry search..."]);
+        try {
+          const ultraBroad: any = { 
+            product: brief.slice(0, 100),
+            jobTitles: ["CTO", "CIO", "VP Engineering", "VP IT", "Director of IT"],
+          };
+          if (analysisData.industry) ultraBroad.industry = analysisData.industry;
+          const scanRes = await apiRequest("POST", "/api/prospects/scan", ultraBroad);
+          const scanData = await scanRes.json();
+          prospects = Array.isArray(scanData) ? scanData : (scanData.prospects || []);
         } catch {}
       }
 
