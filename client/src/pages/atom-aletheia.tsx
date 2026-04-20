@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TabId = "live" | "text" | "pipeline" | "playbook" | "architecture" | "history";
+type TabId = "live" | "text" | "pipeline" | "playbook" | "history";
 
 interface WaveBar {
   height: number;
@@ -3049,7 +3049,7 @@ export default function AtomAletheia() {
     { id: "text", label: "Text Analyzer", icon: <MessageSquare size={15} /> },
     { id: "pipeline", label: "Deal Pipeline", icon: <BarChart3 size={15} />, badge: "3 ⚠" },
     { id: "playbook", label: "Playbook Coach", icon: <Layers size={15} /> },
-    { id: "architecture", label: "Architecture", icon: <GitBranch size={15} /> },
+
     { id: "history", label: "Session History", icon: <History size={15} /> },
   ];
 
@@ -3513,7 +3513,7 @@ export default function AtomAletheia() {
         {activeTab === "text" && <TabText />}
         {activeTab === "pipeline" && <TabPipeline />}
         {activeTab === "playbook" && <TabPlaybook />}
-        {activeTab === "architecture" && <TabArchitecture />}
+
         {activeTab === "history" && <TabHistory />}
       </main>
 
