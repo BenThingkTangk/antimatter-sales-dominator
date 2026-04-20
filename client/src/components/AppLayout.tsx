@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Shield, MessageSquareWarning, TrendingUp, 
   Radar, ChevronLeft, ChevronRight, Moon, Sun, PhoneCall, Megaphone, Brain,
-  Menu, X
+  Menu, X, Eye
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { href: "/atom-leadgen", icon: PhoneCall, label: "ATOM Lead Gen" },
   { href: "/atom-campaign", icon: Megaphone, label: "ATOM Campaign" },
   { href: "/company-intelligence", icon: Brain, label: "ATOM WarBook" },
+  { href: "/atom-aletheia", icon: Eye, label: "ATOM Aletheia" },
 ];
 
 // ATOM Logo SVG — atomic orbital mark in Antimatter AI purple
