@@ -1906,6 +1906,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
 export default function CompanyIntelligence() {
   const { toast } = useToast();
   const [company, setCompany] = useState("");
+  const [researchDepth, setResearchDepth] = useState<"standard" | "enterprise">("enterprise");
   const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadStep, setLoadStep] = useState(0);
@@ -1933,7 +1934,7 @@ export default function CompanyIntelligence() {
       const res = await fetch(BRIDGE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company: company.trim(), website: website.trim() || undefined }),
+        body: JSON.stringify({ company: company.trim(), website: website.trim() || undefined, depth: researchDepth }),
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       const data: WarBookResult = await res.json();
@@ -2005,6 +2006,12 @@ export default function CompanyIntelligence() {
       {/* Input Card — always visible */}
       <Card className={`border transition-all ${result ? "border-violet-500/15 bg-violet-500/[0.02]" : "border-white/[0.08] bg-[#111113]"}`}>
         <CardContent className="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-white/25">Research Depth:</span>
+            {(["standard", "enterprise"] as const).map(d => (
+              <button key={d} onClick={() => setResearchDepth(d)} className={`text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border transition-all ${researchDepth === d ? "border-violet-500/40 bg-violet-500/10 text-violet-300" : "border-white/[0.08] text-white/35 hover:text-white/55"}`}>{d === "standard" ? "Standard (3 queries · ~20s)" : "Enterprise (5 queries · ~40s)"}</button>
+            ))}
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 space-y-1.5">
               <label className="text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-1">
@@ -2042,7 +2049,7 @@ export default function CompanyIntelligence() {
                 {loading ? (
                   <><Loader2 className="w-4 h-4 animate-spin" />Building...</>
                 ) : (
-                  <><BookOpen className="w-4 h-4" />Build WarBook</>
+                  <><BookOpen className="w-4 h-4" />Build WarBook ({researchDepth === "enterprise" ? "5 queries" : "3 queries"})</>
                 )}
               </Button>
             </div>
