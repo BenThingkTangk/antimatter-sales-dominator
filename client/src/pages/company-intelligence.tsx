@@ -208,7 +208,7 @@ interface HistoryEntry {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BRIDGE_URL = "/api/warbook/research";
+const BRIDGE_URL = "https://45-79-202-76.sslip.io/research";
 const STORAGE_KEY = "atom_warbook_history";
 
 type Tab = "intel" | "people" | "competitive" | "pain" | "signals" | "news" | "battlecard" | "battleplan";
