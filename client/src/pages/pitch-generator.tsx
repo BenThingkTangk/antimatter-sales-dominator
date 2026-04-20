@@ -315,6 +315,18 @@ export default function PitchGenerator() {
     }
   }, [selectedProduct]);
 
+  // Auto-rebuild when pitch type or tone changes AFTER an initial generation
+  const hasGenerated = useRef(false);
+  useEffect(() => {
+    if (activeResult) hasGenerated.current = true;
+  }, [activeResult]);
+  useEffect(() => {
+    if (hasGenerated.current && selectedProduct && !generatePitch.isPending) {
+      const timer = setTimeout(() => generatePitch.mutate(), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [pitchType, tone]);
+
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
     setCopiedSection(key);

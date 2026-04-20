@@ -1450,7 +1450,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm text-[#e8e8ea] leading-relaxed">{gap}</p>
                                 <button
-                                  onClick={() => navigate(`/pitch?context=${encodeURIComponent(`${result.company} is missing: ${gap}. Build a pitch that highlights this feature gap as a reason to switch to our solution.`)}&product=atom-enterprise`)}
+                                  onClick={() => navigate(`/pitch?context=${encodeURIComponent(`${result.company} is missing: ${gap}. Build a pitch that highlights this feature gap as a reason to switch to our solution.`)}&product=antimatter-ai-platform`)}
                                   className="mt-2 text-[10px] text-purple-400/60 hover:text-purple-400 transition-colors flex items-center gap-1 font-mono"
                                 >
                                   <ArrowRight className="w-3 h-3" />Use in Pitch &gt;
@@ -1636,7 +1636,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                                 <Copy className="w-3 h-3" />Copy Counter
                               </button>
                               <button
-                                onClick={() => navigate(`/pitch?context=${encodeURIComponent(`Counter-strategy for objection "${obj.objection}": ${obj.counterStrategy}`)}&product=atom-enterprise`)}
+                                onClick={() => navigate(`/pitch?context=${encodeURIComponent(`Counter-strategy for objection "${obj.objection}": ${obj.counterStrategy}`)}&product=antimatter-ai-platform`)}
                                 className="flex items-center gap-1.5 text-[10px] text-violet-400/60 hover:text-violet-400 transition-colors font-mono border border-violet-500/15 rounded px-2 py-1"
                               >
                                 <ArrowRight className="w-3 h-3" />Use in Pitch
@@ -1698,7 +1698,7 @@ function WarBookDisplay({ result }: { result: WarBookResult }) {
                           <Copy className="w-3 h-3" />Copy Opening
                         </button>
                         <button
-                          onClick={() => navigate(`/pitch?context=${encodeURIComponent(`Build a pitch for ${result.company} using this angle: ${pa.angle}. Target persona: ${pa.targetPersona}. Opening: ${pa.openingLine}. Proof points: ${(pa.proofPoints || []).join(", ")}`)}&product=atom-enterprise`)}
+                          onClick={() => navigate(`/pitch?context=${encodeURIComponent(`Build a pitch for ${result.company} using this angle: ${pa.angle}. Target persona: ${pa.targetPersona}. Opening: ${pa.openingLine}. Proof points: ${(pa.proofPoints || []).join(", ")}`)}&product=antimatter-ai-platform`)}
                           className="flex items-center gap-1.5 text-[10px] text-violet-400/60 hover:text-violet-400 transition-colors font-mono border border-violet-500/15 rounded px-2 py-1"
                         >
                           <ArrowRight className="w-3 h-3" />Build Full Pitch
