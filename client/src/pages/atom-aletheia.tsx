@@ -1219,62 +1219,74 @@ function TabText() {
   const [result, setResult] = useState<TextAnalysisResult | null>(null);
   const [analyzed, setAnalyzed] = useState(false);
 
-  function analyzeText() {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  async function analyzeText() {
     const text = inputText.trim();
     if (!text) {
       toast({ title: "Please enter text to analyze", variant: "destructive" });
       return;
     }
-    const lower = text.toLowerCase();
-    const hedgeCount = HEDGES.filter((h) => lower.includes(h)).length;
-    const evasionCount = EVASIONS.filter((e) => lower.includes(e)).length;
-    const urgencyCount = URGENCY_WORDS.filter((u) => lower.includes(u)).length;
-    const wordCount = text.split(/\s+/).length;
-    const sentCount = (text.match(/[.!?]+/g) || []).length + 1;
-    const hedgePct = Math.min(95, hedgeCount * 18);
-    const evasionPct = Math.min(95, evasionCount * 15);
-    const dealRisk = Math.min(
-      95,
-      Math.round(hedgePct * 0.4 + evasionPct * 0.5 + 10)
-    );
-    const truthScore = Math.max(
-      5,
-      100 - dealRisk - Math.round(Math.random() * 8)
-    );
-    const riskLevel =
-      dealRisk > 60 ? "HIGH RISK" : dealRisk > 35 ? "MEDIUM RISK" : "LOW RISK";
+    setIsAnalyzing(true);
+    try {
+      // Call the real Aletheia API
+      const res = await fetch("/api/aletheia/analyze-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, channel: "text" }),
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = await res.json();
 
-    let highlighted = text;
-    HEDGES.forEach((h) => {
-      const re = new RegExp(`(${h})`, "gi");
-      highlighted = highlighted.replace(
-        re,
-        `<mark style="background:rgba(248,113,113,0.15);color:#f87171;border-radius:3px;padding:0 3px;">$1</mark>`
-      );
-    });
-    EVASIONS.forEach((e) => {
-      const re = new RegExp(`(${e})`, "gi");
-      highlighted = highlighted.replace(
-        re,
-        `<span style="background:rgba(251,191,36,0.12);color:#fbbf24;border-radius:3px;padding:0 3px;">$1</span>`
-      );
-    });
-    highlighted = highlighted.replace(/\n/g, "<br>");
+      // Build highlighted HTML from API response
+      let highlighted = text;
+      (data.highlightedPhrases || []).forEach((hp: any) => {
+        const re = new RegExp(`(${hp.phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+        const color = hp.color === "red"
+          ? "background:rgba(248,113,113,0.15);color:#f87171"
+          : hp.color === "amber"
+          ? "background:rgba(251,191,36,0.12);color:#fbbf24"
+          : "background:rgba(74,222,128,0.1);color:#4ade80";
+        highlighted = highlighted.replace(re, `<mark style="${color};border-radius:3px;padding:0 3px;">$1</mark>`);
+      });
+      // Also highlight flagged phrases
+      (data.flags || []).forEach((f: any) => {
+        if (f.phrase && !highlighted.includes(`<mark`)) {
+          const re = new RegExp(`(${f.phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+          const color = f.severity === "high"
+            ? "background:rgba(248,113,113,0.15);color:#f87171"
+            : "background:rgba(251,191,36,0.12);color:#fbbf24";
+          highlighted = highlighted.replace(re, `<mark style="${color};border-radius:3px;padding:0 3px;">$1</mark>`);
+        }
+      });
+      highlighted = highlighted.replace(/\n/g, "<br>");
 
-    setResult({
-      truthScore,
-      hedgePct,
-      evasionPct,
-      urgency: urgencyCount > 0 ? "HIGH" : "LOW",
-      dealRisk,
-      riskLevel,
-      highlightedHtml: highlighted,
-      hedgeCount,
-      evasionCount,
-      wordCount,
-      sentCount,
-    });
-    setAnalyzed(true);
+      const hedgePct = data.hedgePct ?? data.linguisticCues?.fillerWords ?? 0;
+      const evasionPct = data.evasionPct ?? data.linguisticCues?.distancingLanguage ?? 0;
+      const dealRiskNum = typeof data.dealRisk === "number" ? data.dealRisk : (data.dealRisk === "AT_RISK" ? 70 : data.dealRisk === "CAUTION" ? 45 : data.dealRisk === "DEAD" ? 90 : 20);
+      const truthScore = data.aletheiaTruthScore ?? data.truthScore ?? 50;
+
+      setResult({
+        truthScore,
+        hedgePct,
+        evasionPct,
+        urgency: data.urgency || "LOW",
+        dealRisk: dealRiskNum,
+        riskLevel: data.overallRisk || (dealRiskNum > 60 ? "HIGH RISK" : dealRiskNum > 35 ? "MEDIUM RISK" : "LOW RISK"),
+        highlightedHtml: highlighted,
+        hedgeCount: (data.flags || []).filter((f: any) => f.type === "hedging").length,
+        evasionCount: (data.flags || []).filter((f: any) => f.type === "evasion" || f.type === "authority_evasion").length,
+        wordCount: text.split(/\s+/).length,
+        sentCount: (text.match(/[.!?]+/g) || []).length + 1,
+      });
+      setAnalyzed(true);
+      toast({ title: "Aletheia Analysis Complete", description: `Truth Score: ${truthScore}/100 · Risk: ${data.overallRisk || "ASSESSED"}` });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Analysis failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsAnalyzing(false);
+    }
   }
 
   const r = result;
@@ -1365,8 +1377,8 @@ function TabText() {
                 letterSpacing: "0.04em",
               }}
             >
-              <Search size={13} />
-              ANALYZE DECEPTION
+              {isAnalyzing ? <Activity size={13} className="animate-spin" /> : <Search size={13} />}
+              {isAnalyzing ? "ANALYZING..." : "ANALYZE DECEPTION"}
             </button>
             <button
               onClick={() => setInputText(SAMPLE_SMS)}
