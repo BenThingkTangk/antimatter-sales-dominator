@@ -887,8 +887,8 @@ export default function CompanyIntelligence() {
   }, [isLoading]);
 
   async function handleBuild() {
-    if (!company.trim()) {
-      toast({ title: "Company name required", variant: "destructive" });
+    if (!company.trim() || !website.trim()) {
+      toast({ title: !company.trim() ? "Company name required" : "Website URL required", description: "Both company name and website URL are required to build a WarBook.", variant: "destructive" });
       return;
     }
     setIsLoading(true);
@@ -1022,11 +1022,11 @@ export default function CompanyIntelligence() {
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
                 data-testid="input-website"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] text-white/15 font-mono pointer-events-none">(OPTIONAL)</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] text-white/15 font-mono pointer-events-none">REQUIRED</span>
             </div>
             <Button
               onClick={handleBuild}
-              disabled={isLoading}
+              disabled={isLoading || !company.trim() || !website.trim()}
               className="gap-2 px-5 py-2.5 rounded-lg font-semibold text-[13px] transition-all disabled:opacity-50"
               style={{ background: "#696aac", color: "#020202" }}
               data-testid="button-build-warbook"
