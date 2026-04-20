@@ -360,12 +360,19 @@ export default function AtomSonar() {
     setVoiceBrief(null);
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120000); // 2 min max
       const res = await fetch("https://45-79-202-76.sslip.io/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company: company.trim(), website: "" }),
+        body: JSON.stringify({ company: company.trim(), website: "", depth: "standard" }),
+        signal: controller.signal,
       });
-      if (!res.ok) throw new Error(`Research failed: ${res.status}`);
+      clearTimeout(timeout);
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        throw new Error(`Research failed (${res.status}): ${errBody.slice(0, 100)}`);
+      }
       const data = await res.json();
       setResult(data);
       setSonarStep(SONAR_STEPS[SONAR_STEPS.length - 1]);
