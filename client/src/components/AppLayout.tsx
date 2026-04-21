@@ -21,18 +21,52 @@ const navItems: NavItem[] = [
   { href: "/company-intelligence", icon: Brain, label: "ATOM WarBook" },
 ];
 
-// ATOM Logo SVG — atomic orbital mark in Antimatter AI purple
+// ATOM Sales Dominator Logo — Neon red atomic orbitals + crossed swords + CPU core
 function AtomLogo({ size = 36 }: { size?: number }) {
+  const glowId = `atom-glow-${size}`;
   return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" aria-label="ATOM logo">
-      <circle cx="18" cy="18" r="17" stroke="currentColor" strokeWidth="1.5" opacity="0.2"/>
-      <ellipse cx="18" cy="18" rx="10" ry="17" stroke="#a2a3e9" strokeWidth="1.5" fill="none"/>
-      <ellipse cx="18" cy="18" rx="17" ry="10" stroke="#a2a3e9" strokeWidth="1.5" fill="none" opacity="0.5"/>
-      <circle cx="18" cy="18" r="3" fill="#696aac"/>
-      <circle cx="18" cy="5" r="2" fill="#696aac" opacity="0.7"/>
-      <circle cx="18" cy="31" r="2" fill="#696aac" opacity="0.4"/>
-      <circle cx="5" cy="18" r="2" fill="#696aac" opacity="0.4"/>
-      <circle cx="31" cy="18" r="2" fill="#696aac" opacity="0.7"/>
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-label="ATOM Sales Dominator" style={{ filter: `drop-shadow(0 0 6px rgba(239,68,68,0.6)) drop-shadow(0 0 2px rgba(255,60,60,0.8))` }}>
+      <defs>
+        <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="0.8" result="glow"/>
+          <feMerge>
+            <feMergeNode in="glow"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      <g filter={`url(#${glowId})`} stroke="#ef4444" strokeWidth="1.5" fill="none" strokeLinecap="round">
+        {/* Crossed swords (behind orbitals) */}
+        <g opacity="0.95">
+          {/* Sword 1: top-left to bottom-right */}
+          <line x1="8" y1="8" x2="40" y2="40" strokeWidth="1.2"/>
+          <line x1="6" y1="10" x2="10" y2="6" strokeWidth="1.5"/>
+          {/* Sword 2: top-right to bottom-left */}
+          <line x1="40" y1="8" x2="8" y2="40" strokeWidth="1.2"/>
+          <line x1="38" y1="10" x2="42" y2="6" strokeWidth="1.5"/>
+        </g>
+        {/* Atomic orbitals — 3 ellipses at different rotations */}
+        <ellipse cx="24" cy="24" rx="18" ry="7" strokeWidth="1.3"/>
+        <ellipse cx="24" cy="24" rx="18" ry="7" transform="rotate(60 24 24)" strokeWidth="1.3"/>
+        <ellipse cx="24" cy="24" rx="18" ry="7" transform="rotate(-60 24 24)" strokeWidth="1.3"/>
+        {/* CPU chip core */}
+        <rect x="19" y="19" width="10" height="10" rx="1" strokeWidth="1.2" fill="#0b0b0c"/>
+        {/* CPU pins */}
+        <line x1="21" y1="17" x2="21" y2="19" strokeWidth="0.8"/>
+        <line x1="24" y1="17" x2="24" y2="19" strokeWidth="0.8"/>
+        <line x1="27" y1="17" x2="27" y2="19" strokeWidth="0.8"/>
+        <line x1="21" y1="29" x2="21" y2="31" strokeWidth="0.8"/>
+        <line x1="24" y1="29" x2="24" y2="31" strokeWidth="0.8"/>
+        <line x1="27" y1="29" x2="27" y2="31" strokeWidth="0.8"/>
+        <line x1="17" y1="21" x2="19" y2="21" strokeWidth="0.8"/>
+        <line x1="17" y1="24" x2="19" y2="24" strokeWidth="0.8"/>
+        <line x1="17" y1="27" x2="19" y2="27" strokeWidth="0.8"/>
+        <line x1="29" y1="21" x2="31" y2="21" strokeWidth="0.8"/>
+        <line x1="29" y1="24" x2="31" y2="24" strokeWidth="0.8"/>
+        <line x1="29" y1="27" x2="31" y2="27" strokeWidth="0.8"/>
+        {/* CPU inner grid */}
+        <rect x="21.5" y="21.5" width="5" height="5" strokeWidth="0.7" opacity="0.7"/>
+      </g>
     </svg>
   );
 }
@@ -57,12 +91,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
       {/* Ambient purple glow at bottom */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 blur-3xl opacity-10 rounded-full translate-y-1/2" style={{ background: "#3e3f7e" }} />
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 blur-3xl opacity-[0.15] rounded-full translate-y-1/2" style={{ background: "#dc2626" }} />
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-16 border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
         {!isMobile && collapsed ? (
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(105,106,172,0.08)", border: "1px solid rgba(105,106,172,0.18)" }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
             <AtomLogo size={22} />
           </div>
         ) : (
@@ -71,11 +105,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="min-w-0 flex-1">
               <h1
                 className="text-lg font-bold tracking-tight leading-none truncate"
-                style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif", color: "#f6f6fd", letterSpacing: "-0.03em" }}
+                style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif", color: "#f6f6fd", letterSpacing: "-0.03em", textShadow: "0 0 8px rgba(239,68,68,0.25)" }}
               >
-                AT<span style={{ color: "#696aac" }}>O</span>M
+                AT<span style={{ color: "#ef4444", textShadow: "0 0 8px rgba(239,68,68,0.7)" }}>O</span>M
               </h1>
-              <p className="text-[10px] tracking-widest uppercase mt-0.5" style={{ color: "rgba(255,255,255,0.3)", fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
+              <p className="text-[10px] tracking-widest uppercase mt-0.5" style={{ color: "rgba(239,68,68,0.6)", fontFamily: "'Plus Jakarta Sans', Arial, sans-serif" }}>
                 Sales Dominator
               </p>
             </div>
@@ -186,7 +220,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-2">
                 <AtomLogo size={22} />
                 <span className="text-sm font-bold tracking-tight" style={{ fontFamily: "'Plus Jakarta Sans', Arial, sans-serif", color: "#f6f6fd", letterSpacing: "-0.02em" }}>
-                  AT<span style={{ color: "#696aac" }}>O</span>M
+                  AT<span style={{ color: "#ef4444", textShadow: "0 0 6px rgba(239,68,68,0.7)" }}>O</span>M
                 </span>
               </div>
             </div>
