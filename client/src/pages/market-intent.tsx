@@ -13,9 +13,55 @@ import {
   Plus, ChevronDown, ChevronUp, Trash2, Check,
   TrendingUp, TrendingDown, Minus,
   AlertCircle, Target, Lightbulb, ArrowRight,
-  Globe, BarChart3, Activity, Swords
+  Globe, BarChart3, Activity, Swords, Crosshair
 } from "lucide-react";
 import type { Product } from "@shared/schema";
+import { flagAsHVT, findDealByCompany } from "@/lib/warroom-store";
+import { useLocation } from "wouter";
+
+// ─── HVT Flag Button ───────────────────────────────────────────────────────────
+function HVTFlagButton({ companyName, industry, signal }: { companyName: string; industry?: string; signal?: string }) {
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [flagged, setFlagged] = useState(() => Boolean(findDealByCompany(companyName)?.isHVT));
+
+  const handleFlag = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    flagAsHVT(companyName, {
+      industry,
+      source: "market",
+      notes: signal ? `Market signal: ${signal}` : undefined,
+      signals: signal ? [{
+        id: crypto.randomUUID(),
+        type: "news",
+        headline: signal,
+        date: new Date().toISOString().slice(0, 10),
+        source: "ATOM Market Intent",
+        impactScore: 7,
+      }] as any : [],
+    });
+    setFlagged(true);
+    toast({ title: "🎯 HVT Flagged", description: `${companyName} deployed to ATOM War Room.` });
+  };
+
+  if (flagged) {
+    return (
+      <button onClick={() => setLocation("/war-room")}
+        className="h-6 px-2 rounded border text-[10px] font-bold font-mono transition-all"
+        style={{ background: "rgba(220,38,38,0.12)", borderColor: "rgba(220,38,38,0.4)", color: "#f87171" }}>
+        🎯 HVT
+      </button>
+    );
+  }
+
+  return (
+    <button onClick={handleFlag}
+      className="h-6 px-2 rounded border border-white/10 text-[10px] text-white/40 hover:text-[#f87171] hover:border-rose-500/30 bg-white/[0.02] hover:bg-rose-500/10 transition-all flex items-center gap-1"
+      title="Flag as HVT — Send to ATOM War Room">
+      <Crosshair className="w-2.5 h-2.5" />Flag
+    </button>
+  );
+}
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -747,6 +793,7 @@ export default function MarketIntent() {
                             <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-white/30 uppercase tracking-wider">Competitor</th>
                             <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-white/30 uppercase tracking-wider">Move</th>
                             <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-white/30 uppercase tracking-wider w-16">Threat</th>
+                            <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-white/30 uppercase tracking-wider w-24">HVT</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -767,6 +814,9 @@ export default function MarketIntent() {
                                 <span className={`text-[10px] px-2 py-0.5 rounded border font-medium capitalize ${THREAT_COLORS[move.threat] || THREAT_COLORS["medium"]}`}>
                                   {move.threat}
                                 </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <HVTFlagButton companyName={move.competitor} industry={selectedIndustry} signal={move.move} />
                               </td>
                             </tr>
                           ))}

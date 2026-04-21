@@ -1,7 +1,58 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useProductIntel } from "@/hooks/use-product-intel";
 import { useToast } from "@/hooks/use-toast";
-import { PhoneCall, PhoneOff, Loader2, Clock, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { PhoneCall, PhoneOff, Loader2, Clock, ChevronDown, ChevronUp, Search, Crosshair } from "lucide-react";
+import { flagAsHVT, findDealByCompany } from "@/lib/warroom-store";
+import { useLocation } from "wouter";
+
+// ─── HVT Flag Button (reusable) ───────────────────────────────────
+function HVTFlagButton({ companyName, contactName, phone }: { companyName: string; contactName: string; phone: string }) {
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [flagged, setFlagged] = useState(() => Boolean(companyName && findDealByCompany(companyName)?.isHVT));
+
+  useEffect(() => {
+    setFlagged(Boolean(companyName && findDealByCompany(companyName)?.isHVT));
+  }, [companyName]);
+
+  const handleFlag = () => {
+    if (!companyName.trim()) {
+      toast({ title: "Company name required", description: "Enter a company name before flagging as HVT.", variant: "destructive" });
+      return;
+    }
+    const stakeholders = contactName.trim() ? [{
+      name: contactName,
+      phone: phone,
+      role: "unknown" as const,
+      engagement: 40,
+    }] : [];
+    flagAsHVT(companyName, { source: "leadgen", stakeholders: stakeholders as any });
+    setFlagged(true);
+    toast({ title: "🎯 HVT Flagged", description: `${companyName} deployed to ATOM War Room — Von Clausewitz Engine activated.` });
+  };
+
+  if (flagged) {
+    return (
+      <button
+        onClick={() => setLocation("/war-room")}
+        className="h-[46px] px-4 rounded-xl border flex items-center gap-1.5 text-[12px] font-bold font-mono transition-all"
+        style={{ background: "rgba(220,38,38,0.12)", borderColor: "rgba(220,38,38,0.4)", color: "#f87171", boxShadow: "0 0 8px rgba(220,38,38,0.25)" }}
+      >
+        🎯 HVT → War Room
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleFlag}
+      className="h-[46px] px-4 rounded-xl border border-white/[0.08] flex items-center gap-1.5 text-[12px] text-white/50 hover:text-[#f87171] hover:border-rose-500/30 bg-white/[0.02] hover:bg-rose-500/10 transition-all"
+      title="Flag as HVT — Send to ATOM War Room"
+    >
+      <Crosshair className="w-3.5 h-3.5" />Flag HVT
+    </button>
+  );
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1156,30 +1207,27 @@ export default function ATOMLeadGen() {
 
               {/* CTA row */}
               {callStatus === "idle" || callStatus === "dialing" ? (
-                <button
-                  onClick={handleDial}
-                  disabled={callStatus === "dialing"}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl font-medium text-sm transition-all"
-                  style={{
-                    background: "linear-gradient(93.92deg, #fb923c -13.51%, #f97316 40.91%, #ea580c 113.69%)", boxShadow: "0 0 15px rgba(249,115,22,0.4), inset 0 0 2px rgba(255,255,255,0.3)",
-                    color: "white",
-                    boxShadow: "0 0 20px rgba(133,135,227,0.35)",
-                    opacity: callStatus === "dialing" ? 0.7 : 1,
-                    cursor: callStatus === "dialing" ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {callStatus === "dialing" ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Connecting…
-                    </>
-                  ) : (
-                    <>
-                      <PhoneCall size={16} />
-                      Dial with ATOM
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={handleDial}
+                    disabled={callStatus === "dialing"}
+                    className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl font-medium text-sm transition-all"
+                    style={{
+                      background: "linear-gradient(93.92deg, #fb923c -13.51%, #f97316 40.91%, #ea580c 113.69%)",
+                      color: "white",
+                      boxShadow: "0 0 15px rgba(249,115,22,0.4), inset 0 0 2px rgba(255,255,255,0.3)",
+                      opacity: callStatus === "dialing" ? 0.7 : 1,
+                      cursor: callStatus === "dialing" ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {callStatus === "dialing" ? (
+                      <><Loader2 size={16} className="animate-spin" />Connecting…</>
+                    ) : (
+                      <><PhoneCall size={16} />Dial with ATOM</>
+                    )}
+                  </button>
+                  <HVTFlagButton companyName={companyName} contactName={contactName} phone={phone} />
+                </div>
               ) : callStatus === "active" ? (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">

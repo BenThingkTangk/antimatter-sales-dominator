@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { flagAsHVT, findDealByCompany } from "@/lib/warroom-store";
+import { Crosshair } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
@@ -387,6 +389,68 @@ function ContactRow({ contact, prospect, compact = false }: { contact: Contact; 
 
 // ─── ProspectCard (full screenshot-level detail) ─────────────────────────────
 
+// ─── HVT Flag Button — Sends account to War Room ──────────────────────────
+function HVTFlagButton({ prospect }: { prospect: Prospect }) {
+  const { toast } = useToast();
+  const [flagged, setFlagged] = useState(() => Boolean(findDealByCompany(prospect.companyName)?.isHVT));
+  const [, setLocation] = useLocation();
+
+  const handleFlag = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const contacts = (prospect as any).contacts || [];
+    const stakeholders = contacts.slice(0, 5).map((c: any) => ({
+      name: `${c.firstName} ${c.lastName}`.trim(),
+      title: c.position,
+      email: c.email,
+      phone: c.phone,
+      linkedin: c.linkedin,
+      role: "unknown" as const,
+      engagement: 30,
+    }));
+    flagAsHVT(prospect.companyName, {
+      website: prospect.domain ? `https://${prospect.domain}` : undefined,
+      industry: prospect.industry,
+      source: "prospect",
+      stakeholders: stakeholders as any,
+      notes: prospect.reason,
+    });
+    setFlagged(true);
+    toast({
+      title: "🎯 HVT Flagged",
+      description: `${prospect.companyName} deployed to ATOM War Room — Von Clausewitz Engine activated.`,
+    });
+  };
+
+  if (flagged) {
+    return (
+      <button
+        onClick={() => setLocation("/war-room")}
+        className="h-7 px-2.5 rounded-lg border flex items-center gap-1 text-[10px] font-bold font-mono shrink-0 transition-all"
+        style={{
+          background: "rgba(220,38,38,0.12)",
+          borderColor: "rgba(220,38,38,0.4)",
+          color: "#f87171",
+          boxShadow: "0 0 8px rgba(220,38,38,0.25)",
+        }}
+        title="Already flagged — click to view in War Room"
+      >
+        🎯 HVT
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleFlag}
+      className="h-7 px-2.5 rounded-lg border border-white/[0.08] flex items-center gap-1 text-[10px] text-white/40 hover:text-[#f87171] hover:border-rose-500/30 bg-white/[0.02] hover:bg-rose-500/10 transition-all shrink-0"
+      title="Flag as HVT — Send to ATOM War Room"
+    >
+      <Crosshair className="w-3 h-3" />Flag HVT
+    </button>
+  );
+}
+
 function ProspectCard({ prospect, isViewingHistory }: { prospect: Prospect; isViewingHistory: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const contacts: Contact[] = JSON.parse(prospect.contacts || "[]");
@@ -479,12 +543,15 @@ function ProspectCard({ prospect, isViewingHistory }: { prospect: Prospect; isVi
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="w-7 h-7 rounded-lg border border-white/[0.08] flex items-center justify-center text-white/30 hover:text-white hover:border-white/20 transition-all shrink-0"
-            >
-              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <HVTFlagButton prospect={prospect} />
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="w-7 h-7 rounded-lg border border-white/[0.08] flex items-center justify-center text-white/30 hover:text-white hover:border-white/20 transition-all"
+              >
+                {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+            </div>
           </div>
 
           {/* ── SCORE BAR ── */}

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -36,12 +36,52 @@ import {
   Signal,
   Users,
   FileText,
+  UserPlus,
+  Building2,
+  Calendar,
+  DollarSign,
+  Briefcase,
+  Phone,
+  Network,
+  Radar,
+  Check,
+  Plus,
   Radio,
 } from "lucide-react";
+import {
+  loadDeals,
+  createDeal,
+  updateDeal,
+  deleteDeal,
+  flagAsHVT,
+  linkAnalysisToDeal,
+  addStakeholder,
+  updateStakeholder,
+  removeStakeholder,
+  addSignal,
+  firePlay,
+  acknowledgePlay,
+  multithreadingScore,
+  stallDays,
+  canAdvanceStage,
+  dealStats,
+  findDealByCompany,
+  getDeal,
+  onWarRoomEvent,
+  type Deal,
+  type Stakeholder,
+  type CompanySignal,
+  type IntelAnalysis,
+  type Play,
+  type DealStage,
+  type StakeholderRole,
+  type ThreatLevel,
+  type SignalType,
+} from "@/lib/warroom-store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TabId = "intel" | "pipeline" | "playbook" | "history" | "ghostops";
+type TabId = "command" | "intel" | "operator" | "pipeline" | "playbook" | "history" | "ghostops";
 type ChannelId = "email" | "call_transcript" | "sms" | "linkedin";
 
 interface Flag {
@@ -113,7 +153,6 @@ interface GhostResurrection {
 
 interface AnalysisResult {
   truthScore: number;
-  // fallback for older field name
   aletheiaTruthScore?: number;
   overallRisk: string;
   dealRisk: string;
@@ -135,29 +174,7 @@ interface AnalysisResult {
   analyzedAt: string;
 }
 
-interface HistoryEntry {
-  id: string;
-  text: string;
-  channel: ChannelId;
-  result: AnalysisResult;
-  timestamp: number;
-}
-
-interface DealEntry {
-  id: string;
-  company: string;
-  contact: string;
-  notes: string;
-  truthScore: number;
-  risk: string;
-  intent: string;
-  lastAnalyzed: number;
-}
-
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const HISTORY_KEY = "atom_warroom_history";
-const DEALS_KEY = "atom_warroom_deals";
 
 const CHANNELS: { id: ChannelId; label: string; icon: any }[] = [
   { id: "email", label: "Email", icon: Mail },
@@ -167,7 +184,9 @@ const CHANNELS: { id: ChannelId; label: string; icon: any }[] = [
 ];
 
 const TABS: { id: TabId; label: string; icon: any }[] = [
+  { id: "command", label: "Command Center", icon: Activity },
   { id: "intel", label: "Intel Analyzer", icon: Eye },
+  { id: "operator", label: "Operator Intel", icon: Users },
   { id: "pipeline", label: "Deal Pipeline", icon: BarChart3 },
   { id: "playbook", label: "Playbook Engine", icon: BookOpen },
   { id: "history", label: "War History", icon: History },
@@ -178,20 +197,40 @@ const SAMPLE_EMAIL = `Hi,\n\nThank you for the proposal. The team believes there
 const SAMPLE_TRANSCRIPT = `Yeah absolutely, we're very interested. The CEO is very bullish on this. It's definitely a top priority for us right now. We just need to circle back after next quarter when things settle down. Our VP of Engineering thinks it's a strong fit but we have some internal reprioritization happening. We'll definitely get back to you soon — no question about it.`;
 const SAMPLE_SMS = `Hey, just wanted to check in. We are still very interested but the decision has been pushed to next quarter. Our CEO is very bullish on this and thinks it's a great fit. We will definitely circle back soon.`;
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+const STAGE_ORDER: DealStage[] = ["discovery", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"];
 
-function loadHistory(): HistoryEntry[] {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+const STAKEHOLDER_ROLES: { id: StakeholderRole; label: string; icon: string }[] = [
+  { id: "economic_buyer", label: "Economic Buyer", icon: "🏆" },
+  { id: "technical", label: "Technical Gatekeeper", icon: "🧠" },
+  { id: "champion", label: "Champion", icon: "💚" },
+  { id: "blocker", label: "Blocker", icon: "🚨" },
+  { id: "ghost", label: "Ghost", icon: "👻" },
+  { id: "unknown", label: "Unknown", icon: "❓" },
+];
+
+const SIGNAL_TYPES: { id: SignalType; label: string; color: string }[] = [
+  { id: "funding", label: "Funding", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  { id: "leadership", label: "Leadership", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  { id: "job_posting", label: "Job Posting", color: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" },
+  { id: "tech_change", label: "Tech Change", color: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
+  { id: "news", label: "News", color: "bg-white/10 text-white/60 border-white/20" },
+  { id: "contract_win", label: "Contract Win", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  { id: "earnings", label: "Earnings", color: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+];
+
+// ─── useDeals hook ────────────────────────────────────────────────────────────
+
+function useDeals() {
+  const [deals, setDeals] = useState<Deal[]>(() => loadDeals());
+  useEffect(() => {
+    const refresh = () => setDeals(loadDeals());
+    const unsub = onWarRoomEvent(refresh);
+    return unsub;
+  }, []);
+  return { deals, refresh: () => setDeals(loadDeals()) };
 }
-function saveHistory(h: HistoryEntry[]) {
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 50))); } catch {}
-}
-function loadDeals(): DealEntry[] {
-  try { return JSON.parse(localStorage.getItem(DEALS_KEY) || "[]"); } catch { return []; }
-}
-function saveDeals(d: DealEntry[]) {
-  try { localStorage.setItem(DEALS_KEY, JSON.stringify(d)); } catch {}
-}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtTime(ts: number): string {
   if (!ts) return "—";
@@ -211,11 +250,32 @@ const riskColor = (r: string) => {
   if (l === "medium" || l === "caution") return "bg-amber-500/15 text-amber-400 border-amber-500/25";
   return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
 };
+
 const sevColor = (s: string) => s === "high" ? "text-rose-400" : s === "medium" ? "text-amber-400" : "text-emerald-400";
 const scoreColor = (n: number) => n >= 70 ? "#1dd1a1" : n >= 40 ? "#fbbf24" : "#f87171";
 const intentLabel = (s: string) => (s || "unknown").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
 const phraseColor = (c: string) => c === "red" ? "bg-rose-500/20 border-rose-500/30 text-rose-300" : c === "amber" ? "bg-amber-500/20 border-amber-500/30 text-amber-300" : "bg-emerald-500/20 border-emerald-500/30 text-emerald-300";
 const strengthColor = (s: string) => s === "strong" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25" : s === "moderate" ? "bg-amber-500/15 text-amber-400 border-amber-500/25" : "bg-white/5 text-white/40 border-white/10";
+
+const CRIMSON_BTN_STYLE = {
+  background: "linear-gradient(93.92deg, #f87171 -13.51%, #dc2626 40.91%, #b91c1c 113.69%)",
+  boxShadow: "0 0 15px rgba(220,38,38,0.4), inset 0 0 2px rgba(255,255,255,0.3)",
+  color: "#fff",
+};
+
+function stageLabel(s: DealStage): string {
+  return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function threatColor(t: ThreatLevel) {
+  if (t === "critical") return "bg-rose-500/15 text-rose-400 border-rose-500/25";
+  if (t === "elevated") return "bg-amber-500/15 text-amber-400 border-amber-500/25";
+  return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
+}
+
+function signalBadgeColor(type: SignalType): string {
+  return SIGNAL_TYPES.find(s => s.id === type)?.color ?? "bg-white/10 text-white/50 border-white/20";
+}
 
 // ─── Shared UI Components ─────────────────────────────────────────────────────
 
@@ -267,6 +327,16 @@ function SmallScoreCircle({ score }: { score: number }) {
   );
 }
 
+function MiniScoreCircle({ score }: { score: number }) {
+  const color = scoreColor(score);
+  return (
+    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 tabular-nums"
+      style={{ background: `rgba(${score >= 70 ? "29,209,161" : score >= 40 ? "251,191,36" : "220,38,38"},0.12)`, color, border: `1.5px solid ${color}40` }}>
+      {score}
+    </div>
+  );
+}
+
 function MiniBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="space-y-1">
@@ -281,20 +351,237 @@ function MiniBar({ label, value, color }: { label: string; value: number; color:
   );
 }
 
-// ─── CRIMSON Button style ─────────────────────────────────────────────────────
+function EngagementBar({ value }: { value: number }) {
+  const color = value >= 70 ? "#1dd1a1" : value >= 40 ? "#fbbf24" : "#f87171";
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${value}%`, background: color }} />
+      </div>
+      <span className="text-[10px] font-mono tabular-nums" style={{ color }}>{value}%</span>
+    </div>
+  );
+}
 
-const CRIMSON_BTN_STYLE = {
-  background: "linear-gradient(93.92deg, #f87171 -13.51%, #dc2626 40.91%, #b91c1c 113.69%)",
-  boxShadow: "0 0 15px rgba(220,38,38,0.4), inset 0 0 2px rgba(255,255,255,0.3)",
-  color: "#fff",
-};
+// ─── Modal ────────────────────────────────────────────────────────────────────
 
-// ─── Intel Analyzer Tab ───────────────────────────────────────────────────────
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
+      <div className="w-full max-w-md rounded-xl border border-white/[0.08] bg-[#111113] shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+          <span className="text-[14px] font-semibold text-[#f6f6fd]">{title}</span>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition-all">
+            <X size={14} className="text-white/40" />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <MonoLabel>{label}</MonoLabel>
+      {children}
+    </div>
+  );
+}
+
+const INPUT_CLS = "w-full px-3 py-2 rounded-lg text-[13px] text-[#f6f6fd] placeholder-white/20 outline-none transition-colors";
+const INPUT_STYLE = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" };
+
+// ─── TAB 1: Command Center ────────────────────────────────────────────────────
+
+function CommandCenterTab({ deals, onTabChange }: { deals: Deal[]; onTabChange: (t: TabId) => void }) {
+  const { toast } = useToast();
+  const stats = dealStats();
+  const hvtDeals = deals.filter(d => d.isHVT);
+  const allPlays = deals.flatMap(d => d.plays.map(p => ({ ...p, deal: d }))).filter(p => !p.acknowledged).sort((a, b) => b.firedAt - a.firedAt).slice(0, 5);
+  const recentMovements = deals.filter(d => d.truthHistory.length >= 2).sort((a, b) => {
+    const latestA = a.truthHistory[a.truthHistory.length - 1]?.at ?? 0;
+    const latestB = b.truthHistory[b.truthHistory.length - 1]?.at ?? 0;
+    return latestB - latestA;
+  }).slice(0, 5);
+
+  function handleAck(dealId: string, playId: string) {
+    acknowledgePlay(dealId, playId);
+    toast({ title: "Play acknowledged", description: "Order marked complete." });
+  }
+
+  if (deals.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-5 text-center">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "rgba(220,38,38,0.08)", border: "1.5px solid rgba(220,38,38,0.2)" }}>
+          <Swords size={28} className="text-red-500/60" />
+        </div>
+        <div className="space-y-2 max-w-sm">
+          <p className="text-[15px] font-semibold text-[#f6f6fd]">No active deals.</p>
+          <p className="text-[13px] text-white/40 leading-relaxed">Flag an account as HVT from ATOM Prospect, Lead Gen, or Market Intent to deploy the Von Clausewitz Engine.</p>
+        </div>
+        <button
+          onClick={() => onTabChange("pipeline")}
+          className="flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-medium transition-all hover:scale-[1.02]"
+          style={CRIMSON_BTN_STYLE}
+        >
+          <Plus size={13} /> Add First Deal
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: "Total Deals", value: stats.total, icon: Briefcase, color: "#f87171" },
+          { label: "HVT Accounts", value: stats.hvt, icon: Target, color: "#dc2626" },
+          { label: "Avg TRUTH Score", value: stats.avgTruth, icon: TrendingUp, color: scoreColor(stats.avgTruth) },
+          { label: "Open Plays", value: stats.openPlays, icon: Zap, color: stats.openPlays > 0 ? "#fbbf24" : "#1dd1a1" },
+        ].map(card => {
+          const Icon = card.icon;
+          return (
+            <div key={card.label} className="rounded-xl border border-white/[0.08] bg-[#111113] p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <MonoLabel>{card.label}</MonoLabel>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${card.color}18` }}>
+                  <Icon size={13} style={{ color: card.color }} />
+                </div>
+              </div>
+              <p className="text-3xl font-bold tabular-nums" style={{ color: card.color }}>{card.value}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {/* HVT Accounts */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Target size={14} className="text-red-400" />
+              <span className="text-[13px] font-semibold text-[#f6f6fd]">HVT Accounts</span>
+            </div>
+            <MonoLabel>{hvtDeals.length} tracked</MonoLabel>
+          </div>
+          {hvtDeals.length === 0 ? (
+            <p className="text-[12px] text-white/30 text-center py-6">No HVT accounts. Flag deals from the Pipeline.</p>
+          ) : (
+            <div className="space-y-2">
+              {hvtDeals.map(deal => {
+                const ms = multithreadingScore(deal);
+                const sd = stallDays(deal);
+                return (
+                  <div key={deal.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <MiniScoreCircle score={deal.truthScore} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-semibold text-[#f6f6fd] truncate">{deal.company}</span>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(220,38,38,0.15)", color: "#f87171", border: "1px solid rgba(220,38,38,0.3)" }}>🎯 HVT</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${riskColor(deal.risk)}`}>{deal.risk}</span>
+                        <span className="text-[10px] text-white/30">{ms.engaged}/{ms.required} engaged</span>
+                        {sd > 0 && <span className={`text-[10px] font-mono ${sd > 7 ? "text-rose-400" : "text-white/30"}`}>{sd}d stall</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => onTabChange("operator")} className="text-white/20 hover:text-white/60 transition-colors">
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Active Plays Feed */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap size={14} className="text-amber-400" />
+              <span className="text-[13px] font-semibold text-[#f6f6fd]">Active Plays</span>
+            </div>
+            {allPlays.length > 0 && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25">{allPlays.length} pending</span>}
+          </div>
+          {allPlays.length === 0 ? (
+            <p className="text-[12px] text-white/30 text-center py-6">No pending plays. Fire plays from the Pipeline or Playbook.</p>
+          ) : (
+            <div className="space-y-2">
+              {allPlays.map(play => (
+                <div key={play.id} className="p-3 rounded-lg space-y-2" style={{ background: "rgba(251,191,36,0.04)", border: "1px solid rgba(251,191,36,0.12)" }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-semibold text-amber-300">{play.name}</span>
+                        <span className="text-[9px] font-mono text-white/30 bg-white/[0.04] px-1.5 py-0.5 rounded">{play.deal.company}</span>
+                      </div>
+                      <p className="text-[10px] text-white/40 mt-0.5 leading-snug">{play.tactic}</p>
+                    </div>
+                    <button
+                      onClick={() => handleAck(play.deal.id, play.id)}
+                      className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-all"
+                    >
+                      <Check size={9} /> Ack
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-mono text-white/20 bg-white/[0.03] px-1.5 py-0.5 rounded border border-white/[0.06]">trigger: {play.trigger}</span>
+                    <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${play.urgency === "critical" ? "bg-rose-500/15 text-rose-400 border-rose-500/25" : play.urgency === "high" ? "bg-amber-500/15 text-amber-400 border-amber-500/25" : "bg-white/5 text-white/30 border-white/10"}`}>{play.urgency}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* TRUTH Score Movements */}
+      {recentMovements.length > 0 && (
+        <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={14} className="text-emerald-400" />
+            <span className="text-[13px] font-semibold text-[#f6f6fd]">Recent TRUTH Score Movements</span>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {recentMovements.map(deal => {
+              const history = deal.truthHistory;
+              const prev = history[history.length - 2]?.score ?? history[0]?.score ?? deal.truthScore;
+              const curr = history[history.length - 1]?.score ?? deal.truthScore;
+              const delta = curr - prev;
+              return (
+                <div key={deal.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <MiniScoreCircle score={curr} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-[#f6f6fd] truncate">{deal.company}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`text-[11px] font-mono font-bold ${delta > 0 ? "text-emerald-400" : delta < 0 ? "text-rose-400" : "text-white/40"}`}>
+                        {delta > 0 ? "+" : ""}{delta}
+                      </span>
+                      <span className="text-[10px] text-white/30">{prev} → {curr}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── TAB 2: Intel Analyzer ────────────────────────────────────────────────────
 
 function IntelAnalyzerTab({
+  deals,
   initialText,
   initialChannel,
 }: {
+  deals: Deal[];
   initialText?: string;
   initialChannel?: ChannelId;
 }) {
@@ -304,6 +591,8 @@ function IntelAnalyzerTab({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [copiedReply, setCopiedReply] = useState<number | null>(null);
+  const [linkedDealId, setLinkedDealId] = useState<string>("");
+  const [linkedDealName, setLinkedDealName] = useState<string>("");
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   async function handleAnalyze() {
@@ -318,12 +607,29 @@ function IntelAnalyzerTab({
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setResult(data);
+
       const score = getTruthScore(data);
-      const entry: HistoryEntry = { id: crypto.randomUUID(), text: text.trim(), channel, result: data, timestamp: Date.now() };
-      const hist = loadHistory();
-      hist.unshift(entry);
-      saveHistory(hist);
-      toast({ title: "Von Clausewitz Analysis Complete", description: `TRUTH Score™: ${score}/100 · Risk: ${data.overallRisk}` });
+
+      // Link to deal if selected
+      if (linkedDealId) {
+        linkAnalysisToDeal(linkedDealId, {
+          text: text.trim(),
+          channel,
+          truthScore: score,
+          risk: data.overallRisk || "medium",
+          dealRisk: data.dealRisk || "caution",
+          intent: data.buyerIntentState || "unknown",
+          ghostProb: data.ghostProbability || 0,
+          competitors: data.competitiveRadar?.competitors || [],
+          stakeholderMentions: [],
+          summary: data.summary || "",
+        });
+        const deal = getDeal(linkedDealId);
+        setLinkedDealName(deal?.company || "");
+        toast({ title: "Von Clausewitz Analysis Complete", description: `TRUTH Score™: ${score}/100 · Intelligence fed to ${deal?.company}` });
+      } else {
+        toast({ title: "Von Clausewitz Analysis Complete", description: `TRUTH Score™: ${score}/100 · Risk: ${data.overallRisk}` });
+      }
     } catch (err: any) {
       toast({ title: "Analysis failed", description: err.message || "Could not analyze text.", variant: "destructive" });
     } finally {
@@ -347,9 +653,24 @@ function IntelAnalyzerTab({
   const score = result ? getTruthScore(result) : 0;
 
   return (
-    <div className="space-y-5 fade-in">
+    <div className="space-y-5">
       {/* Input Card */}
       <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+        {/* Deal Link */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <MonoLabel>Link to deal:</MonoLabel>
+          <select
+            value={linkedDealId}
+            onChange={e => { setLinkedDealId(e.target.value); setLinkedDealName(""); }}
+            className="flex-1 px-3 py-1.5 rounded-lg text-[12px] text-[#f6f6fd] outline-none"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", minWidth: "180px" }}
+          >
+            <option value="">— No deal link —</option>
+            {deals.map(d => <option key={d.id} value={d.id}>{d.company}</option>)}
+            <option value="__new__">+ New deal</option>
+          </select>
+        </div>
+
         {/* Channel Selector */}
         <div className="flex items-center gap-2 flex-wrap">
           <MonoLabel>Channel:</MonoLabel>
@@ -380,11 +701,7 @@ function IntelAnalyzerTab({
           onChange={e => setText(e.target.value)}
           placeholder="Paste an email, call transcript, SMS, or LinkedIn message to deploy the Von Clausewitz Engine..."
           className="w-full h-44 rounded-lg p-4 text-[13px] text-[#f6f6fd] placeholder-white/20 outline-none resize-y leading-relaxed"
-          style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
-          }}
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
         />
 
         {/* Actions Row */}
@@ -402,7 +719,7 @@ function IntelAnalyzerTab({
           </div>
         </div>
 
-        {/* Deploy Button — full width */}
+        {/* Deploy Button */}
         <button
           onClick={handleAnalyze}
           disabled={isAnalyzing || text.trim().length < 10}
@@ -414,9 +731,9 @@ function IntelAnalyzerTab({
         </button>
       </div>
 
-      {/* Loading State */}
+      {/* Loading */}
       {isAnalyzing && (
-        <div className="rounded-xl border border-red-500/20 bg-gradient-to-r from-red-500/[0.04] to-transparent p-5 flex items-center gap-3 fade-in">
+        <div className="rounded-xl border border-red-500/20 bg-gradient-to-r from-red-500/[0.04] to-transparent p-5 flex items-center gap-3">
           <div className="relative w-5 h-5 shrink-0">
             <div className="absolute inset-0 rounded-full border-2 border-red-400/30" />
             <div className="absolute inset-0 rounded-full border-2 border-red-400 border-t-transparent animate-spin" />
@@ -427,157 +744,150 @@ function IntelAnalyzerTab({
         </div>
       )}
 
+      {/* Deal link success banner */}
+      {result && linkedDealId && linkedDealName && (
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] p-3.5 flex items-center gap-3">
+          <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+          <span className="text-[12px] text-emerald-300">Intelligence fed to deal: <strong>{linkedDealName}</strong></span>
+        </div>
+      )}
+
       {/* Results */}
       {result && (
-        <div className="space-y-4 fade-in">
-
-          {/* Score + Badges + Summary */}
+        <div className="space-y-4">
+          {/* Score + Summary */}
           <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-6">
             <div className="flex items-start gap-6 flex-wrap">
               <TruthGauge score={score} />
-              <div className="flex-1 min-w-[260px] space-y-4">
-                {/* Risk / Deal / Intent / Ghost badges */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge className={`text-[10px] font-mono ${riskColor(result.overallRisk)}`}>Risk: {result.overallRisk}</Badge>
-                  <Badge className={`text-[10px] font-mono ${riskColor(result.dealRisk)}`}>Deal: {result.dealRisk?.replace(/_/g, " ")}</Badge>
-                  <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-[10px] font-mono">
-                    Intent: {intentLabel(result.buyerIntentState)}
-                  </Badge>
+              <div className="flex-1 min-w-[200px] space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <span className={`text-[11px] font-mono px-2 py-1 rounded border ${riskColor(result.overallRisk)}`}>Risk: {result.overallRisk}</span>
+                  <span className={`text-[11px] font-mono px-2 py-1 rounded border ${riskColor(result.dealRisk)}`}>Deal: {result.dealRisk}</span>
+                  <span className={`text-[11px] font-mono px-2 py-1 rounded border bg-white/5 text-white/50 border-white/10`}>Intent: {intentLabel(result.buyerIntentState)}</span>
                   {result.ghostProbability > 40 && (
-                    <Badge className="bg-rose-500/15 text-rose-400 border-rose-500/25 text-[10px] font-mono gap-1">
-                      <Ghost size={9} />Ghost: {result.ghostProbability}%
-                    </Badge>
+                    <span className="text-[11px] font-mono px-2 py-1 rounded border bg-rose-500/15 text-rose-400 border-rose-500/25">👻 Ghost {result.ghostProbability}%</span>
                   )}
-                  <Badge className="bg-white/[0.05] text-white/30 border-white/[0.08] text-[10px] font-mono">
-                    Urgency: {result.urgency}
-                  </Badge>
                 </div>
-
-                {/* Summary */}
-                <p className="text-[13px] text-white/60 leading-relaxed">{result.summary}</p>
+                {result.summary && (
+                  <p className="text-[13px] text-white/60 leading-relaxed">{result.summary}</p>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Two-column grid: Deception Layer + Linguistic Cues */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Deception Layer */}
-            {result.deceptionLayer && (
-              <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle size={13} className="text-rose-400" />
-                  <MonoLabel>Deception Layer</MonoLabel>
-                </div>
-                <div className="space-y-2.5">
-                  <MiniBar label="Hedge %" value={result.deceptionLayer.hedgePct} color="#f87171" />
-                  <MiniBar label="Evasion %" value={result.deceptionLayer.evasionPct} color="#f87171" />
-                  <MiniBar label="Stall Probability" value={result.deceptionLayer.stallProbability} color="#fbbf24" />
-                  <MiniBar label="Authority Deflection" value={result.deceptionLayer.authorityDeflection} color="#fb923c" />
-                  <MiniBar label="Budget Fabrication" value={result.deceptionLayer.budgetFabrication} color="#f87171" />
-                  <MiniBar label="Timeline Vagueness" value={result.deceptionLayer.timelineVagueness} color="#fbbf24" />
-                  <MiniBar label="Over-Enthusiasm" value={result.deceptionLayer.overEnthusiasm} color="#c084fc" />
-                </div>
-              </div>
-            )}
-
-            {/* Linguistic Cues */}
-            {result.linguisticCues && (
-              <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <FileText size={13} className="text-blue-400" />
-                  <MonoLabel>Linguistic Cues</MonoLabel>
-                </div>
-                <div className="space-y-2.5">
-                  <MiniBar label="Passive Voice" value={result.linguisticCues.passiveVoice} color="#818cf8" />
-                  <MiniBar label="Distancing Language" value={result.linguisticCues.distancingLanguage} color="#f87171" />
-                  <MiniBar label="Over-Certainty" value={result.linguisticCues.overCertainty} color="#fbbf24" />
-                  <MiniBar label="Non-Answer Ratio" value={result.linguisticCues.nonAnswerRatio} color="#f87171" />
-                  <MiniBar label="Commitment Language" value={result.linguisticCues.commitmentLanguage} color="#34d399" />
-                  <MiniBar label="Implementation Language" value={result.linguisticCues.implementationLanguage} color="#34d399" />
-                  <MiniBar label="Urgency Language" value={result.linguisticCues.urgencyLanguage} color="#fbbf24" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Negotiation Posture */}
-          {result.negotiationPosture && (
+          {/* Deception Layer */}
+          {result.deceptionLayer && (
             <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <Crosshair size={13} className="text-amber-400" />
-                <MonoLabel>Negotiation Posture</MonoLabel>
-                <div className="ml-auto flex items-center gap-2">
-                  <Badge className="bg-white/[0.05] text-white/35 border-white/[0.08] text-[9px] font-mono">
-                    Concession: {(result.negotiationPosture.concessionPattern || "").replace(/_/g, " ")}
-                  </Badge>
-                  <Badge className={`text-[9px] font-mono ${result.negotiationPosture.leveragePosition === "strong" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25" : result.negotiationPosture.leveragePosition === "weak" ? "bg-rose-500/15 text-rose-400 border-rose-500/25" : "bg-amber-500/15 text-amber-400 border-amber-500/25"}`}>
-                    Leverage: {result.negotiationPosture.leveragePosition}
-                  </Badge>
-                </div>
+                <Brain size={14} className="text-red-400" />
+                <MonoLabel>Deception Layer Analysis</MonoLabel>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <MiniBar label="Power Score" value={result.negotiationPosture.powerScore} color="#dc2626" />
-                <MiniBar label="Urgency Score" value={result.negotiationPosture.urgencyScore} color="#fbbf24" />
-                <MiniBar label="Commitment Score" value={result.negotiationPosture.commitmentScore} color="#34d399" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {Object.entries(result.deceptionLayer).map(([key, val]) => {
+                  const v = typeof val === "number" ? val : 0;
+                  const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+                  const color = v > 60 ? "#f87171" : v > 30 ? "#fbbf24" : "#1dd1a1";
+                  return <MiniBar key={key} label={label} value={v} color={color} />;
+                })}
               </div>
             </div>
           )}
 
-          {/* Competitive Radar */}
-          {result.competitiveRadar && (
-            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <Radio size={13} className="text-cyan-400" />
-                <MonoLabel>Competitive Radar</MonoLabel>
-                <Badge className={`ml-auto text-[9px] font-mono ${result.competitiveRadar.competitiveRiskLevel === "critical" ? "bg-rose-500/15 text-rose-400 border-rose-500/25" : result.competitiveRadar.competitiveRiskLevel === "elevated" ? "bg-amber-500/15 text-amber-400 border-amber-500/25" : "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"}`}>
-                  {result.competitiveRadar.competitiveRiskLevel?.toUpperCase()} RISK
-                </Badge>
-              </div>
-              {result.competitiveRadar.competitorMentioned && result.competitiveRadar.competitors?.length > 0 ? (
+          {/* Linguistic + Negotiation side by side */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {result.linguisticCues && (
+              <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <FileText size={14} className="text-amber-400" />
+                  <MonoLabel>Linguistic Cues</MonoLabel>
+                </div>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <MonoLabel>Competitors detected:</MonoLabel>
-                    {result.competitiveRadar.competitors.map((c, i) => (
-                      <Badge key={i} className="bg-rose-500/10 text-rose-300 border-rose-500/20 text-[10px]">{c}</Badge>
-                    ))}
-                  </div>
-                  {result.competitiveRadar.competitiveTalkingPoints?.length > 0 && (
-                    <div className="space-y-1.5">
-                      <MonoLabel>Counter-talking points:</MonoLabel>
-                      {result.competitiveRadar.competitiveTalkingPoints.map((tp, i) => (
-                        <div key={i} className="flex items-start gap-2 pl-1">
-                          <ChevronRight size={11} className="text-cyan-400 mt-0.5 shrink-0" />
-                          <p className="text-[12px] text-white/50">{tp}</p>
-                        </div>
-                      ))}
+                  {Object.entries(result.linguisticCues).map(([key, val]) => {
+                    const v = typeof val === "number" ? val : 0;
+                    const label = key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+                    const color = key.includes("Commitment") || key.includes("Implementation") || key.includes("Urgency") ? (v > 50 ? "#1dd1a1" : "#fbbf24") : v > 50 ? "#f87171" : "#1dd1a1";
+                    return <MiniBar key={key} label={label} value={v} color={color} />;
+                  })}
+                </div>
+              </div>
+            )}
+            {result.negotiationPosture && (
+              <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Crosshair size={14} className="text-violet-400" />
+                  <MonoLabel>Negotiation Posture</MonoLabel>
+                </div>
+                <div className="space-y-3">
+                  {(["powerScore","urgencyScore","commitmentScore"] as const).map(key => {
+                    const v = (result.negotiationPosture as any)[key] as number;
+                    return <MiniBar key={key} label={key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase())} value={v} color={v > 60 ? "#1dd1a1" : v > 30 ? "#fbbf24" : "#f87171"} />;
+                  })}
+                  {result.negotiationPosture.concessionPattern && (
+                    <div className="pt-1">
+                      <MonoLabel>Concession Pattern</MonoLabel>
+                      <p className="text-[12px] text-white/50 mt-1">{result.negotiationPosture.concessionPattern}</p>
+                    </div>
+                  )}
+                  {result.negotiationPosture.leveragePosition && (
+                    <div>
+                      <MonoLabel>Leverage Position</MonoLabel>
+                      <p className="text-[12px] text-white/50 mt-1">{result.negotiationPosture.leveragePosition}</p>
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Competitive Radar */}
+          {result.competitiveRadar && (
+            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Radar size={14} className="text-cyan-400" />
+                <MonoLabel>Competitive Radar</MonoLabel>
+                <span className={`ml-auto text-[10px] font-mono px-2 py-0.5 rounded border ${riskColor(result.competitiveRadar.competitiveRiskLevel)}`}>{result.competitiveRadar.competitiveRiskLevel}</span>
+              </div>
+              {result.competitiveRadar.competitors?.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {result.competitiveRadar.competitors.map((c, i) => (
+                    <span key={i} className="text-[11px] px-2 py-1 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">{c}</span>
+                  ))}
+                </div>
               ) : (
-                <p className="text-[12px] text-white/30 font-mono">No competitors detected in this communication.</p>
+                <p className="text-[12px] text-white/30">No competitors detected in this communication.</p>
+              )}
+              {result.competitiveRadar.competitiveTalkingPoints?.length > 0 && (
+                <div className="space-y-2">
+                  <MonoLabel>Talking Points</MonoLabel>
+                  <ul className="space-y-1.5">
+                    {result.competitiveRadar.competitiveTalkingPoints.map((pt, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[12px] text-white/55">
+                        <ChevronRight size={12} className="mt-0.5 text-cyan-400 shrink-0" />
+                        {pt}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           )}
 
           {/* Flags */}
           {result.flags?.length > 0 && (
-            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-3">
+            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <AlertTriangle size={13} className="text-amber-400" />
+                <AlertTriangle size={14} className="text-rose-400" />
                 <MonoLabel>Deception Flags ({result.flags.length})</MonoLabel>
               </div>
               <div className="space-y-2">
-                {result.flags.map((f, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
-                    <AlertCircle size={12} className={`mt-0.5 shrink-0 ${sevColor(f.severity)}`} />
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={`text-[9px] font-mono ${riskColor(f.severity)}`}>{f.severity.toUpperCase()}</Badge>
-                        <span className="text-[10px] text-white/25 font-mono">{f.type.replace(/_/g, " ")}</span>
-                      </div>
-                      <p className="text-[12px] text-white/60">"{f.phrase}"</p>
-                      <p className="text-[11px] text-white/35">{f.explanation}</p>
+                {result.flags.map((flag, i) => (
+                  <div key={i} className="p-3 rounded-lg space-y-1" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[10px] font-mono font-bold uppercase ${sevColor(flag.severity)}`}>{flag.severity}</span>
+                      <span className="text-[11px] font-medium text-white/70">{flag.type}</span>
                     </div>
+                    {flag.phrase && <p className="text-[11px] italic text-white/40">"{flag.phrase}"</p>}
+                    {flag.explanation && <p className="text-[11px] text-white/50 leading-snug">{flag.explanation}</p>}
                   </div>
                 ))}
               </div>
@@ -586,21 +896,19 @@ function IntelAnalyzerTab({
 
           {/* Intent Signals */}
           {result.intentSignals?.length > 0 && (
-            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-3">
+            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <Signal size={13} className="text-emerald-400" />
-                <MonoLabel>Intent Signals ({result.intentSignals.length})</MonoLabel>
+                <Signal size={14} className="text-emerald-400" />
+                <MonoLabel>Intent Signals</MonoLabel>
               </div>
               <div className="space-y-2">
-                {result.intentSignals.map((s, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={`text-[9px] font-mono ${strengthColor(s.strength)}`}>{s.strength}</Badge>
-                        <span className="text-[10px] text-white/25 font-mono">{s.type.replace(/_/g, " ")}</span>
-                      </div>
-                      <p className="text-[12px] text-white/60">"{s.signal}"</p>
+                {result.intentSignals.map((sig, i) => (
+                  <div key={i} className="flex items-start justify-between gap-3 p-2.5 rounded-lg" style={{ background: "rgba(255,255,255,0.02)" }}>
+                    <div className="flex-1">
+                      <p className="text-[12px] text-white/70">{sig.signal}</p>
+                      {sig.type && <p className="text-[10px] font-mono text-white/30 mt-0.5">{sig.type}</p>}
                     </div>
+                    <span className={`shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded border ${strengthColor(sig.strength)}`}>{sig.strength}</span>
                   </div>
                 ))}
               </div>
@@ -609,16 +917,16 @@ function IntelAnalyzerTab({
 
           {/* Highlighted Phrases */}
           {result.highlightedPhrases?.length > 0 && (
-            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-3">
+            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <Eye size={13} className="text-violet-400" />
+                <Crosshair size={14} className="text-amber-400" />
                 <MonoLabel>Highlighted Phrases</MonoLabel>
               </div>
               <div className="flex flex-wrap gap-2">
                 {result.highlightedPhrases.map((hp, i) => (
-                  <div key={i} className={`px-3 py-1.5 rounded-lg border text-[11px] ${phraseColor(hp.color)}`} title={hp.reason}>
+                  <div key={i} className={`inline-flex flex-col gap-0.5 px-2.5 py-1.5 rounded-lg border text-[11px] max-w-xs ${phraseColor(hp.color)}`}>
                     <span className="font-medium">"{hp.phrase}"</span>
-                    <span className="text-white/30 ml-1.5">— {hp.reason}</span>
+                    {hp.reason && <span className="text-[10px] opacity-70">{hp.reason}</span>}
                   </div>
                 ))}
               </div>
@@ -627,73 +935,58 @@ function IntelAnalyzerTab({
 
           {/* Playbook Move */}
           {result.playbook && (
-            <div className="rounded-xl border border-red-500/20 bg-gradient-to-br from-red-500/[0.06] to-transparent p-5 space-y-4">
+            <div className="rounded-xl border border-red-500/20 bg-gradient-to-br from-red-500/[0.04] to-transparent p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <Swords size={13} className="text-red-400" />
-                <MonoLabel>Playbook Move</MonoLabel>
-                <Badge className="ml-auto bg-red-500/15 text-red-400 border-red-500/25 text-[9px] font-mono">{result.playbook.move}</Badge>
+                <Flame size={14} className="text-red-400" />
+                <MonoLabel>Von Clausewitz Playbook Move</MonoLabel>
               </div>
-              <div className="space-y-2 pl-1">
-                <div className="flex items-start gap-2">
-                  <Target size={11} className="text-red-400/60 mt-0.5 shrink-0" />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {result.playbook.move && (
                   <div>
-                    <p className="text-[10px] text-white/25 font-mono mb-0.5">TACTIC</p>
-                    <p className="text-[13px] text-white/70">{result.playbook.tactic}</p>
+                    <MonoLabel>Move</MonoLabel>
+                    <p className="text-[14px] font-semibold text-red-300 mt-1">{result.playbook.move}</p>
                   </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Activity size={11} className="text-amber-400/60 mt-0.5 shrink-0" />
+                )}
+                {result.playbook.tactic && (
                   <div>
-                    <p className="text-[10px] text-white/25 font-mono mb-0.5">SIGNAL READS</p>
-                    <p className="text-[13px] text-white/60">{result.playbook.signal}</p>
-                  </div>
-                </div>
-                {result.playbook.nextBestActions && result.playbook.nextBestActions.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <ArrowRight size={11} className="text-emerald-400/60 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-[10px] text-white/25 font-mono mb-1">NEXT BEST ACTIONS</p>
-                      <div className="space-y-1">
-                        {result.playbook.nextBestActions.map((a, i) => (
-                          <div key={i} className="flex items-start gap-1.5">
-                            <ChevronRight size={10} className="text-emerald-400 mt-0.5 shrink-0" />
-                            <p className="text-[12px] text-white/55">{a}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <MonoLabel>Tactic</MonoLabel>
+                    <p className="text-[12px] text-white/60 mt-1">{result.playbook.tactic}</p>
                   </div>
                 )}
               </div>
+              {result.playbook.nextBestActions?.length ? (
+                <div>
+                  <MonoLabel>Next Best Actions</MonoLabel>
+                  <ul className="mt-2 space-y-1">
+                    {result.playbook.nextBestActions.map((a, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[12px] text-white/55">
+                        <ArrowRight size={12} className="mt-0.5 text-red-400 shrink-0" />
+                        {a}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           )}
 
           {/* Suggested Replies */}
           {result.suggestedReplies?.length > 0 && (
-            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-3">
+            <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <MessageSquare size={13} className="text-blue-400" />
-                <MonoLabel>Suggested Replies</MonoLabel>
+                <MessageSquare size={14} className="text-violet-400" />
+                <MonoLabel>Suggested Replies ({result.suggestedReplies.length})</MonoLabel>
               </div>
               <div className="space-y-3">
                 {result.suggestedReplies.map((reply, i) => (
-                  <div key={i} className="relative group rounded-lg border border-white/[0.07] bg-white/[0.02] p-4">
-                    <p className="text-[13px] text-white/65 leading-relaxed pr-8">{reply}</p>
+                  <div key={i} className="relative group p-4 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <p className="text-[12px] text-white/65 leading-relaxed pr-8">{reply}</p>
                     <button
                       onClick={() => copyReply(reply, i)}
-                      className="absolute top-3 right-3 p-1.5 rounded-md transition-all opacity-0 group-hover:opacity-100"
-                      style={{ background: "rgba(255,255,255,0.05)" }}
+                      className="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/[0.08]"
                     >
-                      {copiedReply === i ? (
-                        <CheckCircle2 size={12} className="text-emerald-400" />
-                      ) : (
-                        <Copy size={12} className="text-white/30" />
-                      )}
+                      {copiedReply === i ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} className="text-white/30" />}
                     </button>
-                    <div className="mt-2 flex items-center gap-1">
-                      <span className="text-[9px] font-mono text-white/20">REPLY {i + 1}</span>
-                      {copiedReply === i && <span className="text-[9px] font-mono text-emerald-400">Copied!</span>}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -702,550 +995,939 @@ function IntelAnalyzerTab({
 
           {/* Ghost Resurrection */}
           {result.ghostResurrection?.isGhosted && (
-            <div className="rounded-xl border border-rose-500/25 bg-gradient-to-br from-rose-500/[0.07] to-transparent p-5 space-y-4">
+            <div className="rounded-xl border border-rose-500/25 bg-gradient-to-br from-rose-500/[0.06] to-transparent p-5 space-y-4">
               <div className="flex items-center gap-2">
                 <Ghost size={14} className="text-rose-400" />
                 <MonoLabel>Ghost Resurrection Protocol</MonoLabel>
-                <Badge className="ml-auto bg-rose-500/15 text-rose-400 border-rose-500/25 text-[9px] font-mono">
-                  {result.ghostResurrection.reEngagementStrategy}
-                </Badge>
+                <span className="ml-auto text-[10px] font-mono text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded-full border border-rose-500/25">GHOSTED</span>
               </div>
-              <div className="rounded-lg border border-rose-500/15 bg-rose-500/[0.04] p-4">
-                <p className="text-[10px] font-mono text-white/25 mb-2">RE-ENGAGEMENT MESSAGE</p>
-                <p className="text-[13px] text-white/70 leading-relaxed italic">"{result.ghostResurrection.reEngagementMessage}"</p>
-              </div>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(result.ghostResurrection.reEngagementMessage);
-                  toast({ title: "Copied!", description: "Re-engagement message copied to clipboard." });
-                }}
-                className="flex items-center gap-2 text-[11px] px-3 py-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:bg-rose-500/10 transition-all"
-              >
-                <Copy size={11} /> Copy Message
-              </button>
+              {result.ghostResurrection.reEngagementStrategy && (
+                <div>
+                  <MonoLabel>Strategy</MonoLabel>
+                  <p className="text-[12px] text-white/60 mt-1 leading-relaxed">{result.ghostResurrection.reEngagementStrategy}</p>
+                </div>
+              )}
+              {result.ghostResurrection.reEngagementMessage && (
+                <div className="p-4 rounded-lg relative group" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <p className="text-[12px] text-white/65 leading-relaxed pr-8">{result.ghostResurrection.reEngagementMessage}</p>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(result.ghostResurrection.reEngagementMessage); toast({ title: "Copied resurrection message" }); }}
+                    className="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/[0.08]"
+                  >
+                    <Copy size={12} className="text-white/30" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
-
         </div>
       )}
     </div>
   );
 }
 
-// ─── Deal Pipeline Tab ────────────────────────────────────────────────────────
+// ─── TAB 3: Operator Intel ────────────────────────────────────────────────────
 
-function DealPipelineTab() {
+function OperatorIntelTab({ deals }: { deals: Deal[] }) {
   const { toast } = useToast();
-  const [deals, setDeals] = useState<DealEntry[]>(() => loadDeals());
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ company: "", contact: "", notes: "" });
+  const [selectedDealId, setSelectedDealId] = useState<string>(deals[0]?.id || "");
+  const [showAddStakeholder, setShowAddStakeholder] = useState(false);
+  const [showAddSignal, setShowAddSignal] = useState(false);
+  const [editingStakeholder, setEditingStakeholder] = useState<Stakeholder | null>(null);
 
-  const history = loadHistory();
+  // Stakeholder form state
+  const [skName, setSkName] = useState("");
+  const [skTitle, setSkTitle] = useState("");
+  const [skEmail, setSkEmail] = useState("");
+  const [skPhone, setSkPhone] = useState("");
+  const [skLinkedin, setSkLinkedin] = useState("");
+  const [skRole, setSkRole] = useState<StakeholderRole>("unknown");
+  const [skEngagement, setSkEngagement] = useState(50);
 
-  const dealsWithScores = deals.map(d => {
-    const matches = history.filter(h => h.text.toLowerCase().includes(d.company.toLowerCase()) || d.company.toLowerCase().includes(h.text.toLowerCase().slice(0, 20)));
-    const latest = matches[0];
-    if (latest) {
-      const score = getTruthScore(latest.result);
-      return { ...d, truthScore: score, risk: latest.result.overallRisk, intent: latest.result.buyerIntentState, lastAnalyzed: latest.timestamp };
-    }
-    return { ...d, truthScore: d.truthScore || 0, risk: d.risk || "—", intent: d.intent || "—", lastAnalyzed: d.lastAnalyzed || 0 };
-  });
+  // Signal form state
+  const [sigType, setSigType] = useState<SignalType>("news");
+  const [sigHeadline, setSigHeadline] = useState("");
+  const [sigDate, setSigDate] = useState(new Date().toISOString().split("T")[0]);
+  const [sigSource, setSigSource] = useState("");
+  const [sigImpact, setSigImpact] = useState(5);
 
-  function addDeal() {
-    if (!form.company.trim()) return;
-    const entry: DealEntry = { id: crypto.randomUUID(), company: form.company.trim(), contact: form.contact.trim(), notes: form.notes.trim(), truthScore: 0, risk: "—", intent: "—", lastAnalyzed: 0 };
-    const updated = [entry, ...deals];
-    setDeals(updated);
-    saveDeals(updated);
-    setForm({ company: "", contact: "", notes: "" });
-    setShowForm(false);
-    toast({ title: "Deal Added", description: `${form.company} added to pipeline.` });
+  const deal = deals.find(d => d.id === selectedDealId);
+  const ms = deal ? multithreadingScore(deal) : null;
+
+  function resetSkForm() {
+    setSkName(""); setSkTitle(""); setSkEmail(""); setSkPhone(""); setSkLinkedin(""); setSkRole("unknown"); setSkEngagement(50);
   }
 
-  function removeDeal(id: string) {
-    const updated = deals.filter(d => d.id !== id);
-    setDeals(updated);
-    saveDeals(updated);
+  function handleAddStakeholder() {
+    if (!deal || !skName.trim()) return;
+    addStakeholder(deal.id, { name: skName.trim(), title: skTitle, email: skEmail, phone: skPhone, linkedin: skLinkedin, role: skRole, engagement: skEngagement });
+    toast({ title: "Stakeholder added", description: `${skName} added to ${deal.company}` });
+    resetSkForm();
+    setShowAddStakeholder(false);
   }
+
+  function handleUpdateStakeholderRole(stakeholderId: string, role: StakeholderRole) {
+    if (!deal) return;
+    updateStakeholder(deal.id, stakeholderId, { role });
+  }
+
+  function handleDeleteStakeholder(stakeholderId: string, name: string) {
+    if (!deal) return;
+    removeStakeholder(deal.id, stakeholderId);
+    toast({ title: "Stakeholder removed", description: `${name} removed.` });
+  }
+
+  function handleAddSignal() {
+    if (!deal || !sigHeadline.trim()) return;
+    addSignal(deal.id, { type: sigType, headline: sigHeadline.trim(), date: sigDate, source: sigSource, impactScore: sigImpact });
+    toast({ title: "Signal logged", description: `${sigType} signal added to ${deal.company}` });
+    setSigHeadline(""); setSigDate(new Date().toISOString().split("T")[0]); setSigSource(""); setSigImpact(5);
+    setShowAddSignal(false);
+  }
+
+  const sortedSignals = deal ? [...deal.signals].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [];
 
   return (
-    <div className="space-y-4 fade-in">
-      {/* Header + Add Button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BarChart3 size={14} className="text-red-400" />
-          <MonoLabel>Active Deals ({deals.length})</MonoLabel>
-        </div>
-        <button
-          onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-semibold transition-all hover:scale-[1.02]"
-          style={CRIMSON_BTN_STYLE}
+    <div className="space-y-5">
+      {/* Deal selector */}
+      <div className="flex items-center gap-3">
+        <Building2 size={14} className="text-white/40" />
+        <select
+          value={selectedDealId}
+          onChange={e => setSelectedDealId(e.target.value)}
+          className="flex-1 px-3 py-2 rounded-lg text-[13px] text-[#f6f6fd] outline-none"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
         >
-          {showForm ? <X size={13} /> : <Users size={13} />}
-          {showForm ? "Cancel" : "Track Deal"}
-        </button>
+          <option value="">— Select a deal —</option>
+          {deals.map(d => <option key={d.id} value={d.id}>{d.company} {d.isHVT ? "🎯" : ""}</option>)}
+        </select>
       </div>
 
-      {/* Add Deal Form */}
-      {showForm && (
-        <div className="rounded-xl border border-red-500/20 bg-[#111113] p-4 space-y-3 fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              value={form.company}
-              onChange={e => setForm({ ...form, company: e.target.value })}
-              placeholder="Company name *"
-              className="px-3 py-2 rounded-lg text-[13px] text-[#f6f6fd] placeholder-white/20 outline-none"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
-            />
-            <input
-              value={form.contact}
-              onChange={e => setForm({ ...form, contact: e.target.value })}
-              placeholder="Contact name"
-              className="px-3 py-2 rounded-lg text-[13px] text-[#f6f6fd] placeholder-white/20 outline-none"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
-            />
-          </div>
-          <input
-            value={form.notes}
-            onChange={e => setForm({ ...form, notes: e.target.value })}
-            placeholder="Notes (optional)"
-            className="w-full px-3 py-2 rounded-lg text-[13px] text-[#f6f6fd] placeholder-white/20 outline-none"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
-          />
-          <button
-            onClick={addDeal}
-            disabled={!form.company.trim()}
-            className="px-5 py-2 rounded-full text-[12px] font-semibold disabled:opacity-40 transition-all hover:scale-[1.01]"
-            style={CRIMSON_BTN_STYLE}
-          >
-            Add to Pipeline
-          </button>
-        </div>
-      )}
-
-      {/* Deals List */}
-      {dealsWithScores.length === 0 ? (
-        <div className="flex flex-col items-center py-16 text-center">
-          <BarChart3 className="w-12 h-12 text-white/10 mb-3" />
-          <p className="text-sm text-white/30">No deals tracked yet</p>
-          <p className="text-[12px] text-white/20 mt-1">Click "Track Deal" to add deals and monitor their TRUTH scores.</p>
-        </div>
+      {!deal ? (
+        <div className="text-center py-16 text-white/30 text-[13px]">Select a deal to view operator intelligence.</div>
       ) : (
-        <div className="space-y-2">
-          {dealsWithScores.map(d => (
-            <div key={d.id} className="flex items-center gap-4 p-4 rounded-xl border border-white/[0.06] bg-[#111113] hover:border-red-500/15 transition-all group">
-              <SmallScoreCircle score={d.truthScore} />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-[#f6f6fd] truncate">{d.company}</p>
-                <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                  {d.contact && <span className="text-[11px] text-white/35">{d.contact}</span>}
-                  {d.risk !== "—" && <Badge className={`text-[9px] font-mono ${riskColor(d.risk)}`}>{d.risk}</Badge>}
-                  {d.intent !== "—" && <span className="text-[10px] text-white/20 font-mono">{intentLabel(d.intent)}</span>}
-                  {d.notes && <span className="text-[10px] text-white/20 truncate max-w-[120px]">{d.notes}</span>}
-                </div>
-              </div>
-              <span className="text-[10px] text-white/20 font-mono shrink-0">{fmtTime(d.lastAnalyzed)}</span>
-              <button
-                onClick={() => removeDeal(d.id)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-white/5"
-              >
-                <Trash2 size={13} className="text-white/20 hover:text-rose-400" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Playbook Engine Tab ──────────────────────────────────────────────────────
-
-const PLAYBOOK_PATTERNS = [
-  {
-    pattern: "Timeline Vagueness",
-    icon: Clock,
-    accent: "text-amber-400",
-    accentBg: "rgba(251,191,36,0.08)",
-    accentBorder: "rgba(251,191,36,0.2)",
-    signals: ['"Next quarter"', '"When things settle down"', '"Circle back in a few months"'],
-    counter: 'Pin to a specific date: "Got it — if I block 15 minutes on [specific date] to revisit, does that work?" Forces commitment or surfaces the real objection.',
-  },
-  {
-    pattern: "Authority Deflection",
-    icon: Shield,
-    accent: "text-rose-400",
-    accentBg: "rgba(244,63,94,0.08)",
-    accentBorder: "rgba(244,63,94,0.2)",
-    signals: ['"Need to check with my boss"', '"CEO has to approve"', '"Not my decision"'],
-    counter: 'Go multi-threaded: "Totally understand — would it help if I sent a one-pager directly to [name]? Sometimes that speeds things up."',
-  },
-  {
-    pattern: "Over-Enthusiasm",
-    icon: Flame,
-    accent: "text-violet-400",
-    accentBg: "rgba(139,92,246,0.08)",
-    accentBorder: "rgba(139,92,246,0.2)",
-    signals: ['"Absolutely love it"', '"Definitely a strong fit"', '"100% on board"'],
-    counter: 'Test sincerity: "Great to hear! Should we get the contract over today so you can start next week?" Watch for backpedaling.',
-  },
-  {
-    pattern: "Budget Fabrication",
-    icon: BarChart3,
-    accent: "text-cyan-400",
-    accentBg: "rgba(34,211,238,0.08)",
-    accentBorder: "rgba(34,211,238,0.2)",
-    signals: ['"Budget is tight"', '"Need to find the budget"', '"Not in this cycle"'],
-    counter: 'Isolate the objection: "If budget weren\'t a factor, would this be a priority right now?" Separates real budget issues from polite declines.',
-  },
-  {
-    pattern: "Ghosting Signals",
-    icon: Ghost,
-    accent: "text-rose-400",
-    accentBg: "rgba(244,63,94,0.08)",
-    accentBorder: "rgba(244,63,94,0.2)",
-    signals: ["Decreasing response times", "Shorter messages", "Delegating to junior contacts"],
-    counter: 'Pattern interrupt: Send something unexpected — a competitor insight, a relevant article, or a direct "Is this dead?" text. Honesty resets the dynamic.',
-  },
-  {
-    pattern: "Competitive Leverage",
-    icon: Target,
-    accent: "text-emerald-400",
-    accentBg: "rgba(52,211,153,0.08)",
-    accentBorder: "rgba(52,211,153,0.2)",
-    signals: ['"Also looking at [competitor]"', '"Your pricing is higher"', '"They offered us X"'],
-    counter: 'Don\'t discount immediately. Instead: "What specifically about [competitor] appeals to you?" Understand the real criteria first.',
-  },
-  {
-    pattern: "Internal Reprioritization",
-    icon: Brain,
-    accent: "text-violet-400",
-    accentBg: "rgba(139,92,246,0.08)",
-    accentBorder: "rgba(139,92,246,0.2)",
-    signals: ['"Restructuring"', '"New leadership"', '"Strategic shift happening"'],
-    counter: 'Validate and reframe: "That makes sense. When orgs go through that, [specific pain] usually gets worse. Is that something you\'re seeing?"',
-  },
-  {
-    pattern: "Fake Objection",
-    icon: AlertTriangle,
-    accent: "text-amber-400",
-    accentBg: "rgba(251,191,36,0.08)",
-    accentBorder: "rgba(251,191,36,0.2)",
-    signals: ["Surface-level concerns that shift each conversation", "New objection every call", '"We just need to think about it"'],
-    counter: 'Call it out gently: "I\'ve noticed the concern has shifted a few times. Help me understand — what\'s the real blocker here?" Reps respect directness.',
-  },
-];
-
-function PlaybookEngineTab() {
-  return (
-    <div className="space-y-3 fade-in">
-      <div className="flex items-center gap-2 mb-4">
-        <BookOpen size={14} className="text-red-400" />
-        <MonoLabel>Deception Pattern Playbook</MonoLabel>
-        <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-[10px] font-mono ml-auto">{PLAYBOOK_PATTERNS.length} patterns</Badge>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {PLAYBOOK_PATTERNS.map((p, i) => {
-          const Icon = p.icon;
-          return (
-            <div key={i} className="rounded-xl border bg-[#111113] p-5 space-y-3 hover:border-white/[0.12] transition-all" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-              {/* Header */}
+        <>
+          {/* Section A: Stakeholder Power Map */}
+          <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: p.accentBg, border: `1px solid ${p.accentBorder}` }}>
-                  <Icon size={14} className={p.accent} />
-                </div>
-                <span className="text-[13px] font-semibold text-[#f6f6fd]">{p.pattern}</span>
+                <Network size={14} className="text-violet-400" />
+                <span className="text-[13px] font-semibold text-[#f6f6fd]">Stakeholder Power Map</span>
               </div>
-              {/* Signal phrases */}
-              <div className="space-y-1">
-                <MonoLabel>Signal phrases:</MonoLabel>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {p.signals.map((s, j) => (
-                    <span key={j} className="text-[10px] px-2 py-1 rounded border bg-amber-500/10 border-amber-500/20 text-amber-300 font-mono">{s}</span>
+              <div className="flex items-center gap-3">
+                {ms && (
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-mono ${ms.fragile ? "text-rose-400" : "text-emerald-400"}`}>
+                      {ms.engaged}/{ms.required} engaged {ms.fragile ? "⚠ FRAGILE" : "✓ OK"}
+                    </span>
+                  </div>
+                )}
+                <button
+                  onClick={() => setShowAddStakeholder(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:scale-[1.02]"
+                  style={CRIMSON_BTN_STYLE}
+                >
+                  <UserPlus size={11} /> Add
+                </button>
+              </div>
+            </div>
+
+            {deal.stakeholders.length === 0 ? (
+              <p className="text-[12px] text-white/30 text-center py-6">No stakeholders mapped. Add stakeholders to unlock stage advancement.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {STAKEHOLDER_ROLES.filter(r => r.id !== "unknown").map(roleInfo => {
+                  const stakesInRole = deal.stakeholders.filter(s => s.role === roleInfo.id);
+                  return (
+                    <div key={roleInfo.id} className="space-y-2">
+                      <div className="text-center">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-white/30">{roleInfo.icon} {roleInfo.label}</span>
+                      </div>
+                      {stakesInRole.length === 0 ? (
+                        <div className="h-16 rounded-lg border border-dashed border-white/[0.08] flex items-center justify-center">
+                          <span className="text-[10px] text-white/20">Empty</span>
+                        </div>
+                      ) : (
+                        stakesInRole.map(s => (
+                          <div key={s.id} className="p-2.5 rounded-lg space-y-2" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: "rgba(220,38,38,0.15)", color: "#f87171" }}>
+                                {s.name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-medium text-[#f6f6fd] truncate">{s.name}</p>
+                                {s.title && <p className="text-[9px] text-white/30 truncate">{s.title}</p>}
+                              </div>
+                            </div>
+                            <EngagementBar value={s.engagement} />
+                            <div className="flex items-center justify-between gap-1">
+                              <select
+                                value={s.role}
+                                onChange={e => handleUpdateStakeholderRole(s.id, e.target.value as StakeholderRole)}
+                                className="flex-1 text-[9px] font-mono px-1 py-0.5 rounded text-white/40 outline-none"
+                                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+                              >
+                                {STAKEHOLDER_ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                              </select>
+                              <button onClick={() => handleDeleteStakeholder(s.id, s.name)} className="p-1 rounded hover:text-rose-400 text-white/20 transition-colors shrink-0">
+                                <Trash2 size={9} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Unknown role stakeholders */}
+            {deal.stakeholders.filter(s => s.role === "unknown").length > 0 && (
+              <div className="pt-2 border-t border-white/[0.06]">
+                <MonoLabel>Unclassified</MonoLabel>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {deal.stakeholders.filter(s => s.role === "unknown").map(s => (
+                    <div key={s.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <span className="text-[11px] text-white/50">{s.name}</span>
+                      <select
+                        value={s.role}
+                        onChange={e => handleUpdateStakeholderRole(s.id, e.target.value as StakeholderRole)}
+                        className="text-[9px] font-mono px-1 py-0.5 rounded text-white/40 outline-none"
+                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+                      >
+                        {STAKEHOLDER_ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                      </select>
+                      <button onClick={() => handleDeleteStakeholder(s.id, s.name)} className="hover:text-rose-400 text-white/20 transition-colors"><Trash2 size={9} /></button>
+                    </div>
                   ))}
                 </div>
               </div>
-              {/* Counter-strategy */}
-              <div className="space-y-1">
-                <MonoLabel>Counter-strategy:</MonoLabel>
-                <div className="flex items-start gap-2 mt-1">
-                  <Zap size={10} className="text-emerald-400/60 mt-0.5 shrink-0" />
-                  <p className="text-[12px] text-white/55">{p.counter}</p>
-                </div>
+            )}
+          </div>
+
+          {/* Section B: Signal Intelligence */}
+          <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Radio size={14} className="text-cyan-400" />
+                <span className="text-[13px] font-semibold text-[#f6f6fd]">Company Signal Intelligence</span>
               </div>
+              <button
+                onClick={() => setShowAddSignal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:scale-[1.02]"
+                style={CRIMSON_BTN_STYLE}
+              >
+                <Plus size={11} /> Add Signal
+              </button>
             </div>
-          );
-        })}
-      </div>
+            {sortedSignals.length === 0 ? (
+              <p className="text-[12px] text-white/30 text-center py-6">No signals tracked. External signals will populate here from ATOM Market Intent integrations.</p>
+            ) : (
+              <div className="space-y-2">
+                {sortedSignals.map(sig => (
+                  <div key={sig.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <span className={`shrink-0 text-[9px] font-mono px-2 py-0.5 rounded border ${signalBadgeColor(sig.type)}`}>{sig.type}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] text-[#f6f6fd] leading-snug">{sig.headline}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {sig.source && <span className="text-[10px] text-white/30">{sig.source}</span>}
+                        <span className="text-[10px] text-white/20">{sig.date}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {Array.from({ length: 10 }).map((_, i) => (
+                        <div key={i} className="w-1 h-3 rounded-sm" style={{ background: i < sig.impactScore ? "#dc2626" : "rgba(255,255,255,0.08)" }} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Section C: Competitive Threat Radar */}
+          <div className="rounded-xl border border-white/[0.08] bg-[#111113] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Radar size={14} className="text-amber-400" />
+                <span className="text-[13px] font-semibold text-[#f6f6fd]">Competitive Threat Radar</span>
+              </div>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${threatColor(deal.threatLevel)}`}>{deal.threatLevel.toUpperCase()}</span>
+            </div>
+            {deal.competitors.length === 0 ? (
+              <p className="text-[12px] text-white/30 text-center py-6">No competitive threats detected. ATOM War Room monitors all communications in real-time.</p>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {deal.competitors.map((c, i) => (
+                    <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/[0.06] border border-amber-500/20">
+                      <Crosshair size={11} className="text-amber-400" />
+                      <span className="text-[12px] text-amber-300">{c}</span>
+                    </div>
+                  ))}
+                </div>
+                {deal.analyses[0]?.competitors?.length > 0 && (
+                  <div>
+                    <MonoLabel>Last detected from analysis</MonoLabel>
+                    <p className="text-[11px] text-white/40 mt-1">{fmtTime(deal.analyses[0].timestamp)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Add Stakeholder Modal */}
+      {showAddStakeholder && deal && (
+        <Modal title={`Add Stakeholder — ${deal.company}`} onClose={() => { setShowAddStakeholder(false); resetSkForm(); }}>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Name *">
+                <input value={skName} onChange={e => setSkName(e.target.value)} placeholder="Full name" className={INPUT_CLS} style={INPUT_STYLE} />
+              </FormField>
+              <FormField label="Title">
+                <input value={skTitle} onChange={e => setSkTitle(e.target.value)} placeholder="VP Engineering" className={INPUT_CLS} style={INPUT_STYLE} />
+              </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Email">
+                <input value={skEmail} onChange={e => setSkEmail(e.target.value)} placeholder="jane@co.com" className={INPUT_CLS} style={INPUT_STYLE} />
+              </FormField>
+              <FormField label="Phone">
+                <input value={skPhone} onChange={e => setSkPhone(e.target.value)} placeholder="+1 555..." className={INPUT_CLS} style={INPUT_STYLE} />
+              </FormField>
+            </div>
+            <FormField label="LinkedIn">
+              <input value={skLinkedin} onChange={e => setSkLinkedin(e.target.value)} placeholder="linkedin.com/in/..." className={INPUT_CLS} style={INPUT_STYLE} />
+            </FormField>
+            <FormField label="Role">
+              <select value={skRole} onChange={e => setSkRole(e.target.value as StakeholderRole)} className={INPUT_CLS} style={INPUT_STYLE}>
+                {STAKEHOLDER_ROLES.map(r => <option key={r.id} value={r.id}>{r.icon} {r.label}</option>)}
+              </select>
+            </FormField>
+            <FormField label={`Engagement: ${skEngagement}%`}>
+              <input type="range" min={0} max={100} value={skEngagement} onChange={e => setSkEngagement(Number(e.target.value))} className="w-full accent-red-500" />
+            </FormField>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => { setShowAddStakeholder(false); resetSkForm(); }} className="flex-1 py-2 rounded-lg text-[12px] text-white/40 border border-white/[0.08] hover:text-white/60 transition-colors">Cancel</button>
+              <button onClick={handleAddStakeholder} className="flex-1 py-2 rounded-lg text-[12px] font-medium" style={CRIMSON_BTN_STYLE}>Add Stakeholder</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Add Signal Modal */}
+      {showAddSignal && deal && (
+        <Modal title={`Add Signal — ${deal.company}`} onClose={() => setShowAddSignal(false)}>
+          <div className="space-y-3">
+            <FormField label="Signal Type">
+              <select value={sigType} onChange={e => setSigType(e.target.value as SignalType)} className={INPUT_CLS} style={INPUT_STYLE}>
+                {SIGNAL_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Headline *">
+              <input value={sigHeadline} onChange={e => setSigHeadline(e.target.value)} placeholder="Company raised $50M Series B..." className={INPUT_CLS} style={INPUT_STYLE} />
+            </FormField>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Date">
+                <input type="date" value={sigDate} onChange={e => setSigDate(e.target.value)} className={INPUT_CLS} style={INPUT_STYLE} />
+              </FormField>
+              <FormField label="Source">
+                <input value={sigSource} onChange={e => setSigSource(e.target.value)} placeholder="TechCrunch" className={INPUT_CLS} style={INPUT_STYLE} />
+              </FormField>
+            </div>
+            <FormField label={`Impact Score: ${sigImpact}/10`}>
+              <input type="range" min={0} max={10} value={sigImpact} onChange={e => setSigImpact(Number(e.target.value))} className="w-full accent-red-500" />
+            </FormField>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setShowAddSignal(false)} className="flex-1 py-2 rounded-lg text-[12px] text-white/40 border border-white/[0.08] hover:text-white/60 transition-colors">Cancel</button>
+              <button onClick={handleAddSignal} className="flex-1 py-2 rounded-lg text-[12px] font-medium" style={CRIMSON_BTN_STYLE}>Log Signal</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
-// ─── War History Tab ──────────────────────────────────────────────────────────
+// ─── TAB 4: Deal Pipeline ─────────────────────────────────────────────────────
 
-function WarHistoryTab({ onReanalyze }: { onReanalyze: (text: string, channel: ChannelId) => void }) {
-  const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
+function DealPipelineTab({ deals, onTabChange, onSelectDeal }: { deals: Deal[]; onTabChange: (t: TabId) => void; onSelectDeal: (id: string) => void }) {
+  const { toast } = useToast();
+  const [showNewDeal, setShowNewDeal] = useState(false);
+  const [newCompany, setNewCompany] = useState("");
+  const [newWebsite, setNewWebsite] = useState("");
+  const [newIndustry, setNewIndustry] = useState("");
+  const [newIsHVT, setNewIsHVT] = useState(false);
 
-  function remove(id: string) {
-    const updated = history.filter(h => h.id !== id);
-    setHistory(updated);
-    saveHistory(updated);
+  function handleCreateDeal() {
+    if (!newCompany.trim()) return;
+    const deal = createDeal({ company: newCompany.trim(), website: newWebsite, industry: newIndustry, source: "manual", isHVT: newIsHVT });
+    toast({ title: "Deal created", description: `${deal.company} added to pipeline.` });
+    setNewCompany(""); setNewWebsite(""); setNewIndustry(""); setNewIsHVT(false);
+    setShowNewDeal(false);
   }
 
-  const channelColor = (ch: string) => {
-    if (ch === "email") return "bg-blue-500/10 text-blue-300 border-blue-500/20";
-    if (ch === "call_transcript") return "bg-violet-500/10 text-violet-300 border-violet-500/20";
-    if (ch === "sms") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
-    return "bg-cyan-500/10 text-cyan-300 border-cyan-500/20";
-  };
+  function handleDeleteDeal(id: string, company: string) {
+    if (!confirm(`Delete ${company}? This cannot be undone.`)) return;
+    deleteDeal(id);
+    toast({ title: "Deal deleted", description: `${company} removed from pipeline.` });
+  }
+
+  function handleStageChange(deal: Deal, stage: DealStage) {
+    const check = canAdvanceStage(deal, stage);
+    if (!check.allowed) {
+      toast({ title: "Stage blocked", description: check.reason, variant: "destructive" });
+      return;
+    }
+    updateDeal(deal.id, { stage });
+    toast({ title: "Stage updated", description: `${deal.company} → ${stageLabel(stage)}` });
+  }
+
+  function handleToggleHVT(deal: Deal) {
+    updateDeal(deal.id, { isHVT: !deal.isHVT, hvtFlaggedAt: !deal.isHVT ? Date.now() : undefined });
+    toast({ title: deal.isHVT ? "HVT flag removed" : "Flagged as HVT", description: deal.company });
+  }
+
+  const grouped = STAGE_ORDER.reduce<Record<DealStage, Deal[]>>((acc, stage) => {
+    acc[stage] = deals.filter(d => d.stage === stage);
+    return acc;
+  }, {} as Record<DealStage, Deal[]>);
 
   return (
-    <div className="space-y-3 fade-in">
-      <div className="flex items-center gap-2 mb-4">
-        <History size={14} className="text-red-400" />
-        <MonoLabel>War History ({history.length})</MonoLabel>
-        {history.length > 0 && (
-          <button
-            onClick={() => { saveHistory([]); setHistory([]); }}
-            className="ml-auto text-[10px] px-2.5 py-1 rounded border border-white/[0.06] text-white/20 hover:text-white/40 hover:border-white/10 transition-all flex items-center gap-1"
-          >
-            <Trash2 size={9} /> Clear all
-          </button>
-        )}
-      </div>
-      {history.length === 0 ? (
-        <div className="flex flex-col items-center py-16 text-center">
-          <History className="w-12 h-12 text-white/10 mb-3" />
-          <p className="text-sm text-white/30">No analyses yet</p>
-          <p className="text-[12px] text-white/20 mt-1">Run an Intel Analyzer sweep to build your war history.</p>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={14} className="text-white/40" />
+          <span className="text-[13px] font-semibold text-[#f6f6fd]">Deal Pipeline</span>
+          <span className="text-[10px] font-mono text-white/30 ml-1">{deals.length} deals</span>
         </div>
+        <button
+          onClick={() => setShowNewDeal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:scale-[1.02]"
+          style={CRIMSON_BTN_STYLE}
+        >
+          <Plus size={11} /> New Deal
+        </button>
+      </div>
+
+      {deals.length === 0 ? (
+        <div className="text-center py-16 text-white/30 text-[13px]">No deals in pipeline. Create your first deal to begin tracking.</div>
       ) : (
-        <div className="space-y-2">
-          {history.map(h => {
-            const score = getTruthScore(h.result);
-            return (
-              <div key={h.id} className="rounded-xl border border-white/[0.06] bg-[#111113] p-4 hover:border-red-500/10 transition-all group">
-                <div className="flex items-start gap-3">
-                  <SmallScoreCircle score={score} />
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={`text-[9px] font-mono ${riskColor(h.result.overallRisk)}`}>{h.result.overallRisk}</Badge>
-                      <Badge className={`text-[9px] font-mono ${channelColor(h.channel)}`}>{h.channel.replace(/_/g, " ")}</Badge>
-                      <span className="text-[10px] text-white/20 font-mono ml-auto">{fmtTime(h.timestamp)}</span>
-                    </div>
-                    <p className="text-[12px] text-white/40 line-clamp-2">{h.text.slice(0, 160)}…</p>
-                    {h.result.summary && (
-                      <p className="text-[11px] text-white/25 line-clamp-1">{h.result.summary.slice(0, 110)}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
-                    <button
-                      onClick={() => onReanalyze(h.text, h.channel)}
-                      className="p-1.5 rounded hover:bg-white/5 transition-all"
-                      title="Re-analyze"
-                    >
-                      <ArrowRight size={12} className="text-white/25 hover:text-red-400" />
-                    </button>
-                    <button
-                      onClick={() => remove(h.id)}
-                      className="p-1.5 rounded hover:bg-white/5 transition-all"
-                      title="Delete"
-                    >
-                      <Trash2 size={12} className="text-white/25 hover:text-rose-400" />
-                    </button>
-                  </div>
+        <div className="overflow-x-auto pb-2">
+          <div className="flex gap-4" style={{ minWidth: "900px" }}>
+            {STAGE_ORDER.map(stage => (
+              <div key={stage} className="flex-1 min-w-[160px] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-white/30">{stageLabel(stage)}</span>
+                  <span className="text-[10px] font-mono text-white/20">{grouped[stage].length}</span>
+                </div>
+                <div className="space-y-2">
+                  {grouped[stage].map(deal => {
+                    const ms = multithreadingScore(deal);
+                    const sd = stallDays(deal);
+                    return (
+                      <div
+                        key={deal.id}
+                        className="p-3 rounded-xl space-y-2.5 cursor-pointer hover:border-white/[0.12] transition-all"
+                        style={{ background: "#111113", border: "1px solid rgba(255,255,255,0.07)" }}
+                        onClick={() => { onSelectDeal(deal.id); onTabChange("operator"); }}
+                      >
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="flex-1 min-w-0">
+                            {deal.isHVT && (
+                              <div className="flex items-center gap-1 mb-1">
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(220,38,38,0.15)", color: "#f87171", border: "1px solid rgba(220,38,38,0.3)" }}>🎯 HVT</span>
+                              </div>
+                            )}
+                            <p className="text-[12px] font-semibold text-[#f6f6fd] leading-tight truncate">{deal.company}</p>
+                          </div>
+                          <MiniScoreCircle score={deal.truthScore} />
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${riskColor(deal.risk)}`}>{deal.risk}</span>
+                          {deal.threatLevel !== "low" && (
+                            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${threatColor(deal.threatLevel)}`}>⚠ {deal.threatLevel}</span>
+                          )}
+                        </div>
+
+                        {sd > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <Clock size={9} className={sd > 7 ? "text-rose-400" : "text-white/25"} />
+                            <span className={`text-[9px] font-mono ${sd > 7 ? "text-rose-400" : "text-white/30"}`}>{sd}d buyer stall</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-1.5">
+                          <Users size={9} className={ms.fragile ? "text-rose-400" : "text-white/25"} />
+                          <span className={`text-[9px] font-mono ${ms.fragile ? "text-rose-400" : "text-white/30"}`}>{ms.engaged}/{ms.required} stakeholders</span>
+                        </div>
+
+                        <div className="pt-1 border-t border-white/[0.05]" onClick={e => e.stopPropagation()}>
+                          <select
+                            value={deal.stage}
+                            onChange={e => handleStageChange(deal, e.target.value as DealStage)}
+                            className="w-full text-[9px] font-mono px-1.5 py-1 rounded text-white/50 outline-none"
+                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+                          >
+                            {STAGE_ORDER.map(s => <option key={s} value={s}>{stageLabel(s)}</option>)}
+                          </select>
+                          <div className="flex items-center justify-between mt-1.5 gap-1">
+                            <button
+                              onClick={e => { e.stopPropagation(); handleToggleHVT(deal); }}
+                              className={`text-[9px] font-mono px-1.5 py-0.5 rounded transition-colors ${deal.isHVT ? "text-red-400 bg-red-500/10 border border-red-500/20" : "text-white/25 hover:text-white/50 border border-white/[0.06]"}`}
+                            >
+                              🎯 HVT
+                            </button>
+                            <button
+                              onClick={e => { e.stopPropagation(); handleDeleteDeal(deal.id, deal.company); }}
+                              className="p-1 rounded hover:text-rose-400 text-white/20 transition-colors"
+                            >
+                              <Trash2 size={9} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
+      )}
+
+      {/* New Deal Modal */}
+      {showNewDeal && (
+        <Modal title="New Deal" onClose={() => setShowNewDeal(false)}>
+          <div className="space-y-3">
+            <FormField label="Company *">
+              <input value={newCompany} onChange={e => setNewCompany(e.target.value)} placeholder="Acme Corp" className={INPUT_CLS} style={INPUT_STYLE} />
+            </FormField>
+            <FormField label="Website">
+              <input value={newWebsite} onChange={e => setNewWebsite(e.target.value)} placeholder="acme.com" className={INPUT_CLS} style={INPUT_STYLE} />
+            </FormField>
+            <FormField label="Industry">
+              <input value={newIndustry} onChange={e => setNewIndustry(e.target.value)} placeholder="SaaS / Fintech / etc." className={INPUT_CLS} style={INPUT_STYLE} />
+            </FormField>
+            <div className="flex items-center gap-3 py-1">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={newIsHVT} onChange={e => setNewIsHVT(e.target.checked)} className="accent-red-500 w-4 h-4" />
+                <span className="text-[12px] text-white/60">Flag as HVT (High-Value Target)</span>
+              </label>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setShowNewDeal(false)} className="flex-1 py-2 rounded-lg text-[12px] text-white/40 border border-white/[0.08] hover:text-white/60 transition-colors">Cancel</button>
+              <button onClick={handleCreateDeal} className="flex-1 py-2 rounded-lg text-[12px] font-medium" style={CRIMSON_BTN_STYLE}>Create Deal</button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
 }
 
-// ─── Ghost Ops Tab ────────────────────────────────────────────────────────────
+// ─── TAB 5: Playbook Engine ───────────────────────────────────────────────────
 
-function GhostOpsTab({ onReanalyze }: { onReanalyze: (text: string, channel: ChannelId) => void }) {
-  const history = loadHistory();
-  const ghosts = history.filter(h => (h.result.ghostProbability || 0) > 40);
+const DECEPTION_PATTERNS = [
+  { id: "stall", title: "The Stall", icon: Clock, color: "#f87171", description: "Buyer delays without substance. Uses vague timelines and false urgency.", signals: ["circle back", "next quarter", "when things settle", "internal reprioritization"], tactics: ["Set hard deadline with value consequence", "Request exec sponsor meeting", "Deploy FOMO sequence"] },
+  { id: "ghost", title: "The Ghost", icon: Ghost, color: "#a78bfa", description: "Buyer goes dark after positive signals. Engagement collapse.", signals: ["Unread emails >7 days", "Missed calls", "No calendar response", "Last read: 2+ weeks"], tactics: ["Resurrection sequence: CEO video", "Mutual connection bridge", "Value reframe with new case study"] },
+  { id: "coach", title: "The False Champion", icon: Users, color: "#fbbf24", description: "Internal champion claims support but can't drive action.", signals: ["CEO is bullish", "Everyone loves it", "I just need to get approval", "Not in buying chair"], tactics: ["Map real economic buyer", "Skip-level executive bridge", "Demand org chart clarity"] },
+  { id: "budget", title: "The Budget Fabrication", icon: DollarSign, color: "#34d399", description: "Buyer invents budget constraints that don't match signals.", signals: ["Budget is tight", "Spending freeze", "Not in this year's budget", "Next year maybe"], tactics: ["ROI proof of concept", "Phased deployment offer", "Finance sponsor meeting"] },
+  { id: "competitive", title: "The Competitive Smokescreen", icon: Crosshair, color: "#38bdf8", description: "Buyer uses competitor mentions to negotiate, not evaluate.", signals: ["We're also looking at X", "X offered half the price", "X has more features", "Comparing options"], tactics: ["Competitive differentiation deck", "Win story for this exact profile", "POC head-to-head"] },
+  { id: "authority", title: "The Authority Deflection", icon: Shield, color: "#fb923c", description: "Buyer claims no authority to prevent commitment.", signals: ["Need to check with team", "Board needs to approve", "Not my decision", "Legal needs to review"], tactics: ["Multi-thread to actual authority", "Executive alignment meeting", "Create internal champion toolkit"] },
+  { id: "overenthusiasm", title: "The Over-Enthusiasm Trap", icon: Zap, color: "#e879f9", description: "Buyer is suspiciously positive — creating false safety.", signals: ["This is amazing", "We definitely want this", "100% moving forward", "Love everything about it"], tactics: ["Test commitment: ask for PO timeline", "Require documented next step", "Get executive verbal on record"] },
+  { id: "timeline", title: "The Timeline Vagueness", icon: Calendar, color: "#4ade80", description: "Buyer gives elastic timelines to avoid commitment.", signals: ["Soon", "Q3 or Q4", "Maybe end of year", "When the time is right"], tactics: ["Reverse timeline anchor", "Cost of delay calculation", "Create mutual action plan with dates"] },
+];
+
+function PlaybookEngineTab({ deals }: { deals: Deal[] }) {
+  const { toast } = useToast();
+  const liveOrders = deals.flatMap(d => d.plays.filter(p => !p.acknowledged).map(p => ({ ...p, deal: d }))).sort((a, b) => b.firedAt - a.firedAt);
+
+  function handleAck(dealId: string, playId: string, company: string) {
+    acknowledgePlay(dealId, playId);
+    toast({ title: "Play acknowledged", description: `Order filed for ${company}.` });
+  }
 
   return (
-    <div className="space-y-4 fade-in">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <Ghost size={14} className="text-rose-400" />
-        <MonoLabel>Ghost Ops — Re-Engagement Center</MonoLabel>
-        {ghosts.length > 0 && (
-          <Badge className="ml-auto bg-rose-500/15 text-rose-400 border-rose-500/25 text-[10px] font-mono">
-            {ghosts.length} ghost{ghosts.length !== 1 ? "s" : ""} detected
-          </Badge>
-        )}
-      </div>
-
-      {ghosts.length === 0 ? (
-        <div className="flex flex-col items-center py-16 text-center">
-          <Ghost className="w-14 h-14 text-white/10 mb-3" />
-          <p className="text-sm text-white/30">No ghost deals detected</p>
-          <p className="text-[12px] text-white/20 mt-1">Analyses with ghost probability &gt; 40% will appear here.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {ghosts.map(h => {
-            const score = getTruthScore(h.result);
-            const gr = h.result.ghostResurrection;
-            return (
-              <div key={h.id} className="rounded-xl border border-rose-500/20 bg-[#111113] p-5 space-y-4">
-                {/* Deal header */}
-                <div className="flex items-start gap-3">
-                  <SmallScoreCircle score={score} />
+    <div className="space-y-6">
+      {/* Live Orders */}
+      {liveOrders.length > 0 && (
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Flame size={14} className="text-amber-400" />
+            <span className="text-[13px] font-semibold text-[#f6f6fd]">Live Orders</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25">{liveOrders.length} active</span>
+          </div>
+          <div className="space-y-2">
+            {liveOrders.map(order => (
+              <div key={order.id} className="p-4 rounded-xl space-y-2.5" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(251,191,36,0.15)" }}>
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className="bg-rose-500/15 text-rose-400 border-rose-500/25 text-[9px] font-mono gap-1">
-                        <Ghost size={9} />Ghost: {h.result.ghostProbability}%
-                      </Badge>
-                      <Badge className={`text-[9px] font-mono ${riskColor(h.result.overallRisk)}`}>{h.result.overallRisk}</Badge>
-                      <span className="text-[10px] text-white/20 font-mono ml-auto">{fmtTime(h.timestamp)}</span>
+                      <span className="text-[12px] font-semibold text-amber-300">{order.name}</span>
+                      <span className="text-[9px] font-mono text-white/30 bg-white/[0.04] px-1.5 py-0.5 rounded">{order.deal.company}</span>
+                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${order.urgency === "critical" ? "bg-rose-500/15 text-rose-400 border-rose-500/25" : order.urgency === "high" ? "bg-amber-500/15 text-amber-400 border-amber-500/25" : "bg-white/5 text-white/30 border-white/10"}`}>{order.urgency}</span>
                     </div>
-                    <p className="text-[12px] text-white/40 mt-1.5 line-clamp-2">{h.text.slice(0, 160)}…</p>
+                    <p className="text-[11px] text-white/50 mt-1">{order.tactic}</p>
+                  </div>
+                  <button
+                    onClick={() => handleAck(order.deal.id, order.id, order.deal.company)}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-all"
+                  >
+                    <Check size={10} /> Acknowledge
+                  </button>
+                </div>
+                <div className="text-[9px] font-mono text-white/20">trigger: {order.trigger} · fired {fmtTime(order.firedAt)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Deception Patterns */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <BookOpen size={14} className="text-white/40" />
+          <span className="text-[13px] font-semibold text-[#f6f6fd]">Von Clausewitz Deception Pattern Library</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {DECEPTION_PATTERNS.map(pattern => {
+            const Icon = pattern.icon;
+            return (
+              <div key={pattern.id} className="rounded-xl border border-white/[0.08] bg-[#111113] p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${pattern.color}18`, border: `1px solid ${pattern.color}30` }}>
+                    <Icon size={16} style={{ color: pattern.color }} />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-semibold" style={{ color: pattern.color }}>{pattern.title}</p>
+                    <p className="text-[11px] text-white/40">{pattern.description}</p>
                   </div>
                 </div>
-
-                {/* Ghost Resurrection Card */}
-                {gr?.isGhosted && (
-                  <div className="rounded-lg border border-rose-500/15 bg-rose-500/[0.04] p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Zap size={11} className="text-rose-400" />
-                        <p className="text-[10px] font-mono text-white/30 uppercase tracking-wider">Resurrection Protocol</p>
-                      </div>
-                      {gr.reEngagementStrategy && (
-                        <Badge className="bg-rose-500/10 text-rose-300 border-rose-500/20 text-[9px] font-mono">{gr.reEngagementStrategy}</Badge>
-                      )}
-                    </div>
-                    <p className="text-[13px] text-white/65 leading-relaxed italic">"{gr.reEngagementMessage}"</p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(gr.reEngagementMessage);
-                        }}
-                        className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:bg-rose-500/10 transition-all"
-                      >
-                        <Copy size={10} /> Copy Message
-                      </button>
-                      <button
-                        onClick={() => onReanalyze(h.text, h.channel)}
-                        className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg border border-white/[0.08] text-white/35 hover:text-white/55 transition-all"
-                      >
-                        <ArrowRight size={10} /> Re-Analyze
-                      </button>
+                <div className="space-y-2">
+                  <div>
+                    <MonoLabel>Signals</MonoLabel>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {pattern.signals.map((s, i) => (
+                        <span key={i} className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.04] text-white/40 border border-white/[0.06]">"{s}"</span>
+                      ))}
                     </div>
                   </div>
-                )}
-
-                {/* Summary */}
-                {h.result.summary && (
-                  <p className="text-[12px] text-white/35 leading-relaxed pl-1">{h.result.summary}</p>
-                )}
+                  <div>
+                    <MonoLabel>Tactics</MonoLabel>
+                    <ul className="mt-1 space-y-1">
+                      {pattern.tactics.map((t, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-[10px] text-white/50">
+                          <ArrowRight size={9} className="mt-0.5 shrink-0" style={{ color: pattern.color }} />
+                          {t}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
             );
           })}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── TAB 6: War History ───────────────────────────────────────────────────────
+
+function WarHistoryTab({ deals, onReAnalyze }: { deals: Deal[]; onReAnalyze: (text: string, channel: ChannelId) => void }) {
+  const allAnalyses = deals
+    .flatMap(d => d.analyses.map(a => ({ ...a, deal: d })))
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  if (allAnalyses.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <History size={32} className="text-white/20" />
+        <p className="text-[14px] font-medium text-[#f6f6fd]">No intelligence history.</p>
+        <p className="text-[12px] text-white/40">Run the Intel Analyzer on buyer communications to build your war record.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-4">
+        <History size={14} className="text-white/40" />
+        <span className="text-[13px] font-semibold text-[#f6f6fd]">Intelligence History</span>
+        <MonoLabel>{allAnalyses.length} records</MonoLabel>
+      </div>
+      {allAnalyses.map(entry => (
+        <div key={entry.id} className="rounded-xl border border-white/[0.08] bg-[#111113] p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <SmallScoreCircle score={entry.truthScore} />
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-semibold text-[#f6f6fd]">{entry.deal.company}</span>
+                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-white/[0.05] text-white/40 border border-white/[0.08]">{entry.channel}</span>
+                <span className="text-[9px] font-mono text-white/25">{fmtTime(entry.timestamp)}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {entry.risk && <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${riskColor(entry.risk)}`}>{entry.risk}</span>}
+                {entry.dealRisk && <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${riskColor(entry.dealRisk)}`}>deal: {entry.dealRisk}</span>}
+                {entry.intent && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.05] text-white/40 border border-white/[0.08]">{intentLabel(entry.intent)}</span>}
+                {entry.ghostProb > 40 && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/25">👻 {entry.ghostProb}%</span>}
+              </div>
+              {entry.summary && <p className="text-[11px] text-white/40 leading-snug line-clamp-2">{entry.summary}</p>}
+              {entry.text && <p className="text-[10px] text-white/25 italic leading-snug line-clamp-1">"{entry.text.slice(0, 120)}..."</p>}
+            </div>
+            <button
+              onClick={() => onReAnalyze(entry.text, entry.channel as ChannelId)}
+              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium border border-white/[0.08] text-white/30 hover:text-white/60 hover:border-white/20 transition-all"
+            >
+              <ArrowRight size={10} /> Re-analyze
+            </button>
+          </div>
+          {entry.competitors?.length > 0 && (
+            <div className="flex items-center gap-2 pt-2 border-t border-white/[0.05]">
+              <Crosshair size={10} className="text-amber-400" />
+              <div className="flex flex-wrap gap-1">
+                {entry.competitors.map((c, i) => <span key={i} className="text-[9px] text-amber-400/70 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">{c}</span>)}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── TAB 7: Ghost Ops ─────────────────────────────────────────────────────────
+
+function GhostOpsTab({ deals }: { deals: Deal[] }) {
+  const { toast } = useToast();
+  const ghosts = deals.filter(d => d.isGhost || d.ghostScore >= 40);
+
+  function handleResurrection(deal: Deal) {
+    const latestAnalysis = deal.analyses[0];
+    const tactic = latestAnalysis
+      ? `Re-engage with new value prop. Last signal: ${latestAnalysis.summary?.slice(0, 80) || "unknown"}`
+      : "Send personalized 'Did we lose you?' message with ROI proof from similar accounts.";
+
+    firePlay(deal.id, {
+      name: "Ghost Resurrection",
+      trigger: "cold_14_days",
+      tactic,
+      urgency: "high",
+    });
+    toast({ title: "Resurrection sequence fired", description: `Ghost Resurrection deployed for ${deal.company}` });
+  }
+
+  if (ghosts.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+        <Ghost size={32} className="text-white/20" />
+        <p className="text-[14px] font-medium text-[#f6f6fd]">No ghost deals.</p>
+        <p className="text-[12px] text-white/40">Your pipeline is alive. Ghost Ops monitors for deals dark for 14+ days.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Ghost size={14} className="text-rose-400" />
+        <span className="text-[13px] font-semibold text-[#f6f6fd]">Ghost Ops</span>
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/25">{ghosts.length} cold cases</span>
+      </div>
+
+      {ghosts.map(deal => {
+        const latestAnalysis = deal.analyses[0];
+        const sd = stallDays(deal);
+        const ghostResurrection = (latestAnalysis as any)?.ghostResurrection;
+
+        return (
+          <div key={deal.id} className="rounded-xl border border-rose-500/20 bg-gradient-to-br from-rose-500/[0.05] to-transparent p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(220,38,38,0.12)", border: "1px solid rgba(220,38,38,0.25)" }}>
+                  <Ghost size={18} className="text-rose-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] font-semibold text-[#f6f6fd]">{deal.company}</span>
+                    {deal.isHVT && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(220,38,38,0.15)", color: "#f87171", border: "1px solid rgba(220,38,38,0.3)" }}>🎯 HVT</span>}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] font-mono text-rose-400">{sd}d dark</span>
+                    <span className="text-[10px] text-white/30">Ghost Score: {deal.ghostScore}/100</span>
+                  </div>
+                </div>
+              </div>
+              <SmallScoreCircle score={deal.truthScore} />
+            </div>
+
+            {/* Timeline */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Created", value: fmtTime(deal.createdAt) },
+                { label: "Last Analysis", value: latestAnalysis ? fmtTime(latestAnalysis.timestamp) : "None" },
+                { label: "Days Dark", value: `${sd}d` },
+                { label: "Ghost Score", value: `${deal.ghostScore}%` },
+              ].map(item => (
+                <div key={item.label} className="space-y-1">
+                  <MonoLabel>{item.label}</MonoLabel>
+                  <p className="text-[12px] font-medium text-white/60">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Last known intel */}
+            {latestAnalysis && (
+              <div className="p-3 rounded-lg space-y-2" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="flex flex-wrap gap-2">
+                  {latestAnalysis.risk && <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${riskColor(latestAnalysis.risk)}`}>Last risk: {latestAnalysis.risk}</span>}
+                  {deal.competitors[0] && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25">⚠ {deal.competitors[0]}</span>}
+                </div>
+                {latestAnalysis.summary && (
+                  <p className="text-[11px] text-white/40 leading-snug">{latestAnalysis.summary}</p>
+                )}
+              </div>
+            )}
+
+            {/* Resurrection Strategy */}
+            <div className="p-3 rounded-lg space-y-2" style={{ background: "rgba(220,38,38,0.04)", border: "1px solid rgba(220,38,38,0.15)" }}>
+              <div className="flex items-center gap-2">
+                <Zap size={11} className="text-red-400" />
+                <MonoLabel>Resurrection Strategy</MonoLabel>
+              </div>
+              <p className="text-[11px] text-white/55 leading-relaxed">
+                {ghostResurrection?.reEngagementStrategy ||
+                  deal.coldCaseReason ||
+                  "Deploy personalized re-engagement with new value proof from a similar account. Reference their specific pain point from last interaction. Executive video from your CEO creates pattern interrupt at C-level."}
+              </p>
+              {ghostResurrection?.reEngagementMessage && (
+                <div className="mt-2 p-2.5 rounded bg-white/[0.02] border border-white/[0.06]">
+                  <p className="text-[10px] text-white/40 italic leading-relaxed">"{ghostResurrection.reEngagementMessage}"</p>
+                </div>
+              )}
+            </div>
+
+            {/* Fire button */}
+            <button
+              onClick={() => handleResurrection(deal)}
+              className="w-full py-2.5 rounded-full font-semibold text-[12px] flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
+              style={CRIMSON_BTN_STYLE}
+            >
+              <Flame size={13} /> Fire Resurrection Sequence
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AtomWarRoom() {
-  const [activeTab, setActiveTab] = useState<TabId>("intel");
-  const [restoreText, setRestoreText] = useState("");
-  const [restoreChannel, setRestoreChannel] = useState<ChannelId>("email");
-  const [restoreKey, setRestoreKey] = useState(0);
+  const { deals, refresh } = useDeals();
+  const [activeTab, setActiveTab] = useState<TabId>("command");
+  const [reAnalyzeText, setReAnalyzeText] = useState<string>("");
+  const [reAnalyzeChannel, setReAnalyzeChannel] = useState<ChannelId>("email");
+  const [operatorDealId, setOperatorDealId] = useState<string>("");
 
-  function handleReanalyze(text: string, channel: ChannelId) {
-    setRestoreText(text);
-    setRestoreChannel(channel);
-    setRestoreKey(k => k + 1);
+  function handleReAnalyze(text: string, channel: ChannelId) {
+    setReAnalyzeText(text);
+    setReAnalyzeChannel(channel);
     setActiveTab("intel");
   }
 
-  return (
-    <div style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in { animation: fadeIn 0.4s ease-out both; }
-        .tabs-scroll::-webkit-scrollbar { height: 0; }
-        .tabs-scroll { scrollbar-width: none; }
-      `}</style>
+  function handleSelectDeal(id: string) {
+    setOperatorDealId(id);
+  }
 
-      <div className="space-y-5">
-        {/* ── Header ── */}
-        <div className="flex items-center gap-3">
-          <div
-            className="flex items-center justify-center w-11 h-11 rounded-xl shrink-0"
-            style={{
-              background: "rgba(220,38,38,0.12)",
-              border: "1px solid rgba(220,38,38,0.35)",
-              boxShadow: "0 0 20px rgba(220,38,38,0.15)",
-            }}
-          >
-            <Swords size={22} className="text-red-400" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-[#f6f6fd] leading-tight tracking-tight">ATOM War Room</h1>
-            <p className="text-[12px] text-white/30 font-mono">Von Clausewitz Engine</p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-red-500/20 bg-red-500/5">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[10px] font-mono text-red-400">LIVE</span>
+  return (
+    <div className="min-h-screen" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", background: "#0a0a0c" }}>
+      {/* Header */}
+      <div className="border-b border-white/[0.06]" style={{ background: "rgba(10,10,12,0.95)", backdropFilter: "blur(12px)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #dc2626, #b91c1c)", boxShadow: "0 0 12px rgba(220,38,38,0.4)" }}>
+                <Swords size={14} className="text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-bold text-[#f6f6fd]">ATOM War Room</span>
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full" style={{ background: "rgba(220,38,38,0.12)", color: "#f87171", border: "1px solid rgba(220,38,38,0.25)" }}>Von Clausewitz Engine</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] font-mono text-white/30">LIVE</span>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* ── Tabs ── */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 tabs-scroll">
-          {TABS.map(t => {
-            const Icon = t.icon;
-            const active = activeTab === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[12px] font-medium transition-all whitespace-nowrap"
-                style={{
-                  background: active ? "rgba(220,38,38,0.08)" : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${active ? "rgba(220,38,38,0.3)" : "rgba(255,255,255,0.06)"}`,
-                  color: active ? "#f87171" : "rgba(255,255,255,0.35)",
-                }}
-              >
-                <Icon size={13} />
-                {t.label}
-              </button>
-            );
-          })}
+      {/* Tabs */}
+      <div className="border-b border-white/[0.06]" style={{ background: "rgba(10,10,12,0.9)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-1">
+            {TABS.map(tab => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[12px] font-medium whitespace-nowrap transition-all shrink-0"
+                  style={{
+                    background: active ? "rgba(220,38,38,0.10)" : "transparent",
+                    color: active ? "#f87171" : "rgba(255,255,255,0.35)",
+                    borderBottom: active ? "2px solid #dc2626" : "2px solid transparent",
+                  }}
+                >
+                  <Icon size={13} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
+      </div>
 
-        {/* ── Tab Content ── */}
-        <div className="min-h-[400px]">
-          {activeTab === "intel" && (
-            <IntelAnalyzerTab
-              key={restoreKey}
-              initialText={restoreText}
-              initialChannel={restoreChannel}
-            />
-          )}
-          {activeTab === "pipeline" && <DealPipelineTab />}
-          {activeTab === "playbook" && <PlaybookEngineTab />}
-          {activeTab === "history" && <WarHistoryTab onReanalyze={handleReanalyze} />}
-          {activeTab === "ghostops" && <GhostOpsTab onReanalyze={handleReanalyze} />}
-        </div>
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {activeTab === "command" && (
+          <CommandCenterTab deals={deals} onTabChange={setActiveTab} />
+        )}
+        {activeTab === "intel" && (
+          <IntelAnalyzerTab
+            deals={deals}
+            initialText={reAnalyzeText}
+            initialChannel={reAnalyzeChannel}
+          />
+        )}
+        {activeTab === "operator" && (
+          <OperatorIntelTab deals={deals} />
+        )}
+        {activeTab === "pipeline" && (
+          <DealPipelineTab deals={deals} onTabChange={setActiveTab} onSelectDeal={handleSelectDeal} />
+        )}
+        {activeTab === "playbook" && (
+          <PlaybookEngineTab deals={deals} />
+        )}
+        {activeTab === "history" && (
+          <WarHistoryTab deals={deals} onReAnalyze={handleReAnalyze} />
+        )}
+        {activeTab === "ghostops" && (
+          <GhostOpsTab deals={deals} />
+        )}
       </div>
     </div>
   );
