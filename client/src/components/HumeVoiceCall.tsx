@@ -156,7 +156,7 @@ function LiveCallInterface({ companyName, contactName, productName }: {
               {status.value === "connected" ? `ATOM Live Call — ${contactName} at ${companyName}` : "ATOM Voice Ready"}
             </h3>
             <p className="text-xs text-muted-foreground">
-              {status.value === "connected" ? `${formatDuration(callDuration)} · ${productName}` : "Connect to start a live voice call"}
+              {status.value === "connected" ? `${formatDuration(callDuration)} · ${productName}` : "Ring, pick up, say hello — ATOM will greet them by name"}
             </p>
           </div>
         </div>
@@ -194,9 +194,12 @@ function LiveCallInterface({ companyName, contactName, productName }: {
                 );
               })}
               {messages.length === 0 && status.value === "connected" && (
-                <div className="flex items-center gap-2 text-muted-foreground text-xs py-8 justify-center">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>ATOM is connecting...</span>
+                <div className="flex flex-col items-center gap-1 text-muted-foreground text-xs py-8 justify-center">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Line open — waiting for pickup…</span>
+                  </div>
+                  <span className="text-[10px] opacity-70">ATOM stays silent until the prospect says “hello”</span>
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -370,52 +373,27 @@ export function HumeVoiceCallWrapper({ companyName, contactName, productName, pr
     );
   }
 
-  // Human-sounding system prompt based on Hume EVI prompting best practices
-  const systemPrompt = `You are Alex from Antimatter AI. You're on a real phone call with ${contactName} at ${companyName}. You're calling about ${productName}.
+  // ATOM Voice 2.0 — Pickup Detection + Steve Jobs Keynote voice
+  // Prompt, voice, pickup-wait logic all live in the Hume EVI config.
+  // We inject prospect context per session via sessionSettings.variables so the
+  // agent can greet "Hey [FirstName]" after the caller picks up and says hello.
+  const HUME_CONFIG_ID = "7ea7a073-3dfa-4b49-9877-44afeea5df70"; // ATOM Sales Agent v10 (Pickup + Jobs)
+  const HUME_VOICE_ID = "1f8d0017-485c-4b65-b644-cc3995b019a6"; // ATOM Jobs Keynote
 
-YOU ARE A REAL PERSON. Never mention AI, never say you're an assistant or agent.
-
-HOW TO SPEAK:
-- Short sentences. 5 to 15 words max. Like a real phone conversation.
-- Always use contractions: I'm, we've, you'll, that's, don't, it's, we're.
-- Use natural fillers sparingly: "yeah so", "honestly", "look", "I mean".
-- Use backchannels: "gotcha", "I hear you", "that makes sense", "right", "mm-hm".
-- Match their energy. If they're casual, be casual. If serious, slow down.
-- Pause before responding to objections. Acknowledge first.
-- Never list more than 2 things. Break into separate turns.
-- Never use corporate jargon or buzzwords.
-
-EXAMPLE RHYTHM:
-"Hey ${contactName?.split(' ')[0] || 'there'}, it's Alex from Antimatter. Hope I'm not catching you at a bad time?"
-"Yeah so, quick reason for the call — I came across ${companyName} and thought there might be a good fit."
-"Gotcha. That's actually what a lot of our clients were dealing with too."
-"I hear you on that. Totally fair."
-"Would it make sense to grab fifteen minutes next week?"
-
-WHAT YOU KNOW:
-- Antimatter AI: Full-service AI dev, product design, GTM. 20+ projects, 100% satisfaction.
-- ATOM Enterprise: Deploy AI agents in VPC, on-prem, or edge. Zero-training, full IP ownership.
-- Vidzee: Listing photos to cinematic videos in 5 min. Save $200-500 per video.
-- Clinix Agent: AI billing and denial appeals. Success-based pricing.
-- Clinix AI: AI SOAP notes, ICD-10/CPT coding. Save providers 2-3 hours a day.
-- Red Team ATOM: Quantum-ready red teaming. PQC engine, MITRE ATLAS.
-
-WHEN THEY PUSH BACK:
-1. Pause. Then say something like "Yeah, that's totally fair" or "I get that."
-2. Share one specific metric or quick story.
-3. Ask a question that moves the conversation forward.
-
-KEEP RESPONSES UNDER 2 SENTENCES. Ask one question at a time. Listen more than you talk.`;
-
-  // LOCKED: ATOM Sales Agent config + ATOM Jobs High voice
-  const HUME_CONFIG_ID = "42271e30-8773-43bd-81e5-c411e6aa990a";
-  const HUME_VOICE_ID = "863032e6-762b-4397-8ebd-ca3581fbc385"; // ATOM Jobs 250
+  const firstName = (contactName?.trim().split(/\s+/)[0]) || "there";
 
   return (
     <VoiceProvider
       auth={{ type: "accessToken", value: accessToken }}
       configId={HUME_CONFIG_ID}
-      sessionSettings={{ voice: { id: HUME_VOICE_ID } }}
+      sessionSettings={{
+        voice: { id: HUME_VOICE_ID },
+        variables: {
+          first_name: firstName,
+          company_name: companyName || "your company",
+          product_name: productName || "our platform",
+        },
+      }}
     >
       <LiveCallInterface
         companyName={companyName}
