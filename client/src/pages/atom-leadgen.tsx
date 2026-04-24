@@ -680,6 +680,7 @@ export default function ATOMLeadGen() {
   const [sentimentHistory, setSentimentHistory] = useState<SentimentPoint[]>([]);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [buyingSignals, setBuyingSignals] = useState<string[]>([]);
+  const [warroom, setWarroom] = useState<any | null>(null);
   const [summary, setSummary] = useState<CallSummary | null>(null);
 
   // View mode + call history
@@ -757,6 +758,7 @@ export default function ATOMLeadGen() {
         // status: pending | active | ended
         if (data.chatId == null) return; // Hume chat not started yet; keep polling
 
+        if (data.warroom) setWarroom(data.warroom);
         if (data.metrics) {
           setMetrics({
             sentiment: data.metrics.sentiment ?? 0,
@@ -967,6 +969,7 @@ export default function ATOMLeadGen() {
     setBuyingSignals([]);
     setSentimentHistory([]);
     setSummary(null);
+    setWarroom(null);
     setMetrics({
       sentiment: 0,
       buyerIntent: 0,
@@ -1082,6 +1085,7 @@ export default function ATOMLeadGen() {
     setBuyingSignals([]);
     setSentimentHistory([]);
     setSummary(null);
+    setWarroom(null);
     setMetrics({
       sentiment: 0,
       buyerIntent: 0,
@@ -1485,6 +1489,135 @@ export default function ATOMLeadGen() {
                     </div>
                   </div>
                 </div>
+
+                {/* ── Von Clausewitz / Aletheia Engine ── */}
+                {warroom && (
+                  <div
+                    className="rounded-xl p-4 space-y-4"
+                    style={{
+                      background: "rgba(220, 38, 38, 0.08)",
+                      border: "1px solid rgba(220, 38, 38, 0.25)",
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div
+                        className="text-xs uppercase tracking-wider font-semibold"
+                        style={{ color: "#ef4444" }}
+                      >
+                        ⚔️ War Room — Von Clausewitz Engine
+                      </div>
+                      <span
+                        className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded"
+                        style={{
+                          background: warroom.dealRisk === "HEALTHY" ? "rgba(34,197,94,0.2)" :
+                                      warroom.dealRisk === "CAUTION" ? "rgba(250,204,21,0.2)" :
+                                      warroom.dealRisk === "AT_RISK" ? "rgba(251,146,60,0.2)" :
+                                      "rgba(239,68,68,0.25)",
+                          color: warroom.dealRisk === "HEALTHY" ? "#4ade80" :
+                                 warroom.dealRisk === "CAUTION" ? "#fde047" :
+                                 warroom.dealRisk === "AT_RISK" ? "#fb923c" :
+                                 "#f87171",
+                        }}
+                      >
+                        {warroom.dealRisk || "—"}
+                      </span>
+                    </div>
+
+                    {/* TRUTH + Posture + Ghost */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider opacity-60">TRUTH</div>
+                        <div className="text-2xl font-bold" style={{ color: "#f6f6fd" }}>{warroom.truthScore ?? 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider opacity-60">Leverage</div>
+                        <div className="text-sm font-semibold capitalize" style={{ color: "#f6f6fd" }}>
+                          {warroom.negotiationPosture?.leveragePosition || "—"}
+                        </div>
+                        <div className="text-[10px] opacity-60">power {warroom.negotiationPosture?.powerScore ?? 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider opacity-60">Ghost Risk</div>
+                        <div className="text-2xl font-bold" style={{ color: warroom.ghostProbability > 50 ? "#f87171" : "#f6f6fd" }}>
+                          {warroom.ghostProbability ?? 0}%
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Deception bars */}
+                    {warroom.deception && (
+                      <div className="space-y-1.5">
+                        <div className="text-[10px] uppercase tracking-wider opacity-60 mb-1">Deception Signals</div>
+                        {Object.entries(warroom.deception as Record<string, number>).map(([k, v]) => (
+                          <div key={k} className="flex items-center gap-3 text-[11px]">
+                            <span className="w-32 capitalize opacity-80">{k.replace(/Pct|Probability/g, "").replace(/([A-Z])/g, " $1").trim()}</span>
+                            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(246,246,253,0.08)" }}>
+                              <div style={{ width: `${v}%`, height: "100%", background: v > 60 ? "#f87171" : v > 30 ? "#fb923c" : "#4ade80" }} />
+                            </div>
+                            <span className="w-8 text-right opacity-70">{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Flags */}
+                    {Array.isArray(warroom.flags) && warroom.flags.length > 0 && (
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider opacity-60 mb-1.5">Active Flags</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {warroom.flags.slice(0, 6).map((f: any, i: number) => (
+                            <span
+                              key={i}
+                              title={f.phrase}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider"
+                              style={{
+                                background: f.severity === "high" ? "rgba(239,68,68,0.2)" :
+                                            f.severity === "medium" ? "rgba(251,146,60,0.2)" :
+                                            "rgba(250,204,21,0.15)",
+                                color: f.severity === "high" ? "#fca5a5" :
+                                       f.severity === "medium" ? "#fdba74" :
+                                       "#fde047",
+                                border: "1px solid currentColor",
+                              }}
+                            >
+                              {f.type?.replace(/_/g, " ")}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Competitive radar */}
+                    {warroom.competitiveRadar?.competitorMentioned && (
+                      <div
+                        className="rounded-lg p-2.5 text-[11px]"
+                        style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)" }}
+                      >
+                        <span className="font-semibold" style={{ color: "#fca5a5" }}>⚠️ Competitor mentioned: </span>
+                        <span className="opacity-90">{warroom.competitiveRadar.competitors?.join(", ") || "unnamed"}</span>
+                      </div>
+                    )}
+
+                    {/* Suggested reply for ADAM */}
+                    {warroom.suggestedReply && (
+                      <div
+                        className="rounded-lg p-3"
+                        style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}
+                      >
+                        <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "#4ade80" }}>
+                          ➤ Suggested Next Line ({warroom.move || "play"})
+                        </div>
+                        <div className="text-sm italic" style={{ color: "#f6f6fd" }}>
+                          “{warroom.suggestedReply}”
+                        </div>
+                      </div>
+                    )}
+
+                    {warroom.signal && (
+                      <div className="text-[11px] opacity-70 italic">— {warroom.signal}</div>
+                    )}
+                  </div>
+                )}
 
                 {/* ── Row 4: Buying Signals ── */}
                 {buyingSignals.length > 0 && (

@@ -18,7 +18,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 const clean = (v: string | undefined) =>
   (v || "").replace(/\\n/g, "").trim();
 
-const HUME_API_KEY = clean(process.env.HUME_API_KEY);
+const HUME_API_KEY   = clean(process.env.HUME_API_KEY);
+const OPENAI_API_KEY = clean(process.env.OPENAI_API_KEY);
 
 // Emotion groupings — map Hume's 48 expressions to the 6 UI bars.
 const EMOTION_GROUPS: Record<string, string[]> = {
@@ -122,11 +123,81 @@ function rollupEmotions(emotions: Record<string, number>): Record<string, number
 
 function inferStage(transcript: { role: string; text: string }[]): 1 | 2 | 3 | 4 {
   const text = transcript.map(t => t.text.toLowerCase()).join(" ");
-  // Very heuristic — replace with real classifier later
   if (/close|contract|sign|send.*agreement|proposal/.test(text)) return 4;
   if (/price|cost|budget|how much|pricing|discount/.test(text))    return 3;
   if (/demo|see it|show me|case study|reference|proof/.test(text)) return 2;
   return 1;
+}
+
+// ─── Von Clausewitz / Aletheia engine ────────────────────────────────────
+// Lightweight analyzer that runs DIRECTLY here (not via a chained fetch) to
+// keep latency under 800ms. Focused on the prospect's most recent utterance +
+// short thread context.
+async function runAletheia(
+  latestUtterance: string,
+  thread: { role: string; text: string }[],
+  dealContext: string
+): Promise<any | null> {
+  if (!OPENAI_API_KEY || !latestUtterance || latestUtterance.length < 8) return null;
+
+  const prompt = `You are the ATOM War Room — Von Clausewitz Engine. Decode what the prospect REALLY means in this live sales call utterance.
+
+Return ONLY compact JSON (no prose, no markdown):
+{
+  "truthScore": <0-100 behavioral conviction>,
+  "dealRisk": "<HEALTHY|CAUTION|AT_RISK|DEAD>",
+  "urgency": "<NONE|LOW|MEDIUM|HIGH|CRITICAL>",
+  "deception": {
+    "hedgePct": <0-100>,
+    "evasionPct": <0-100>,
+    "stallProbability": <0-100>,
+    "authorityDeflection": <0-100>,
+    "timelineVagueness": <0-100>,
+    "overEnthusiasm": <0-100>
+  },
+  "buyerIntentState": "<exploring|serious|stalling|using_as_leverage|ghosting|genuine_blocker|ready_to_buy|negotiating>",
+  "ghostProbability": <0-100>,
+  "negotiationPosture": {
+    "powerScore": <0-100>,
+    "commitmentScore": <0-100>,
+    "leveragePosition": "<strong|neutral|weak>"
+  },
+  "competitiveRadar": {
+    "competitorMentioned": <bool>,
+    "competitors": ["<name>"],
+    "competitiveRiskLevel": "<low|elevated|critical>"
+  },
+  "flags": [{"type":"<real_objection|fake_objection|stall|authority_evasion|budget_deflection|timeline_vague|competitive_mention|hedging>","severity":"<high|medium|low>","phrase":"<quote>"}],
+  "suggestedReply": "<single sales reply ATOM could say next — short, 5-8 word bursts with // pauses, under 40 words, conversational>",
+  "move": "<strategic move name>",
+  "signal": "<what this reveals about the deal in one line>"
+}`;
+
+  const messages: any[] = [
+    { role: "system", content: prompt },
+    ...(dealContext ? [{ role: "user", content: `Deal context: ${dealContext.slice(0, 800)}` }] : []),
+    { role: "user", content: `Thread so far:\n${thread.slice(-6).map(t => `${t.role.toUpperCase()}: ${t.text}`).join("\n")}\n\nAnalyze this latest prospect utterance: "${latestUtterance}"` },
+  ];
+
+  try {
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages,
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+        max_tokens: 900,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return null;
+    const data: any = await r.json();
+    return JSON.parse(data.choices[0].message.content);
+  } catch {
+    return null;
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -206,6 +277,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Call-ended detection
     const endEvent = events.find(e => e.type === "CHAT_END_MESSAGE");
 
+    // ─── Run Von Clausewitz / Aletheia on the last PROSPECT utterance ────────────
+    // Only run when the prospect just spoke (not on every ATOM-only update).
+    // This keeps us under ~1 OpenAI call per prospect utterance.
+    const lastUserMsg = [...transcript].reverse().find(t => t.role === "user");
+    const dealContext = String(req.query.dealContext || "");
+    let warroom: any = null;
+    if (lastUserMsg) {
+      warroom = await runAletheia(lastUserMsg.text, transcript, dealContext);
+    }
+
     return res.status(200).json({
       sessionId,
       chatId,
@@ -220,7 +301,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         messageCount: transcript.length,
         emotionSampleCount: emotionCount,
       },
-      rawEmotionsLatest: latestEmotions, // for debugging / richer viz
+      warroom,                                  // von Clausewitz analysis
+      rawEmotionsLatest: latestEmotions,
     });
   } catch (err: any) {
     console.error("chat-events error:", err);
