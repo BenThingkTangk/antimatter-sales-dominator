@@ -54,6 +54,25 @@ const RAG_URL = clean(process.env.RAG_URL) || "https://atom-rag.45-79-202-76.ssl
 const HUME_CONFIG_ID = "3c6f8a5b-e6f3-4732-9570-36a22f38e147"; // v11 Stanford + RAG + pickup
 const HUME_VOICE_ID  = "e891bda0-d013-4a46-9cbe-360d618b0e58"; // ATOM Jobs Tenor
 
+// ─── Brief compaction ─────────────────────────────────────────────────────────
+// RAG returns 4KB-7KB chunks. Twilio Url param has a 4000-char total budget,
+// and URL-encoding roughly doubles the size. We keep the most actionable
+// signal — key pain points, differentiators, top objections — under ~1.1KB raw.
+function compactBrief(raw: string, maxChars: number): string {
+  if (!raw) return raw;
+  const text = raw.replace(/\s+/g, " ").trim();
+  if (text.length <= maxChars) return text;
+
+  // Split by the section headers RAG emits
+  const parts = text.split(/(?:\n|\.\s+)(?=\*\*|###|\d\.\s|-{3,}|---OBJECTION|OBJECTION|COLD CALL|DISCOVERY|KEY PAIN)/i);
+  // Keep parts containing highest-signal keywords
+  const SIGNAL = /pain|objection|differenti|why.*choose|opener|value|budget|competitor|discover/i;
+  const signal = parts.filter(p => SIGNAL.test(p));
+  let out = (signal.length ? signal.join(" ") : text);
+  if (out.length > maxChars) out = out.slice(0, maxChars) + "\u2026";
+  return out;
+}
+
 // ─── ATOM RAG — vector-search-backed pitch/objection brief ────────────────────
 async function fetchRagBrief(
   productName: string,
@@ -200,15 +219,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 2. Build Hume EVI's Twilio webhook URL with per-call session variables.
-    //    These populate {{first_name}}, {{company_name}}, {{product_name}},
-    //    {{company_brief}} in the pre-warmed prompt template.
+    //    Twilio has a 4000-char Url limit; after URL-encoding the brief balloons
+    //    to ~3x its raw length. Budget: ~1200 raw chars of brief.
+    //    We trim to the densest signal — typically the opener + top 3 objections.
+    const trimmedBrief = compactBrief(companyBrief, 1100);
+
     const humeTwimlUrl = new URL("https://api.hume.ai/v0/evi/twilio");
     humeTwimlUrl.searchParams.set("config_id",    HUME_CONFIG_ID);
     humeTwimlUrl.searchParams.set("api_key",      HUME_API_KEY);
     humeTwimlUrl.searchParams.set("first_name",   first);
     humeTwimlUrl.searchParams.set("company_name", company);
     humeTwimlUrl.searchParams.set("product_name", productLabel);
-    humeTwimlUrl.searchParams.set("company_brief", companyBrief.slice(0, 3500));
+    humeTwimlUrl.searchParams.set("company_brief", trimmedBrief);
 
     // 3. Place the outbound call.
     const call = await twilioCreateCall(cleanNumber, TWILIO_PHONE_NUMBER, {
@@ -226,8 +248,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       humeVoiceId: HUME_VOICE_ID,
       firstName: first,
       briefSource: ragBrief ? "atom-rag (warm cache)" : "generic (ingest queued)",
-      briefLength: companyBrief.length,
-      briefPreview: companyBrief.slice(0, 260) + (companyBrief.length > 260 ? "..." : ""),
+      briefLength: trimmedBrief.length,
+      briefRawLength: companyBrief.length,
+      briefPreview: trimmedBrief.slice(0, 300) + (trimmedBrief.length > 300 ? "..." : ""),
       message: `ADAM calling ${first} at ${company} about ${productLabel}`,
     });
   } catch (err: any) {
