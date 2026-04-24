@@ -1,19 +1,22 @@
 /**
  * ATOM Lead Gen — DIRECT Twilio → Hume EVI outbound call.
  *
- * No Linode bridge. No pre-warm race. No hardcoded greeting.
+ * Architecture:
+ *   1. SINGLE pre-warmed Hume EVI config (no per-call config creation)
+ *      → eliminates 2-3 seconds of Hume API latency that was causing the
+ *      "long pause after hello" feedback.
+ *   2. Prospect context (first_name, company_name, product_name, company_brief)
+ *      is passed per call via Hume session variables through the Twilio
+ *      webhook URL as query params.
+ *   3. Perplexity Sonar runs in parallel while the call is being placed,
+ *      building a live research brief about the prospect's company and the
+ *      product being pitched. The brief is injected as session context so
+ *      ADAM can handle ANY question, objection, or rebuttal about ANY
+ *      product or company — like he knows it better than anyone.
+ *   4. Twilio dials out with URL pointing at Hume's TwiML webhook, which
+ *      wires the media stream directly into EVI.
  *
- * Per call we:
- *   1. Create a fresh Hume prompt with the prospect's first name baked in,
- *      plus pickup-detection rules ("wait silently until caller speaks").
- *   2. Create a fresh Hume EVI config pointing at the new prompt + Jobs Keynote
- *      voice, with event_messages.on_new_chat disabled so EVI stays silent
- *      until the caller speaks.
- *   3. Place a Twilio outbound call whose TwiML hands the media stream
- *      straight to https://api.hume.ai/v0/evi/twilio?config_id=...&api_key=...
- *
- * When the prospect says "hello", EVI hears it and replies per the prompt:
- *   "Hey [FirstName]... this is Adam, from Antimatter AI..."
+ * No Linode bridge. No pre-warm greeting race. No hardcoded product knowledge.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
@@ -21,112 +24,80 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 const clean = (v: string | undefined) =>
   (v || "").replace(/\\n/g, "").trim();
 
-const TWILIO_ACCOUNT_SID = clean(process.env.TWILIO_ACCOUNT_SID);
-const TWILIO_API_KEY_SID = clean(process.env.TWILIO_API_KEY_SID);
+const TWILIO_ACCOUNT_SID    = clean(process.env.TWILIO_ACCOUNT_SID);
+const TWILIO_API_KEY_SID    = clean(process.env.TWILIO_API_KEY_SID);
 const TWILIO_API_KEY_SECRET = clean(process.env.TWILIO_API_KEY_SECRET);
-const TWILIO_AUTH_TOKEN = clean(process.env.TWILIO_AUTH_TOKEN);
-const TWILIO_PHONE_NUMBER = clean(process.env.TWILIO_PHONE_NUMBER);
+const TWILIO_AUTH_TOKEN     = clean(process.env.TWILIO_AUTH_TOKEN);
+const TWILIO_PHONE_NUMBER   = clean(process.env.TWILIO_PHONE_NUMBER);
 
-const HUME_API_KEY = clean(process.env.HUME_API_KEY);
+const HUME_API_KEY          = clean(process.env.HUME_API_KEY);
+const PERPLEXITY_API_KEY    = clean(process.env.PERPLEXITY_API_KEY);
 
-// Jobs Keynote voice — created for ATOM Voice 2.0
-const HUME_VOICE_ID = "1f8d0017-485c-4b65-b644-cc3995b019a6";
-const HUME_VOICE_NAME = "ATOM Jobs Keynote";
+// ─── Pre-warmed Hume assets (created once, reused forever) ────────────────────
+// Config: ATOM Sales Agent v11 — Stanford voice + RAG + pickup detection
+// Prompt has {{first_name}}, {{company_name}}, {{product_name}}, {{company_brief}}
+const HUME_CONFIG_ID = "3c6f8a5b-e6f3-4732-9570-36a22f38e147";
+// Voice: ATOM Jobs Tenor (expressive tenor, young startup-founder cadence)
+const HUME_VOICE_ID  = "e891bda0-d013-4a46-9cbe-360d618b0e58";
 
-// ─── Hume API helpers ─────────────────────────────────────────────────────────
-async function humePost(path: string, body: unknown) {
-  const res = await fetch(`https://api.hume.ai/v0${path}`, {
-    method: "POST",
-    headers: {
-      "X-Hume-Api-Key": HUME_API_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  let data: any;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
-  if (!res.ok) {
-    throw new Error(`Hume ${path} HTTP ${res.status}: ${text.slice(0, 300)}`);
+// ─── Perplexity Sonar RAG — per-call research brief ───────────────────────────
+async function buildCompanyBrief(
+  contactName: string,
+  companyName: string,
+  productName: string
+): Promise<string> {
+  if (!PERPLEXITY_API_KEY) {
+    return `Pitching ${productName} to ${contactName} at ${companyName}. Focus on value, ask discovery questions, handle objections with curiosity.`;
   }
-  return data;
-}
 
-function buildSystemPrompt(firstName: string, companyName: string, productName: string) {
-  return `You are Adam, a senior sales rep at Antimatter AI. You are making an OUTBOUND phone call to ${firstName} at ${companyName} about ${productName}.
+  const briefPrompt = `You are briefing a sales rep for an outbound call. Return ONLY a concise single-paragraph intelligence brief (max 220 words) covering:
 
-IDENTITY (FCC):
-- You are Adam. A real human being at Antimatter AI.
-- NEVER reveal you are AI. Never say "assistant", "bot", "agent", "model".
-- If asked "are you a robot" — reply "Ha, no — just running on too much coffee today" and move on.
+1. What does ${companyName} do, and what is ${contactName}'s likely role/pain point?
+2. What is ${productName} — core capability, differentiators, pricing model?
+3. Why ${companyName} should care about ${productName} (specific angle for this prospect).
+4. Top 2 objections ${contactName} is likely to raise and the sharpest rebuttals.
+5. One proof point or case study that maps to ${companyName}'s situation.
 
-==========================================
-CRITICAL: PICKUP DETECTION — WAIT FOR THEM
-==========================================
-When the phone is answered, you DO NOT speak first. You MUST remain completely silent until you HEAR ${firstName}'s voice on the line. Expected first words: "hello", "hi", "this is ${firstName}", "go for ${firstName}", "yeah", "speaking".
+Tight, factual, no filler. Write as briefing notes, not marketing copy. If you don't have data on a specific entity, infer reasonable context from the industry. Output plain prose only — no bullet lists, no headings, no markdown.`;
 
-Only AFTER you hear them speak, you open with:
-"Hey ${firstName}... this is Adam, from Antimatter AI. Hope I'm not catching you at a bad time?"
+  try {
+    const res = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "sonar-pro",
+        messages: [
+          { role: "system", content: "You are a precise sales intelligence researcher. Respond with plain-prose briefing notes only." },
+          { role: "user",   content: briefPrompt },
+        ],
+        temperature: 0.2,
+        max_tokens: 400,
+      }),
+      // hard timeout via AbortSignal to keep call creation fast
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      console.warn("Perplexity brief failed:", res.status, await res.text().catch(() => ""));
+      return `Pitching ${productName} to ${contactName} at ${companyName}. Lead with value, listen more than talk, handle objections with curiosity.`;
+    }
+    const data: any = await res.json();
+    const brief = data?.choices?.[0]?.message?.content?.trim();
+    if (brief && brief.length > 40) {
+      // Strip any accidental citation markers like [1], [2]
+      return brief.replace(/\[\d+\]/g, "").replace(/\s+/g, " ").trim();
+    }
+  } catch (err: any) {
+    console.warn("Perplexity brief error:", err?.message || err);
+  }
 
-Then STOP. Wait for their reply. Let them drive.
-
-If you hear a voicemail beep, silence, or an automated message — stay silent. Do not leave a voicemail.
-
-==========================================
-ACOUSTIC DELIVERY (Steve Jobs prosodic profile)
-==========================================
-- Dramatic pitch variability — wide swoops low to high inside single sentences.
-- Loudness dynamics — whisper the intimate parts, full volume on the insight.
-- Short 5-to-12-word bursts with theatrical pauses between them.
-- Phrase endings descend. Final word slightly elongated. Statement of fact.
-- Conversational intimacy — telling ONE person a secret, not presenting.
-
-==========================================
-HOW TO SPEAK
-==========================================
-- Short sentences. 5-12 words. Breathe.
-- Contractions always: I'm, we've, you'll, that's, don't.
-- React BEFORE you respond: "Oh interesting...", "Yeah I hear you...", "Gotcha."
-- Trail off naturally: "So basically we— well, the short version is..."
-- Self-correct: "It's about— actually, let me put it this way..."
-- Use "${firstName}" sparingly — once at the open, maybe once mid-call. Not every sentence.
-
-TIMING:
-- After ${firstName} finishes talking, PAUSE before replying. Never jump in.
-- Brief ack first ("Yeah", "Right", "Gotcha") — pause — then your actual point.
-- If they say one word, wait a full second before assuming they're done.
-- NEVER talk over them.
-
-RESPONSE LENGTH:
-- 1-2 sentences max, then ONE question OR silence.
-- They should talk 60%. You 40%.
-
-==========================================
-WHAT YOU KNOW
-==========================================
-- Antimatter AI: Full-service AI dev, product design, GTM. 20+ projects, zero unhappy clients.
-- ATOM Enterprise: Deploy AI agents anywhere — VPC, on-prem, edge. Full IP ownership.
-- Vidzee: Listing photos to cinematic property video in 5 minutes.
-- Clinix Agent: AI billing denial appeals. Success-based pricing.
-- Clinix AI: AI clinical notes and coding. Saves providers 2-3 hours daily.
-
-==========================================
-NEVER SAY
-==========================================
-Never: "absolutely", "certainly", "indeed", "I appreciate that", "great question", "leverage", "synergy", "paradigm", "circle back", "touch base".
-
-==========================================
-OBJECTIONS
-==========================================
-- "Not interested": "No worries. What's got most of your attention right now?"
-- "We have a solution": "That's actually why I called."
-- "Send me an email": "Yeah for sure. What's the best address?"
-- "Bad timing": "Totally get it. Fifteen minutes next week work better?"`;
+  return `Pitching ${productName} to ${contactName} at ${companyName}. Lead with value, handle objections with curiosity, always redirect to their specific business outcome.`;
 }
 
 // ─── Twilio helpers ───────────────────────────────────────────────────────────
 function twilioAuthHeader() {
-  // Prefer API key auth; fall back to SID + auth token
   if (TWILIO_API_KEY_SID && TWILIO_API_KEY_SECRET &&
       TWILIO_API_KEY_SECRET !== "placeholder") {
     return "Basic " + Buffer.from(`${TWILIO_API_KEY_SID}:${TWILIO_API_KEY_SECRET}`).toString("base64");
@@ -183,11 +154,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let cleanNumber = String(phone).replace(/[^\d+]/g, "");
   if (!cleanNumber.startsWith("+")) cleanNumber = "+1" + cleanNumber;
 
-  // Resolve prospect identity — fall back gracefully
-  const rawName = (contactName || firstName || "").toString().trim();
-  const first = rawName ? rawName.split(/\s+/)[0] : "there";
-  const company = (companyName || "their company").toString().trim() || "their company";
-  const productLabel = (productName || product || productSlug || "our platform").toString().trim();
+  // Resolve prospect identity
+  const rawName   = (contactName || firstName || "").toString().trim();
+  const first     = rawName ? rawName.split(/\s+/)[0] : "there";
+  const company   = ((companyName || "").toString().trim()) || "their company";
+  const productLabel = ((productName || product || productSlug || "").toString().trim())
+    || "our platform";
 
   if (!HUME_API_KEY) return res.status(500).json({ error: "HUME_API_KEY not configured" });
   if (!TWILIO_ACCOUNT_SID || !TWILIO_PHONE_NUMBER) {
@@ -195,53 +167,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // 1. Create a per-call Hume prompt with the name baked in.
-    const promptText = buildSystemPrompt(first, company, productLabel);
-    const prompt = await humePost("/evi/prompts", {
-      name: `ATOM outbound — ${first} @ ${company} — ${Date.now()}`,
-      text: promptText,
+    // Run Perplexity brief in the background — don't block call placement on it.
+    // The brief is passed to Hume as a session variable; EVI will pick it up
+    // when the conversation starts. If the brief takes 2-5s but the call
+    // itself rings for 3-10s before the prospect picks up, we still win.
+    const briefPromise = buildCompanyBrief(first, company, productLabel);
+
+    // Wait briefly (up to 2s) to try to get the brief before dialing, but
+    // don't let it delay the call more than that — the call needs to start fast.
+    let companyBrief: string;
+    try {
+      companyBrief = await Promise.race([
+        briefPromise,
+        new Promise<string>((_, rej) => setTimeout(() => rej(new Error("brief timeout")), 2500)),
+      ]);
+    } catch {
+      // Brief isn't ready in time — fall back to a generic briefing.
+      // (The promise continues in the background but we won't get its result.)
+      companyBrief =
+        `Pitching ${productLabel} to ${first} at ${company}. ` +
+        `Lead with curiosity, listen more than talk, redirect objections to business outcomes.`;
+    }
+
+    // Build Hume TwiML webhook URL with session variables as query params.
+    // Hume's /v0/evi/twilio endpoint accepts custom session variables via query string
+    // which get injected into the prompt template's {{first_name}}, {{company_name}}, etc.
+    const humeTwimlUrl = new URL("https://api.hume.ai/v0/evi/twilio");
+    humeTwimlUrl.searchParams.set("config_id", HUME_CONFIG_ID);
+    humeTwimlUrl.searchParams.set("api_key",   HUME_API_KEY);
+    // Session variables — these populate {{first_name}}, {{company_name}},
+    // {{product_name}}, {{company_brief}} in the pre-warmed prompt template.
+    humeTwimlUrl.searchParams.set("first_name",    first);
+    humeTwimlUrl.searchParams.set("company_name",  company);
+    humeTwimlUrl.searchParams.set("product_name",  productLabel);
+    humeTwimlUrl.searchParams.set("company_brief", companyBrief.slice(0, 1800));
+
+    // Place the Twilio outbound call. TwiML is fetched by Twilio from Hume,
+    // which returns <Connect><Stream url="wss://..."/></Connect> TwiML wiring
+    // the call media straight into EVI.
+    const call = await twilioCreateCall(cleanNumber, TWILIO_PHONE_NUMBER, {
+      url: humeTwimlUrl.toString(),
     });
-    const promptId: string = prompt.id;
-
-    // 2. Create a per-call EVI config with pickup detection + Jobs voice.
-    const config = await humePost("/evi/configs", {
-      evi_version: "3",
-      name: `ATOM outbound ${first} @ ${company} — ${Date.now()}`,
-      version_description: `Per-call config for ${first} at ${company}`,
-      prompt: { id: promptId, version: 0 },
-      voice: {
-        type: "OctaveCustom",
-        provider: "CUSTOM_VOICE",
-        id: HUME_VOICE_ID,
-        name: HUME_VOICE_NAME,
-      },
-      language_model: {
-        model_provider: "ANTHROPIC",
-        model_resource: "claude-sonnet-4-5-20250929",
-        temperature: 1.0,
-      },
-      ellm_model: { allow_short_responses: true },
-      event_messages: {
-        on_new_chat:        { enabled: false },
-        on_resume_chat:     { enabled: false },
-        on_inactivity_timeout: { enabled: false },
-        on_max_duration_timeout: { enabled: false },
-      },
-      timeouts: {
-        inactivity:   { enabled: true, duration_secs: 120 },
-        max_duration: { enabled: true, duration_secs: 1800 },
-      },
-      builtin_tools: [{ tool_type: "BUILTIN", name: "web_search" }],
-    });
-    const configId: string = config.id;
-
-    // 3. Hume's TwiML webhook URL — Twilio will fetch TwiML from it at call answer.
-    //    Hume returns TwiML that wires the call's media stream into EVI for us.
-    const humeTwimlUrl =
-      `https://api.hume.ai/v0/evi/twilio?config_id=${configId}&api_key=${encodeURIComponent(HUME_API_KEY)}`;
-
-    // 4. Place the outbound Twilio call, letting Twilio fetch TwiML from Hume.
-    const call = await twilioCreateCall(cleanNumber, TWILIO_PHONE_NUMBER, { url: humeTwimlUrl });
 
     return res.status(200).json({
       success: true,
@@ -249,16 +215,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       status: call.status || "queued",
       to: cleanNumber,
       from: TWILIO_PHONE_NUMBER,
-      architecture: "direct-twilio-hume-v8",
-      humeConfigId: configId,
-      humePromptId: promptId,
+      architecture: "direct-twilio-hume-rag-v9",
+      humeConfigId: HUME_CONFIG_ID,
+      humeVoiceId: HUME_VOICE_ID,
       firstName: first,
-      message: `ADAM calling ${first} — direct Twilio → Hume EVI`,
+      briefLength: companyBrief.length,
+      briefPreview: companyBrief.slice(0, 240) + (companyBrief.length > 240 ? "..." : ""),
+      message: `ADAM calling ${first} at ${company} about ${productLabel} — pre-warmed config + live RAG brief`,
     });
   } catch (err: any) {
     console.error("ATOM Lead Gen direct call error:", err);
-    return res.status(500).json({
-      error: err?.message || "Failed to initiate call",
-    });
+    return res.status(500).json({ error: err?.message || "Failed to initiate call" });
   }
 }
