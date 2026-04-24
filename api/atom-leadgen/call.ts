@@ -1,22 +1,37 @@
 /**
- * ATOM Lead Gen — DIRECT Twilio → Hume EVI outbound call.
+ * ATOM Lead Gen — Direct Twilio → Hume EVI outbound call.
  *
- * Architecture:
- *   1. SINGLE pre-warmed Hume EVI config (no per-call config creation)
- *      → eliminates 2-3 seconds of Hume API latency that was causing the
- *      "long pause after hello" feedback.
- *   2. Prospect context (first_name, company_name, product_name, company_brief)
- *      is passed per call via Hume session variables through the Twilio
- *      webhook URL as query params.
- *   3. Perplexity Sonar runs in parallel while the call is being placed,
- *      building a live research brief about the prospect's company and the
- *      product being pitched. The brief is injected as session context so
- *      ADAM can handle ANY question, objection, or rebuttal about ANY
- *      product or company — like he knows it better than anyone.
- *   4. Twilio dials out with URL pointing at Hume's TwiML webhook, which
- *      wires the media stream directly into EVI.
+ * GOLD-STANDARD ARCHITECTURE:
  *
- * No Linode bridge. No pre-warm greeting race. No hardcoded product knowledge.
+ *   Caller  ◄──►  Twilio SIP  ◄─── TwiML from ───┐
+ *                      │                          │
+ *                      │                    Hume EVI /v0/evi/twilio
+ *                      │                     (config_id pre-warmed)
+ *                      │                          │
+ *                      └────── WebSocket ────────►│
+ *                                                 │
+ *                                         ┌───────┴─────────┐
+ *                                         │  Anthropic      │
+ *                                         │  Claude Sonnet  │  ← system prompt
+ *                                         │  (~150ms FTL)   │     with {{variables}}
+ *                                         └───────┬─────────┘
+ *                                                 │
+ *                                         ┌───────▼─────────┐
+ *                                         │  Octave TTS     │  ← Jobs Tenor voice
+ *                                         │  (Jobs Tenor)   │     (emotionally modulated)
+ *                                         └─────────────────┘
+ *
+ * BEFORE the call is placed, this endpoint:
+ *   1. Resolves prospect identity (first_name, company, product).
+ *   2. Queries ATOM RAG (Pinecone-backed, cached Perplexity+GPT research)
+ *      for a 3-chunk pitch brief + objection playbook on the product being
+ *      pitched. Warm cache returns in ~700ms; cold falls back to a generic
+ *      brief while ingestion kicks off in background.
+ *   3. Passes everything to Hume's EVI via Twilio webhook query params.
+ *      The pre-warmed EVI config has {{first_name}}, {{company_name}},
+ *      {{product_name}}, {{company_brief}} template slots in its prompt.
+ *   4. Twilio dials; when the prospect says hello, ADAM opens with their
+ *      name and has the full research brief already in context.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
@@ -31,69 +46,75 @@ const TWILIO_AUTH_TOKEN     = clean(process.env.TWILIO_AUTH_TOKEN);
 const TWILIO_PHONE_NUMBER   = clean(process.env.TWILIO_PHONE_NUMBER);
 
 const HUME_API_KEY          = clean(process.env.HUME_API_KEY);
-const PERPLEXITY_API_KEY    = clean(process.env.PERPLEXITY_API_KEY);
 
-// ─── Pre-warmed Hume assets (created once, reused forever) ────────────────────
-// Config: ATOM Sales Agent v11 — Stanford voice + RAG + pickup detection
-// Prompt has {{first_name}}, {{company_name}}, {{product_name}}, {{company_brief}}
-const HUME_CONFIG_ID = "3c6f8a5b-e6f3-4732-9570-36a22f38e147";
-// Voice: ATOM Jobs Tenor (expressive tenor, young startup-founder cadence)
-const HUME_VOICE_ID  = "e891bda0-d013-4a46-9cbe-360d618b0e58";
+// ATOM RAG microservice (Pinecone-backed, always-warm cache)
+const RAG_URL = clean(process.env.RAG_URL) || "https://atom-rag.45-79-202-76.sslip.io";
 
-// ─── Perplexity Sonar RAG — per-call research brief ───────────────────────────
-async function buildCompanyBrief(
+// ─── Pre-warmed Hume assets (production, reused across all calls) ─────────────
+const HUME_CONFIG_ID = "3c6f8a5b-e6f3-4732-9570-36a22f38e147"; // v11 Stanford + RAG + pickup
+const HUME_VOICE_ID  = "e891bda0-d013-4a46-9cbe-360d618b0e58"; // ATOM Jobs Tenor
+
+// ─── ATOM RAG — vector-search-backed pitch/objection brief ────────────────────
+async function fetchRagBrief(
+  productName: string,
+  prospectCompany: string,
   contactName: string,
-  companyName: string,
-  productName: string
 ): Promise<string> {
-  if (!PERPLEXITY_API_KEY) {
-    return `Pitching ${productName} to ${contactName} at ${companyName}. Focus on value, ask discovery questions, handle objections with curiosity.`;
-  }
-
-  const briefPrompt = `You are briefing a sales rep for an outbound call. Return ONLY a concise single-paragraph intelligence brief (max 220 words) covering:
-
-1. What does ${companyName} do, and what is ${contactName}'s likely role/pain point?
-2. What is ${productName} — core capability, differentiators, pricing model?
-3. Why ${companyName} should care about ${productName} (specific angle for this prospect).
-4. Top 2 objections ${contactName} is likely to raise and the sharpest rebuttals.
-5. One proof point or case study that maps to ${companyName}'s situation.
-
-Tight, factual, no filler. Write as briefing notes, not marketing copy. If you don't have data on a specific entity, infer reasonable context from the industry. Output plain prose only — no bullet lists, no headings, no markdown.`;
+  // We care about the PRODUCT being pitched — that's the library of pitches
+  // and objections ADAM has been trained on. We query the RAG service's
+  // `pitch` module (chunks covering opener, value, objections, proof).
+  const query = `${prospectCompany} ${contactName} outbound call objections pitch value`;
 
   try {
-    const res = await fetch("https://api.perplexity.ai/chat/completions", {
+    const res = await fetch(`${RAG_URL}/company/context`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "sonar-pro",
-        messages: [
-          { role: "system", content: "You are a precise sales intelligence researcher. Respond with plain-prose briefing notes only." },
-          { role: "user",   content: briefPrompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 400,
+        company_name: productName,
+        module: "pitch",
+        query,
       }),
-      // hard timeout via AbortSignal — give Sonar ~6s to think
-      signal: AbortSignal.timeout(6500),
+      signal: AbortSignal.timeout(2500), // warm hit usually < 900ms
     });
-    if (!res.ok) {
-      console.warn("Perplexity brief failed:", res.status, await res.text().catch(() => ""));
-      return `Pitching ${productName} to ${contactName} at ${companyName}. Lead with value, listen more than talk, handle objections with curiosity.`;
-    }
+    if (!res.ok) return "";
     const data: any = await res.json();
-    const brief = data?.choices?.[0]?.message?.content?.trim();
-    if (brief && brief.length > 40) {
-      // Strip any accidental citation markers like [1], [2]
-      return brief.replace(/\[\d+\]/g, "").replace(/\s+/g, " ").trim();
+    const ctx: string = data?.context || "";
+    if (ctx.length > 40) {
+      // Also pull objection chunks for robustness
+      try {
+        const oRes = await fetch(`${RAG_URL}/company/context`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            company_name: productName,
+            module: "objection",
+            query: "common objections and rebuttals",
+          }),
+          signal: AbortSignal.timeout(1500),
+        });
+        if (oRes.ok) {
+          const od: any = await oRes.json();
+          const ob: string = od?.context || "";
+          if (ob.length > 40) {
+            return `${ctx}\n\n---OBJECTION PLAYBOOK---\n${ob}`.slice(0, 4000);
+          }
+        }
+      } catch {}
+      return ctx.slice(0, 4000);
     }
-  } catch (err: any) {
-    console.warn("Perplexity brief error:", err?.message || err);
-  }
+  } catch {}
+  return "";
+}
 
-  return `Pitching ${productName} to ${contactName} at ${companyName}. Lead with value, handle objections with curiosity, always redirect to their specific business outcome.`;
+// Background-ingest a product we don't have indexed yet — fire-and-forget.
+// Next call for this product will be warm (~700ms).
+function backgroundIngest(productName: string): void {
+  fetch(`${RAG_URL}/company/load`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ company_name: productName }),
+    signal: AbortSignal.timeout(3000),
+  }).catch(() => { /* best-effort */ });
 }
 
 // ─── Twilio helpers ───────────────────────────────────────────────────────────
@@ -105,11 +126,7 @@ function twilioAuthHeader() {
   return "Basic " + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
 }
 
-async function twilioCreateCall(
-  to: string,
-  from: string,
-  opts: { twiml?: string; url?: string }
-) {
+async function twilioCreateCall(to: string, from: string, opts: { twiml?: string; url?: string }) {
   const form = new URLSearchParams({ To: to, From: from });
   if (opts.twiml) form.set("Twiml", opts.twiml);
   if (opts.url)   form.set("Url",   opts.url);
@@ -154,7 +171,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let cleanNumber = String(phone).replace(/[^\d+]/g, "");
   if (!cleanNumber.startsWith("+")) cleanNumber = "+1" + cleanNumber;
 
-  // Resolve prospect identity
   const rawName   = (contactName || firstName || "").toString().trim();
   const first     = rawName ? rawName.split(/\s+/)[0] : "there";
   const company   = ((companyName || "").toString().trim()) || "their company";
@@ -167,44 +183,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Run Perplexity brief in the background — don't block call placement on it.
-    // The brief is passed to Hume as a session variable; EVI will pick it up
-    // when the conversation starts. If the brief takes 2-5s but the call
-    // itself rings for 3-10s before the prospect picks up, we still win.
-    const briefPromise = buildCompanyBrief(first, company, productLabel);
+    // 1. Pull warm RAG brief on the product being pitched.
+    const ragBrief = await fetchRagBrief(productLabel, company, first);
 
-    // Wait up to 7s to get the Perplexity brief before dialing.
-    // The phone rings 8-15s before pickup, so even the full Sonar round-trip
-    // (~4-5s) comfortably fits inside the ring window.
     let companyBrief: string;
-    try {
-      companyBrief = await Promise.race([
-        briefPromise,
-        new Promise<string>((_, rej) => setTimeout(() => rej(new Error("brief timeout")), 7000)),
-      ]);
-    } catch {
-      // Brief isn't ready in time — fall back to a generic briefing.
+    if (ragBrief) {
+      companyBrief = ragBrief;
+    } else {
+      // Product not yet indexed — fire background ingest (next call will be warm)
+      backgroundIngest(productLabel);
       companyBrief =
-        `Pitching ${productLabel} to ${first} at ${company}. ` +
-        `Lead with curiosity, listen more than talk, redirect objections to business outcomes.`;
+        `You are pitching ${productLabel} to ${first} at ${company}. ` +
+        `Lead with curiosity about their current stack and pain. ` +
+        `Listen more than you talk. Redirect every objection to a business outcome. ` +
+        `Always answer like you built the product yourself and know it cold.`;
     }
 
-    // Build Hume TwiML webhook URL with session variables as query params.
-    // Hume's /v0/evi/twilio endpoint accepts custom session variables via query string
-    // which get injected into the prompt template's {{first_name}}, {{company_name}}, etc.
+    // 2. Build Hume EVI's Twilio webhook URL with per-call session variables.
+    //    These populate {{first_name}}, {{company_name}}, {{product_name}},
+    //    {{company_brief}} in the pre-warmed prompt template.
     const humeTwimlUrl = new URL("https://api.hume.ai/v0/evi/twilio");
-    humeTwimlUrl.searchParams.set("config_id", HUME_CONFIG_ID);
-    humeTwimlUrl.searchParams.set("api_key",   HUME_API_KEY);
-    // Session variables — these populate {{first_name}}, {{company_name}},
-    // {{product_name}}, {{company_brief}} in the pre-warmed prompt template.
-    humeTwimlUrl.searchParams.set("first_name",    first);
-    humeTwimlUrl.searchParams.set("company_name",  company);
-    humeTwimlUrl.searchParams.set("product_name",  productLabel);
-    humeTwimlUrl.searchParams.set("company_brief", companyBrief.slice(0, 1800));
+    humeTwimlUrl.searchParams.set("config_id",    HUME_CONFIG_ID);
+    humeTwimlUrl.searchParams.set("api_key",      HUME_API_KEY);
+    humeTwimlUrl.searchParams.set("first_name",   first);
+    humeTwimlUrl.searchParams.set("company_name", company);
+    humeTwimlUrl.searchParams.set("product_name", productLabel);
+    humeTwimlUrl.searchParams.set("company_brief", companyBrief.slice(0, 3500));
 
-    // Place the Twilio outbound call. TwiML is fetched by Twilio from Hume,
-    // which returns <Connect><Stream url="wss://..."/></Connect> TwiML wiring
-    // the call media straight into EVI.
+    // 3. Place the outbound call.
     const call = await twilioCreateCall(cleanNumber, TWILIO_PHONE_NUMBER, {
       url: humeTwimlUrl.toString(),
     });
@@ -215,13 +221,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       status: call.status || "queued",
       to: cleanNumber,
       from: TWILIO_PHONE_NUMBER,
-      architecture: "direct-twilio-hume-rag-v9",
+      architecture: "twilio-hume-direct-rag-cached-v10",
       humeConfigId: HUME_CONFIG_ID,
       humeVoiceId: HUME_VOICE_ID,
       firstName: first,
+      briefSource: ragBrief ? "atom-rag (warm cache)" : "generic (ingest queued)",
       briefLength: companyBrief.length,
-      briefPreview: companyBrief.slice(0, 240) + (companyBrief.length > 240 ? "..." : ""),
-      message: `ADAM calling ${first} at ${company} about ${productLabel} — pre-warmed config + live RAG brief`,
+      briefPreview: companyBrief.slice(0, 260) + (companyBrief.length > 260 ? "..." : ""),
+      message: `ADAM calling ${first} at ${company} about ${productLabel}`,
     });
   } catch (err: any) {
     console.error("ATOM Lead Gen direct call error:", err);
