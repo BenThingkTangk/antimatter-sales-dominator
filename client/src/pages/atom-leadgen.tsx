@@ -700,6 +700,9 @@ export default function ATOMLeadGen() {
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
+  const pollRef = useRef<number | null>(null);
+  const seenMsgIds = useRef<Set<string>>(new Set());
+  const sessionIdRef = useRef<string | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const callSidRef = useRef<string | null>(null);
   // Keep a ref to the latest metrics/transcript etc. so the ws callback can access them
@@ -724,12 +727,124 @@ export default function ATOMLeadGen() {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcript]);
 
-  // Cleanup WS on unmount
+  // Cleanup WS + polling on unmount
   useEffect(() => {
     return () => {
       wsRef.current?.close();
+      if (pollRef.current != null) window.clearInterval(pollRef.current);
     };
   }, []);
+
+  // ─── Live poller — Hume EVI chat-events ─────────────────────────────────
+  const stopPolling = useCallback(() => {
+    if (pollRef.current != null) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback((sessionId: string) => {
+    stopPolling();
+    seenMsgIds.current = new Set();
+    sessionIdRef.current = sessionId;
+    let endedCount = 0; // extra ticks after end to let final events land
+
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/atom-leadgen/chat-events?sessionId=${encodeURIComponent(sessionId)}`);
+        if (!res.ok) return;
+        const data: any = await res.json();
+        // status: pending | active | ended
+        if (data.chatId == null) return; // Hume chat not started yet; keep polling
+
+        if (data.metrics) {
+          setMetrics({
+            sentiment: data.metrics.sentiment ?? 0,
+            buyerIntent: data.metrics.buyerIntent ?? 0,
+            stage: ["Discovery", "Evaluation", "Negotiation", "Close"][(data.metrics.stage || 1) - 1] || "Discovery",
+            emotions: {
+              confidence:  (data.metrics.emotions?.confidence ?? 0) * 100,
+              interest:    (data.metrics.emotions?.interest ?? 0) * 100,
+              skepticism:  (data.metrics.emotions?.skepticism ?? 0) * 100,
+              excitement:  (data.metrics.emotions?.excitement ?? 0) * 100,
+              frustration: (data.metrics.emotions?.frustration ?? 0) * 100,
+              neutrality:  (data.metrics.emotions?.neutrality ?? 0) * 100,
+            },
+            buyingSignals: [],
+          });
+          setSentimentHistory(prev => {
+            const last = prev[prev.length - 1];
+            if (last && last.value === data.metrics.sentiment) return prev;
+            return [...prev.slice(-59), { ts: Date.now(), value: data.metrics.sentiment }];
+          });
+        }
+
+        // Transcript — append only new messages
+        if (Array.isArray(data.transcript)) {
+          const newMsgs = data.transcript.filter((m: any) => {
+            const key = `${m.timestamp}|${m.role}|${m.text.slice(0, 20)}`;
+            if (seenMsgIds.current.has(key)) return false;
+            seenMsgIds.current.add(key);
+            return true;
+          });
+          if (newMsgs.length) {
+            setTranscript(prev => [
+              ...prev,
+              ...newMsgs.map((m: any) => ({
+                speaker: m.role === "agent" ? "ATOM" : "PROSPECT" as "ATOM" | "PROSPECT",
+                text: m.text,
+                ts: m.timestamp,
+              })),
+            ]);
+          }
+        }
+
+        if (data.status === "ended") {
+          endedCount++;
+          if (endedCount >= 2) {
+            stopPolling();
+            setCallStatus("ended");
+            const dur = Math.round((Date.now() - (sessionIdRef.current ? Number(sessionIdRef.current.split("_")[1]) : Date.now())) / 1000);
+            setSummary({
+              duration: dur,
+              finalSentiment: metricsRef.current.sentiment,
+              finalIntent: metricsRef.current.buyerIntent,
+              stage: metricsRef.current.stage,
+            });
+
+            const currentSid = callSidRef.current ?? sessionId;
+            const form = formRef.current;
+            setCallHistory(prev => [
+              {
+                id: currentSid,
+                callSid: currentSid,
+                contactName: form.contactName,
+                companyName: form.companyName,
+                product: form.product,
+                phoneNumber: form.phone,
+                timestamp: Date.now(),
+                duration: dur,
+                finalSentiment: metricsRef.current.sentiment,
+                finalIntent: metricsRef.current.buyerIntent,
+                finalStage: metricsRef.current.stage,
+                transcript: [...transcriptRef.current],
+                sentimentHistory: [...sentimentHistoryRef.current],
+                emotions: { ...emotionsRef.current },
+                buyingSignals: [...buyingSignalsRef.current],
+              },
+              ...prev,
+            ]);
+          }
+        }
+      } catch (e) {
+        console.warn("[poll] error", e);
+      }
+    };
+
+    // Kick an immediate tick, then 1.8s interval
+    tick();
+    pollRef.current = window.setInterval(tick, 1800);
+  }, [stopPolling]);
 
   const connectWebSocket = useCallback((sid: string) => {
     const wsUrl = `wss://45-79-202-76.sslip.io/events/${sid}`;
@@ -902,9 +1017,11 @@ export default function ATOMLeadGen() {
       const json = await res.json();
       console.log("[handleDial] Success response:", json);
       const sid: string = json.callSid;
+      const sessionId: string = json.sessionId || json.humeCustomSessionId || sid;
       setCallSid(sid);
       callSidRef.current = sid;
-      connectWebSocket(sid);
+      // Start polling Hume chat-events for live transcript + emotions
+      startPolling(sessionId);
       setCallStatus("active");
     } catch (err: any) {
       console.error("[handleDial] Caught error:", err);
@@ -919,6 +1036,7 @@ export default function ATOMLeadGen() {
 
   const handleEndCall = () => {
     wsRef.current?.close();
+    stopPolling();
     const dur = 0;
     setCallStatus("ended");
     setSummary((prev) =>
@@ -957,6 +1075,7 @@ export default function ATOMLeadGen() {
 
   const handleNewCall = () => {
     wsRef.current?.close();
+    stopPolling();
     setCallStatus("idle");
     setCallSid(null);
     setTranscript([]);

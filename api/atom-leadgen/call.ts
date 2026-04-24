@@ -224,13 +224,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //    We trim to the densest signal — typically the opener + top 3 objections.
     const trimmedBrief = compactBrief(companyBrief, 1100);
 
+    // Twilio doesn't give us the SID until AFTER we place the call, but
+    // Hume accepts a custom_session_id we can set ourselves. We generate a
+    // UUID here, send it to Hume via query param, and tag the Twilio call
+    // via the 'Url' callback where we'll also pass it back. The frontend
+    // uses this to poll /api/atom-leadgen/chat-events.
+    const sessionId = `atom_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
     const humeTwimlUrl = new URL("https://api.hume.ai/v0/evi/twilio");
-    humeTwimlUrl.searchParams.set("config_id",    HUME_CONFIG_ID);
-    humeTwimlUrl.searchParams.set("api_key",      HUME_API_KEY);
-    humeTwimlUrl.searchParams.set("first_name",   first);
-    humeTwimlUrl.searchParams.set("company_name", company);
-    humeTwimlUrl.searchParams.set("product_name", productLabel);
-    humeTwimlUrl.searchParams.set("company_brief", trimmedBrief);
+    humeTwimlUrl.searchParams.set("config_id",         HUME_CONFIG_ID);
+    humeTwimlUrl.searchParams.set("api_key",           HUME_API_KEY);
+    humeTwimlUrl.searchParams.set("custom_session_id", sessionId);
+    humeTwimlUrl.searchParams.set("first_name",        first);
+    humeTwimlUrl.searchParams.set("company_name",      company);
+    humeTwimlUrl.searchParams.set("product_name",      productLabel);
+    humeTwimlUrl.searchParams.set("company_brief",     trimmedBrief);
 
     // 3. Place the outbound call.
     const call = await twilioCreateCall(cleanNumber, TWILIO_PHONE_NUMBER, {
@@ -240,6 +248,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       success: true,
       callSid: call.sid,
+      sessionId,                         // used by frontend to poll chat-events
+      humeCustomSessionId: sessionId,    // alias
       status: call.status || "queued",
       to: cleanNumber,
       from: TWILIO_PHONE_NUMBER,
